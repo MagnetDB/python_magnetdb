@@ -1,19 +1,17 @@
 from typing import Union, List
 
+from django.core.paginator import Paginator
 from fastapi import APIRouter, HTTPException, Depends, Form, Query
 from pydantic import BaseModel
 
 from python_magnetsetup.config import loadconfig, supported_methods, supported_models
 
+from .serializers import model_serializer
 from ... import worker
 from ...actions.generate_simulation_config import generate_simulation_config
 from ...actions.get_simulation_measures import get_simulation_measures
 from ...dependencies import get_user
-from ...oldmodels.audit_log import AuditLog
-from ...oldmodels.magnet import Magnet
-from ...oldmodels.simulation import Simulation
-from ...oldmodels.simulation_current import SimulationCurrent
-from ...oldmodels.site import Site
+from ...models import Simulation, Magnet, Site, SimulationCurrent, AuditLog
 
 router = APIRouter()
 
@@ -23,23 +21,19 @@ def index(
     user=Depends(get_user("read")),
     page: int = 1,
     per_page: int = Query(default=25, lte=100),
-    sort_by: str = Query(None),
+    sort_by: str = Query('created_at'),
     sort_desc: bool = Query(False),
 ):
-    simulations = (
-        Simulation.with_("resource", "owner")
-        .order_by(sort_by or "created_at", "desc" if sort_desc else "asc")
-        .paginate(per_page, page)
-    )
-    items = simulations.serialize()
-    for item in items:
-        item["owner"] = {"name": item["owner"]["name"]}
-
+    db_query = Simulation.objects.prefetch_related("magnet", "site", "owner")
+    if sort_by is not None:
+        order_field = f"-{sort_by}" if sort_desc else sort_by
+        db_query = db_query.order_by(order_field)
+    paginator = Paginator(db_query.all(), per_page)
     return {
-        "current_page": simulations.current_page,
-        "last_page": simulations.last_page,
-        "total": simulations.total,
-        "items": items,
+        "current_page": page,
+        "last_page": paginator.num_pages,
+        "total": paginator.count,
+        "items": [model_serializer(item) for item in paginator.get_page(page).object_list],
     }
 
 
@@ -87,7 +81,7 @@ def create_currents(payload: CreatePayloadCurrent, user=Depends(get_user("create
     # print(f'/api/simulations/currents, {user}: - payload={payload}')
 
     # can I get magnet type?
-    data = Magnet.find(payload.magnet_id)
+    data = Magnet.objects.get(id=payload.magnet_id)
     print(f"create_currents: magnet={data}")
 
     # current = CreatePayloadCurrent(
@@ -100,15 +94,6 @@ def create_currents(payload: CreatePayloadCurrent, user=Depends(get_user("create
 
 @router.post("/api/simulations")
 def create(payload: CreatePayload, user=Depends(get_user("create"))):
-    # print(f'/api/simulations, {user}: - payload={payload}')
-    if payload.resource_type == "magnet":
-        resource = Magnet.find(payload.resource_id)
-    elif payload.resource_type == "site":
-        resource = Site.find(payload.resource_id)
-
-    if not resource:
-        raise HTTPException(status_code=404, detail="Resource not found")
-
     simulation = Simulation(
         method=payload.method,
         model=payload.model,
@@ -117,56 +102,68 @@ def create(payload: CreatePayload, user=Depends(get_user("create"))):
         static=payload.static,
         non_linear=payload.non_linear,
     )
+    if payload.resource_type == "magnet":
+        simulation.magnet = Magnet.objects.get(id=payload.resource_id)
+        if simulation.magnet is None:
+            raise HTTPException(status_code=404, detail="Magnet not found")
+    elif payload.resource_type == "site":
+        simulation.site = Site.objects.get(id=payload.resource_id)
+        if simulation.site is None:
+            raise HTTPException(status_code=404, detail="Magnet not found")
+    else:
+        raise HTTPException(status_code=404, detail="Resource not found")
+
 
     # TODO add magnet_type to current
-    currents = map(
+    simulation.currents = map(
         lambda value: SimulationCurrent(magnet_id=value.magnet_id, value=value.value),
         payload.currents,
     )
-    simulation.owner().associate(user)
-    simulation.resource().associate(resource)
+    simulation.owner = user
     simulation.save()
-    simulation.currents().save_many(currents)
     AuditLog.log(user, "Simulation created", resource=simulation)
-    return simulation.serialize()
+    return model_serializer(simulation)
 
 
 @router.get("/api/simulations/{id}")
 def show(id: int, user=Depends(get_user("read"))):
-    simulation = Simulation.with_(
-        "resource",
+    simulation = Simulation.objects.prefetch_related(
+        "magnet",
+        "site",
+        "owner",
         "setup_output_attachment",
         "output_attachment",
         "log_attachment",
-        "currents.magnet",
-    ).find(id)
+        "simulationcurrent_set__magnet",
+    ).get(id=id)
     if not simulation:
         raise HTTPException(status_code=404, detail="Simulation not found")
-    return simulation.serialize()
+    return model_serializer(simulation)
 
 
 @router.delete("/api/simulations/{id}")
 def destroy(id: int, user=Depends(get_user("read"))):
-    simulation = Simulation.find(id)
+    simulation = Simulation.objects.get(id=id)
     if not simulation:
         raise HTTPException(status_code=404, detail="Simulation not found")
 
     AuditLog.log(user, "Simulation deleted", resource=simulation)
     simulation.delete()
-    return simulation.serialize()
+    return model_serializer(simulation)
 
 
 @router.get("/api/simulations/{id}/config.json")
 def config(id: int, user=Depends(get_user("read"))):
-    simulation = Simulation.find(id)
+    simulation = Simulation.objects.get(id=id)
     if not simulation:
         raise HTTPException(status_code=404, detail="Simulation not found")
+
     return generate_simulation_config(simulation)
 
 
 @router.post("/api/simulations/{id}/run_setup")
 def run_setup(id: int, user=Depends(get_user("update"))):
-    simulation = Simulation.with_("resource").find(id)
+    simulation = Simulation.objects.prefetch_related("magnet", "site").get(id=id)
     if not simulation:
         raise HTTPException(status_code=404, detail="Simulation not found")
 
@@ -174,7 +171,7 @@ def run_setup(id: int, user=Depends(get_user("update"))):
     simulation.save()
     AuditLog.log(user, "Simulation setup scheduled", resource=simulation)
     worker.run_simulation_setup.delay(simulation.id)
-    return simulation.serialize()
+    return model_serializer(simulation)
 
 
 @router.post("/api/simulations/{id}/run")
@@ -184,7 +181,7 @@ def run(
     cores: int = Form(...),
     user=Depends(get_user("update")),
 ):
-    simulation = Simulation.with_("resource").find(id)
+    simulation = Simulation.objects.prefetch_related("magnet", "site").get(id=id)
     if not simulation:
         raise HTTPException(status_code=404, detail="Simulation not found")
 
@@ -192,7 +189,7 @@ def run(
     simulation.save()
     AuditLog.log(user, "Simulation scheduled", resource=simulation)
     worker.run_simulation.delay(simulation.id, server_id, cores)
-    return simulation.serialize()
+    return model_serializer(simulation)
 
 
 @router.get("/api/simulations/{id}/measures")
@@ -200,4 +197,5 @@ def measures(id: int, measure_name: str = Query(None), user=Depends(get_user("re
     measures = get_simulation_measures(id, measure_name)
     if measures is None:
         raise HTTPException(status_code=404, detail="Measures not found")
+
     return measures

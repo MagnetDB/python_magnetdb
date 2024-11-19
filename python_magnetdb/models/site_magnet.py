@@ -4,7 +4,6 @@ from django.db import models
 class SiteMagnet(models.Model):
     class Meta:
         db_table = 'site_magnets'
-
     id = models.BigAutoField(primary_key=True)
     magnet = models.ForeignKey('Magnet', on_delete=models.CASCADE, null=False)
     site = models.ForeignKey('Site', on_delete=models.CASCADE, null=False)

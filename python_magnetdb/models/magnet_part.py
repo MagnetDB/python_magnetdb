@@ -2,6 +2,8 @@ from django.db import models
 
 
 class MagnetPart(models.Model):
+    class Meta:
+        db_table = 'magnet_parts'
     id = models.BigAutoField(primary_key=True)
     magnet = models.ForeignKey('Magnet', on_delete=models.CASCADE, null=False)
     part = models.ForeignKey('Part', on_delete=models.CASCADE, null=False)
@@ -12,6 +14,3 @@ class MagnetPart(models.Model):
 
     def active(self):
         return self.decommissioned_at is None
-
-    class Meta:
-        db_table = 'magnet_parts'

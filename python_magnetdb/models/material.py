@@ -2,6 +2,8 @@ from django.db import models
 
 
 class Material(models.Model):
+    class Meta:
+        db_table = 'materials'
     id = models.BigAutoField(primary_key=True)
     name = models.CharField(max_length=255, unique=True, null=False)
     nuance = models.CharField(max_length=255, null=True)
@@ -19,7 +21,3 @@ class Material(models.Model):
     rpe = models.FloatField(null=False)
     created_at = models.DateTimeField(auto_now_add=True, null=False)
     updated_at = models.DateTimeField(auto_now=True, null=False)
-    parts = models.ManyToManyField('Part', related_name='material_parts')
-
-    class Meta:
-        db_table = 'materials'

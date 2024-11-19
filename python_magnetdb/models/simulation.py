@@ -1,8 +1,12 @@
 from django.db import models
+from django.db.models.signals import pre_delete
+from django.dispatch import receiver
 from jsonfield import JSONField
 
 
 class Simulation(models.Model):
+    class Meta:
+        db_table = 'simulations'
     id = models.BigAutoField(primary_key=True)
     status = models.TextField(default='pending', null=True)
     magnet = models.ForeignKey('Magnet', on_delete=models.CASCADE, null=True)
@@ -21,30 +25,45 @@ class Simulation(models.Model):
     setup_state = JSONField(default=dict)
     owner = models.ForeignKey('User', on_delete=models.SET_NULL, null=True)
     log_attachment = models.ForeignKey('StorageAttachment', on_delete=models.SET_NULL, null=True, related_name='simulation_log_attachment')
-    currents = models.ManyToManyField('SimulationCurrent', related_name='simulation_simulation_currents')
 
-    class Meta:
-        db_table = 'simulations'
+    @property
+    def resource_type(self) -> str | None:
+        if self.magnet_id is not None:
+            return 'magnets'
+        elif self.site_id is not None:
+            return 'sites'
+        return None
+
+    @property
+    def resource_id(self):
+        if self.magnet_id is not None:
+            return self.magnet_id
+        elif self.site_id is not None:
+            return self.site_id
+        return None
+
+    @property
+    def resource(self):
+        if self.magnet_id is not None:
+            return self.magnet
+        elif self.site_id is not None:
+            return self.site
+        return None
 
 
+@receiver(pre_delete, sender=Simulation)
+def delete_attachments(sender, instance, **kwargs):
+    from python_magnetdb.models import StorageAttachment
 
+    attachment_fields = [
+        'setup_output_attachment',
+        'output_attachment',
+        'log_attachment'
+    ]
 
-# class SimulationObserver(object):
-#     def deleting(self, simulation):
-#         from .attachment import Attachment
-#
-#         if simulation.setup_output_attachment_id is not None:
-#             setup_output_attachment = Attachment.find(simulation.setup_output_attachment_id)
-#             if setup_output_attachment is not None:
-#                 setup_output_attachment.delete()
-#         if simulation.output_attachment_id is not None:
-#             output_attachment = Attachment.find(simulation.output_attachment_id)
-#             if output_attachment is not None:
-#                 output_attachment.delete()
-#         if simulation.log_attachment_id is not None:
-#             log_attachment = Attachment.find(simulation.log_attachment_id)
-#             if log_attachment is not None:
-#                 log_attachment.delete()
-#
-#
-# Simulation.observe(SimulationObserver())
+    for field in attachment_fields:
+        attachment_id = getattr(instance, f'{field}_id', None)
+        if attachment_id:
+            attachment = StorageAttachment.objects.filter(id=attachment_id).first()
+            if attachment:
+                attachment.delete()

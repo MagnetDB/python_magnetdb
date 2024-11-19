@@ -3,7 +3,7 @@ from django.db.models import DateTimeField
 from django.db.models.fields.related import ForeignKey
 from django.db.models.fields.related_descriptors import ReverseManyToOneDescriptor
 
-from python_magnetdb.models import Site
+from python_magnetdb.models import Site, Material, Part, Magnet, PartGeometry, Simulation
 
 
 def _site_post_processor(model: Site, res: dict):
@@ -21,8 +21,80 @@ def _site_post_processor(model: Site, res: dict):
     return res
 
 
+def _material_post_processor(model: Material, res: dict):
+    if 'part_set' in res:
+        res['parts'] = res['part_set']
+        del res['part_set']
+    return res
+
+
+def _part_post_processor(model: Part, res: dict):
+    if 'magnetpart_set' in res:
+        res['magnet_parts'] = res['magnetpart_set']
+        del res['magnetpart_set']
+    if 'cadattachment_set' in res:
+        res['cad'] = res['cadattachment_set']
+        del res['cadattachment_set']
+    if 'partgeometry_set' in res:
+        res['geometries'] = res['partgeometry_set']
+        del res['partgeometry_set']
+    return res
+
+
+def _magnet_post_processor(model: Magnet, res: dict):
+    commissioned_at = None
+    decommissioned_at = None
+    if 'sitemagnet_set' in res:
+        site_magnet = sorted(
+            res['sitemagnet_set'],
+            key=lambda site_magnet: site_magnet['commissioned_at'],
+            reverse=True
+        )[0]
+        if site_magnet is not None:
+            commissioned_at = site_magnet['commissioned_at']
+            decommissioned_at = site_magnet['decommissioned_at']
+        res['site_magnets'] = res['sitemagnet_set']
+        del res['sitemagnet_set']
+    res['commissioned_at'] = commissioned_at
+    res['decommissioned_at'] = decommissioned_at
+
+    if 'magnetpart_set' in res:
+        res['magnet_parts'] = res['magnetpart_set']
+        del res['magnetpart_set']
+
+    if 'geometry_attachment' in res:
+        res['geometry'] = res['geometry_attachment']
+        del res['geometry_attachment']
+
+    if 'cadattachment_set' in res:
+        res['cad'] = res['cadattachment_set']
+        del res['cadattachment_set']
+    return res
+
+
+def _part_geometry_post_processor(model: PartGeometry, res: dict):
+    res['part_id'] = model.part_id
+    return res
+
+def _simulation_post_processor(model: Simulation, res: dict):
+    if 'simulationcurrent_set' in res:
+        res['currents'] = res['simulationcurrent_set']
+        del res['simulationcurrent_set']
+    if 'owner' in res:
+        res["owner"] = {"name": res["owner"]["name"]}
+    if model.resource is not None:
+        res["resource_type"] = model.resource_type
+        res["resource_id"] = model.resource_id
+        res["resource"] = model_serializer(model.resource)
+    return res
+
 POST_PROCESSORS = {
     Site: _site_post_processor,
+    Material: _material_post_processor,
+    Part: _part_post_processor,
+    Magnet: _magnet_post_processor,
+    PartGeometry: _part_geometry_post_processor,
+    Simulation: _simulation_post_processor,
 }
 
 

@@ -2,6 +2,8 @@ from django.db import models
 
 
 class User(models.Model):
+    class Meta:
+        db_table = 'users'
     id = models.BigAutoField(primary_key=True)
     username = models.CharField(max_length=255, unique=True, null=False)
     email = models.CharField(max_length=255, null=False)
@@ -21,6 +23,3 @@ class User(models.Model):
         elif self.role == 'admin':
             return action in ['create', 'read', 'update', 'delete', 'admin']
         return False
-
-    class Meta:
-        db_table = 'users'

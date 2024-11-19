@@ -3,14 +3,14 @@ from typing import Optional
 from datetime import datetime
 
 import pandas as pd
+from django.core.paginator import Paginator
+from django.db.models import Q
 from pydantic import BaseModel
 from fastapi import APIRouter, Query, HTTPException, Form, UploadFile, File, Depends
 
+from .serializers import model_serializer
 from ...dependencies import get_user
-from ...oldmodels.attachment import Attachment
-from ...oldmodels.audit_log import AuditLog
-from ...oldmodels.record import Record
-from ...oldmodels.site import Site
+from ...models import Record, Site, StorageAttachment, AuditLog
 from ...utils.record_visualization import columns as columns_with_name
 
 router = APIRouter()
@@ -18,33 +18,37 @@ router = APIRouter()
 
 @router.get("/api/records")
 def index(user=Depends(get_user('read')), page: int = 1, per_page: int = Query(default=25, lte=100),
-          query: str = Query(None), sort_by: str = Query(None), sort_desc: bool = Query(False)):
-    records = Record \
-        .order_by(sort_by or 'created_at', 'desc' if sort_desc else 'asc')
+          query: str = Query(None), sort_by: str = Query('created_at'), sort_desc: bool = Query(False)):
+    db_query = Record.objects
     if query is not None and query.strip() != '':
-        records = records.where('name', 'ilike', f'%{query}%')
-    records = records.paginate(per_page, page)
+        db_query = db_query.filter(Q(name__icontains=query))
+    if sort_by is not None:
+        order_field = f"-{sort_by}" if sort_desc else sort_by
+        db_query = db_query.order_by(order_field)
+    paginator = Paginator(db_query.all(), per_page)
+    items = [model_serializer(site) for site in paginator.get_page(page).object_list]
     return {
-        "current_page": records.current_page,
-        "last_page": records.last_page,
-        "total": records.total,
-        "items": records.serialize(),
+        "current_page": page,
+        "last_page": paginator.num_pages,
+        "total": paginator.count,
+        "items": items,
     }
 
 
 @router.post("/api/records")
 def create(user=Depends(get_user('create')), name: str = Form(...), description: str = Form(None),
            site_id: str = Form(...), attachment: UploadFile = File(...)):
-    site = Site.find(site_id)
+    site = Site.objects.get(id=site_id)
     if not site:
         raise HTTPException(status_code=404, detail="Site not found")
 
     record = Record(name=name, description=description)
-    record.attachment().associate(Attachment.upload(attachment))
-    record.site().associate(site)
+    record.attachment = StorageAttachment.upload(attachment)
+    record.site = site
     record.save()
     AuditLog.log(user, f"Record created {attachment.filename}", resource=record)
-    return record.serialize()
+    return model_serializer(record)
+
 
 class RecordPayload(BaseModel):
     name: str
@@ -52,35 +56,36 @@ class RecordPayload(BaseModel):
     site_id: int
     attachment_id: int
 
+
 @router.post("/api/clirecords")
 def clicreate(payload: RecordPayload, user=Depends(get_user('create'))):
     print(f'record/clicreate: name={payload.name}, attachment_id={payload.attachment_id}')
-    site = Site.find(payload.site_id)
+    site = Site.objects.get(id=payload.site_id)
     if not site:
         raise HTTPException(status_code=404, detail="Site not found")
     print(f'site: {site}')
 
-    attachment = Attachment.find(payload.attachment_id)
+    attachment = StorageAttachment.objects.get(id=payload.attachment_id)
     if not attachment:
         raise HTTPException(status_code=404, detail="Attachment not found")
     print(f'attachment: {attachment}')
 
     record = Record(name=payload.name, description=payload.description)
-    record.attachment().associate(attachment)
+    record.attachment = attachment
     print(f'record/clicreate: associate attachment done')
-    record.site().associate(site)
+    record.site = site
     print(f'record/clicreate: associate site done')
     record.save()
     AuditLog.log(user, f"Record cli created {payload.name}", resource=record)
-    return record.serialize()
+    return model_serializer(record)
 
 @router.get("/api/records/{id}")
 def show(id: int, user=Depends(get_user('read'))):
-    record = Record.with_('attachment', 'site').find(id)
+    record = Record.objects.prefetch_related('attachment', 'site').get(id=id)
     if not record:
         raise HTTPException(status_code=404, detail="Record not found")
 
-    return record.serialize()
+    return model_serializer(record)
 
 
 @router.get("/api/records/{id}/visualize")
@@ -88,7 +93,7 @@ def visualize(id: int, user=Depends(get_user('read')),
               x: str = Query(None), y: str = Query(None), auto_sampling: bool = Query(False),
               x_min: float = Query(None), x_max: float = Query(None),
               y_min: float = Query(None), y_max: float = Query(None)):
-    record = Record.with_('attachment').find(id)
+    record = Record.objects.prefetch_related('attachment').get(id=id)
     if not record:
         raise HTTPException(status_code=404, detail="Record not found")
 
@@ -134,27 +139,28 @@ def visualize(id: int, user=Depends(get_user('read')),
 @router.patch("/api/records/{id}")
 def update(id: int, user=Depends(get_user('update')), name: str = Form(...), description: str = Form(None),
            site_id: str = Form(...)):
-    record = Record.find(id)
+    record = Record.objects.get(id=id)
     if not record:
         raise HTTPException(status_code=404, detail="Record not found")
-    site = Site.find(site_id)
+
+    site = Site.objects.get(id=site_id)
     if not site:
         raise HTTPException(status_code=404, detail="Site not found")
 
     record.name = name
     record.description = description
-    record.site().associate(site)
+    record.site = site
     record.save()
     AuditLog.log(user, "Record updated", resource=record)
-    return record.serialize()
+    return model_serializer(record)
 
 
 @router.delete("/api/records/{id}")
 def destroy(id: int, user=Depends(get_user('delete'))):
-    record = Record.find(id)
+    record = Record.objects.get(id=id)
     if not record:
         raise HTTPException(status_code=404, detail="Record not found")
 
     record.delete()
     AuditLog.log(user, "Record deleted", resource=record)
-    return record.serialize()
+    return model_serializer(record)

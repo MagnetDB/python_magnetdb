@@ -5,10 +5,11 @@ from argparse import Namespace
 from os.path import basename
 from traceback import print_exception
 
-from python_magnetdb.oldmodels.attachment import Attachment
 from python_magnetsetup.config import appenv
 from python_magnetsetup.job import JobManager, JobManagerType
 from python_magnetsetup.node import NodeSpec, NodeType
+
+from python_magnetdb.models import StorageAttachment, Simulation
 from python_magnetsetup.setup import setup_cmds
 
 
@@ -24,11 +25,10 @@ def run_cmd(cmd, stdout):
     stdout.write(f"=== STATUS CODE: {res.returncode}\n")
 
 
-def run_simulation(simulation):
+def run_simulation(simulation: Simulation):
     simulation.status = "in_progress"
     simulation.save()
-    simulation.load('currents.magnet')
-    currents = {current.magnet.name: current.value for current in simulation.currents}
+    currents = {current.magnet.name: current.value for current in simulation.simulationcurrent_set.all()}
 
     with tempfile.TemporaryDirectory() as tempdir:
         current_dir = os.getcwd()
@@ -96,14 +96,12 @@ def run_simulation(simulation):
                 simulation_name = os.path.basename(os.path.splitext(simulation.setup_state['cfgfile'])[0])
                 output_archive = f"{tempdir}/{simulation_name}.tar.gz"
                 run_cmd([f"tar --exclude=tmp.hdf --exclude=setup.tar.gz -cvzf {output_archive} *"], log_file)
-                simulation.output_attachment().associate(
-                    Attachment.raw_upload(basename(output_archive), "application/x-tar", output_archive)
-                )
+                simulation.output_attachment = StorageAttachment.raw_upload(basename(output_archive), "application/x-tar", output_archive)
                 log_file.write("Done!\n")
                 simulation.status = "done"
             except Exception as err:
                 simulation.status = "failed"
                 print_exception(None, err, err.__traceback__)
-            simulation.log_attachment().associate(Attachment.raw_upload("debug.log", "text/plain", log_file_path))
+            simulation.log_attachment = StorageAttachment.raw_upload("debug.log", "text/plain", log_file_path)
             os.chdir(current_dir)
             simulation.save()

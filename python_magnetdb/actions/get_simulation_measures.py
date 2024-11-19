@@ -5,7 +5,7 @@ from os.path import join, isfile
 
 from pandas import read_csv
 
-from ..oldmodels.simulation import Simulation
+from python_magnetdb.models import Simulation
 
 
 def find_measures_files(path: str):
@@ -23,8 +23,8 @@ def find_measures_files(path: str):
 
 def get_simulation_measures(simulation_id: int, measure_name: str=None):
     print(f"get_simulation_measures... simulation_id:{simulation_id}, measure:{measure_name}")
-    simulation = Simulation.find(simulation_id)
-    if simulation.output_attachment == None:
+    simulation = Simulation.objects.prefetch_related('output_attachment').get(id=simulation_id)
+    if simulation.output_attachment is None:
         return None
 
     with tempfile.TemporaryDirectory() as tempdir:

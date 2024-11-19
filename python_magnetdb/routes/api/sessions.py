@@ -4,10 +4,9 @@ import requests
 from fastapi import APIRouter, Form
 from uuid import uuid4 as uuid
 
-from ...oldmodels.audit_log import AuditLog
-from ...oldmodels.user import User
 from python_magnetdb.actions.security import generate_user_token, front_authorization_server, authorization_server, \
     authorization_host_server, client_id, client_secret
+from python_magnetdb.models import User, AuditLog
 
 router = APIRouter()
 
@@ -42,7 +41,7 @@ def create(code: str = Form(...), redirect_uri: str = Form(...)):
     userinfo_req = requests.get(f"{authorization_server}/oauth2/userinfo", headers=headers, verify=False)
     userinfo_data = userinfo_req.json()
 
-    user = User.where('username', userinfo_data['sub']).first()
+    user = User.objects.get(username=userinfo_data['sub'])
     if not user:
         user = User(username=userinfo_data['sub'], api_key=str(uuid()).replace('-', ''))
     user.email = userinfo_data['email']

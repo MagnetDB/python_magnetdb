@@ -6,6 +6,7 @@ module.exports = {
     },
     allowedHosts: [
       'lncmig.local',
+      'magnetdb-dev.local',
     ]
   }
 }

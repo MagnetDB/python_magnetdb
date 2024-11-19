@@ -1,35 +1,35 @@
 from fastapi import APIRouter, HTTPException, Form, Depends
 from datetime import datetime
 
+from .serializers import model_serializer
 from ...dependencies import get_user
-from ...oldmodels.audit_log import AuditLog
-from ...oldmodels.magnet import MagnetPart, Magnet
-from ...oldmodels.part import Part
-from ...oldmodels.status import Status
+from ...models import Magnet, Part, MagnetPart, AuditLog
+from ...models.status import Status
 
 router = APIRouter()
 
 
 @router.post("/api/magnets/{magnet_id}/parts")
 def create(magnet_id: int, user=Depends(get_user("create")), part_id: int = Form(...)):
-    magnet = Magnet.find(magnet_id)
+    magnet = Magnet.objects.get(id=magnet_id)
     if not magnet:
         raise HTTPException(status_code=404, detail="Magnet not found")
-    part = Part.with_("magnet_parts.magnet").find(part_id)
+
+    part = Part.objects.prefetch_related("magnetpart_set__magnet").get(id=part_id)
     if not part:
         raise HTTPException(status_code=404, detail="Part not found")
 
-    for magnet_part in part.magnet_parts:
+    for magnet_part in part.magnetpart_set.all():
         if magnet_part.magnet.status == Status.IN_STUDY:
             magnet_part.delete()
 
     magnet_part = MagnetPart(commissioned_at=datetime.now())
-    magnet_part.magnet().associate(magnet)
-    magnet_part.part().associate(part)
+    magnet_part.magnet = magnet
+    magnet_part.part = part
     magnet_part.save()
 
     AuditLog.log(user, "Part added to magnet", resource=magnet)
-    return magnet_part.serialize()
+    return model_serializer(magnet_part)
 
 
 """

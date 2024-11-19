@@ -96,13 +96,13 @@ services:
       args:
         NODE_ENV: development
         API_ENDPOINT: "https://api.magnetdb-dev.local"
-    # command: yarn serve
+    command: yarn serve
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.app.rule=Host(`magnetdb-dev.local`)"
       - "traefik.http.routers.app.entrypoints=https"
       - "traefik.http.routers.app.tls=true"
-      - "traefik.http.services.app.loadbalancer.server.port=80"
+      - "traefik.http.services.app.loadbalancer.server.port=8080"
   lemonldap:
     container_name: magnetdb-lemonldap
     image: tiredofit/lemonldap:2.0.24

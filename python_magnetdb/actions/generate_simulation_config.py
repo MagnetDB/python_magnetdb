@@ -1,7 +1,6 @@
-from python_magnetdb.oldmodels.site import Site
-
-from python_magnetdb.oldmodels.magnet import Magnet
-from python_magnetdb.oldmodels.material import Material
+from python_magnetdb.models.site import Site
+from python_magnetdb.models.magnet import Magnet
+from python_magnetdb.models.material import Material
 
 
 def format_material(material):
@@ -22,24 +21,24 @@ def format_material(material):
 
 
 def generate_magnet_config(magnet_id):
-    magnet = Magnet.with_(
-        "magnet_parts.part.geometries.attachment",
-        "magnet_parts.part.material",
-        "site_magnets.site",
-        "geometry",
-    ).find(magnet_id)
+    magnet = Magnet.objects.prefetch_related(
+        'magnetpart_set__part__partgeometry_set__attachment',
+        'magnetpart_set__part__material',
+        'sitemagnet_set__site',
+        'geometry_attachment',
+    ).get(id=magnet_id)
     print(
-        f"generate_magnet_config[{magnet_id}]: magnet={magnet.name}, geometry={magnet.geometry}"
+        f"generate_magnet_config[{magnet_id}]: magnet={magnet.name}, geometry={magnet.geometry_attachment}"
     )
-    payload = {"geom": magnet.geometry.filename}
-    insulator_payload = format_material(Material.where("name", "MAT_ISOLANT").first())
-    for magnet_part in magnet.magnet_parts:
+    payload = {"geom": magnet.geometry_attachment.filename}
+    insulator_payload = format_material(Material.objects.get(name="MAT_ISOLANT"))
+    for magnet_part in magnet.magnetpart_set.all():
         # if not magnet_part.active:
         #     continue
         if magnet_part.part.type.capitalize() not in payload:
             payload[magnet_part.part.type.capitalize()] = []
         geom = None
-        for geometry in magnet_part.part.geometries:
+        for geometry in magnet_part.part.partgeometry_set.all():
             if geometry.type == "default":
                 geom = geometry.attachment.filename
         payload[magnet_part.part.type.capitalize()].append(
@@ -54,9 +53,9 @@ def generate_magnet_config(magnet_id):
 
 
 def generate_site_config(site_id):
-    site = Site.with_("site_magnets").find(site_id)
+    site = Site.objects.prefetch_related("sitemagnet_set").get(id=site_id)
     payload = {"name": site.name, "magnets": []}
-    for site_magnet in site.site_magnets:
+    for site_magnet in site.sitemagnet_set.all():
         print(
             f"generate_site_config({site_id}): magnet={site_magnet}, site_magnet={site_magnet.active}"
         )
@@ -68,8 +67,8 @@ def generate_site_config(site_id):
 
 
 def generate_simulation_config(simulation):
-    if simulation.resource_type == "magnets":
-        return generate_magnet_config(simulation.resource_id)
-    elif simulation.resource_type == "sites":
-        return generate_site_config(simulation.resource_id)
+    if simulation.magnet_id is not None:
+        return generate_magnet_config(simulation.magnet_id)
+    elif simulation.site_id is not None:
+        return generate_site_config(simulation.site_id)
     raise Exception("Unsupported resource type")

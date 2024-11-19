@@ -40,7 +40,7 @@ export default {
   },
   data() {
     return {
-      attachments: this.defaultAttachments,
+      attachments: this.defaultAttachments ?? [],
       fileName: false,
       inputKey: Date.now(),
       isLoading: false,
@@ -60,14 +60,20 @@ export default {
       this.isLoading = true
       cadAttachmentService.create({ resource_type: this.resourceType, resource_id: this.resourceId, file })
           .then((res) => this.attachments.push(res))
-          .catch((err) => alert(err.message))
+          .catch((err) => {
+            alert(err.message)
+            console.error(err)
+          })
           .finally(() => this.isLoading = false)
     },
     removeAttachment(cadAttachment) {
       this.isLoading = true
       cadAttachmentService.destroy({ id: cadAttachment.id })
           .then(() => this.attachments = this.attachments.filter((curr) => curr.id !== cadAttachment.id))
-          .catch((err) => alert(err.message))
+          .catch((err) => {
+            alert(err.message)
+            console.error(err)
+          })
           .finally(() => this.isLoading = false)
     },
     downloadAttachment({ attachment }) {

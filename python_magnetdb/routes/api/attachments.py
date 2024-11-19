@@ -3,15 +3,15 @@ from fastapi import APIRouter, HTTPException, Depends, UploadFile, File
 from fastapi.responses import StreamingResponse
 
 from ...dependencies import get_user
-from ...oldmodels.audit_log import AuditLog
-from ...oldmodels.attachment import Attachment
+from ...models import AuditLog
+from ...models.storage_attachment import StorageAttachment
 
 router = APIRouter()
 
 
 @router.get("/api/attachments/{id}/download")
 def download(id: int, user=Depends(get_user('read'))):
-    attachment = Attachment.find(id)
+    attachment = StorageAttachment.objects.filter(id=id).get()
     if not attachment:
         raise HTTPException(status_code=404, detail="Attachment not found")
 
@@ -26,10 +26,7 @@ class FilePayload(BaseModel):
 
 @router.post("/api/attachments")
 def upload(file: UploadFile = File(...), user=Depends(get_user('create'))):
-    attached = Attachment.upload(file)
-    try:
-        attached.save()
-    except orator.exceptions.query.QueryException as e:
-        raise HTTPException(status_code=422, detail=e.message)
+    attached = StorageAttachment.upload(file)
+    attached.save()
     AuditLog.log(user, f"Attachment created {file.filename}", resource=attached)
     return attached.serialize()
