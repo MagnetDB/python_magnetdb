@@ -1,6 +1,6 @@
+import hashlib
 import shutil
 import tempfile
-from uuid import uuid4
 
 from django.db import models
 from fastapi import UploadFile
@@ -30,12 +30,11 @@ class StorageAttachment(models.Model):
             return cls.raw_upload(file.filename, file.content_type, temp_file.name)
 
     @classmethod
-    def raw_upload(cls, filename: str, content_type: str, fileno: int | str):
-        attachment = cls(
-            key=str(uuid4()),
-            filename=filename,
-            content_type=content_type,
-        )
-        s3_client.fput_object(s3_bucket, attachment.key, fileno, content_type=attachment.content_type)
+    def raw_upload(cls, filename: str, content_type: str, filepath: str):
+        attachment = cls(filename=filename,content_type=content_type)
+        with open(filepath, 'rb', buffering=0) as f:
+            attachment.key = hashlib.file_digest(f, 'sha256').hexdigest()
+        if cls.objects.filter(key=attachment.key).count() == 0:
+            s3_client.fput_object(s3_bucket, attachment.key, filepath, content_type=attachment.content_type)
         attachment.save()
         return attachment

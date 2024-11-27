@@ -57,7 +57,7 @@ docker exec -it magnetdb-api bash
 
 
 ```shell
-poetry run orator migrate -c python_magnetdb/database.py
+poetry run python3 manage.py migrate
 ```
 
 
@@ -67,9 +67,9 @@ poetry run orator migrate -c python_magnetdb/database.py
    
 ```shell
 export DATA_DIR=/data
-poetry run python3 -m python_magnetdb.seeds
-poetry run python3 -m python_magnetdb.seed-again
-poetry run python3 -m python_magnetdb.seed-records
+poetry run python3 -m python_magnetdb.seeds.seeds
+poetry run python3 -m python_magnetdb.seeds.seed-again
+poetry run python3 -m python_magnetdb.seeds.seed-records
 ```
 
 8. PgAdmin setup
