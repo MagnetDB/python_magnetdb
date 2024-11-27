@@ -5,7 +5,7 @@ from django.db import migrations, IntegrityError, transaction
 
 
 def convert_resource(apps, schema_editor):
-    Simulation = apps.get_model("magnetdb", "Simulation")
+    Simulation = apps.get_model("python_magnetdb", "Simulation")
     for simulation in Simulation.objects.all():
         try:
             with transaction.atomic():
@@ -22,7 +22,7 @@ def convert_resource(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('magnetdb', '0003_remove_cadattachment_resource_id_and_more'),
+        ('python_magnetdb', '0003_remove_cadattachment_resource_id_and_more'),
     ]
 
     operations = [

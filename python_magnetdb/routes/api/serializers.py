@@ -18,6 +18,9 @@ def _site_post_processor(model: Site, res: dict):
     if 'sitemagnet_set' in res:
         res['site_magnets'] = res['sitemagnet_set']
         del res['sitemagnet_set']
+    if 'config_attachment' in res:
+        res['config'] = res['config_attachment']
+        del res['config_attachment']
     return res
 
 
@@ -76,6 +79,7 @@ def _part_geometry_post_processor(model: PartGeometry, res: dict):
     res['part_id'] = model.part_id
     return res
 
+
 def _simulation_post_processor(model: Simulation, res: dict):
     if 'simulationcurrent_set' in res:
         res['currents'] = res['simulationcurrent_set']
@@ -87,6 +91,7 @@ def _simulation_post_processor(model: Simulation, res: dict):
         res["resource_id"] = model.resource_id
         res["resource"] = model_serializer(model.resource)
     return res
+
 
 POST_PROCESSORS = {
     Site: _site_post_processor,

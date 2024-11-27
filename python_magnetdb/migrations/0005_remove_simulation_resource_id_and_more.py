@@ -6,7 +6,7 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('magnetdb', '0004_alter_simulation_setup_state'),
+        ('python_magnetdb', '0004_alter_simulation_setup_state'),
     ]
 
     operations = [
