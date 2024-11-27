@@ -129,7 +129,7 @@ services:
       #- ./assets/custom:/assets/custom
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.lemon.rule=Host(`auth.lemon.magnetdb-dev.local`) || Host(`manager.lemon.magnetdb-dev.local`) || Host(`handler.lemon.magnetdb-dev.local`) || Host(`api.lemon.magnetdb-dev.local`)"
+      - "traefik.http.routers.lemon.rule=Host(`lemon.magnetdb-dev.local`) || Host(`auth.lemon.magnetdb-dev.local`) || Host(`manager.lemon.magnetdb-dev.local`) || Host(`handler.lemon.magnetdb-dev.local`) || Host(`api.lemon.magnetdb-dev.local`)"
       - "traefik.http.routers.lemon.entrypoints=https"
       - "traefik.http.routers.lemon.tls=true"
       # - "traefik.http.services.lemon.loadbalancer.server.port=80"
