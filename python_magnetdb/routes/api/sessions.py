@@ -41,8 +41,9 @@ def create(code: str = Form(...), redirect_uri: str = Form(...)):
     userinfo_req = requests.get(f"{authorization_server}/oauth2/userinfo", headers=headers, verify=False)
     userinfo_data = userinfo_req.json()
 
-    user = User.objects.get(username=userinfo_data['sub'])
-    if not user:
+    try:
+        user = User.objects.get(username=userinfo_data['sub'])
+    except User.DoesNotExist:
         user = User(username=userinfo_data['sub'], api_key=str(uuid()).replace('-', ''))
     user.email = userinfo_data['email']
     user.name = userinfo_data['name']
