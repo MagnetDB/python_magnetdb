@@ -36,12 +36,12 @@
                   name: 'Pascal',
                   value: 'Pa',
                   symbol: 'Pa',
-                  default: true,
                 },
                 {
                   name: 'Mega Pascal',
                   value: 'MPa',
                   symbol: 'MPa',
+                  default: true,
                 },
                 {
                   name: 'Bar',
@@ -126,13 +126,19 @@
             type="number"
             placeholder="0"
             :component="FormInputWithUnit"
+            target-unit="S"
             :unit-options="[
                 {
-                  name: '1/ohm/m',
-                  value: 'ohm^-1*m^-1',
-                  symbol: 'S',
-                  default: true,
-                }
+                    name: '1/ohm/m',
+                    value: 'S',
+                    symbol: 'S',
+                },
+                {
+                    name: '10^6/ohm/m',
+                    value: 'MS',
+                    symbol: 'MS',
+                    default: true,
+                },
             ]"
         />
         <FormField

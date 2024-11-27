@@ -5,7 +5,7 @@ from django.db import migrations, models, IntegrityError, transaction
 
 
 def convert_resource(apps, schema_editor):
-    CadAttachment = apps.get_model("magnetdb", "CadAttachment")
+    CadAttachment = apps.get_model("python_magnetdb", "CadAttachment")
     for attachment in CadAttachment.objects.all():
         try:
             with transaction.atomic():
@@ -25,39 +25,39 @@ def convert_resource(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('magnetdb', '0001_initial'),
+        ('python_magnetdb', '0001_initial'),
     ]
 
     operations = [
         migrations.AddField(
             model_name='cadattachment',
             name='magnet',
-            field=models.ForeignKey(null=True, on_delete=django.db.models.deletion.CASCADE, to='magnetdb.magnet'),
+            field=models.ForeignKey(null=True, on_delete=django.db.models.deletion.CASCADE, to='python_magnetdb.magnet'),
         ),
         migrations.AddField(
             model_name='cadattachment',
             name='part',
-            field=models.ForeignKey(null=True, on_delete=django.db.models.deletion.CASCADE, to='magnetdb.part'),
+            field=models.ForeignKey(null=True, on_delete=django.db.models.deletion.CASCADE, to='python_magnetdb.part'),
         ),
         migrations.AddField(
             model_name='cadattachment',
             name='site',
-            field=models.ForeignKey(null=True, on_delete=django.db.models.deletion.CASCADE, to='magnetdb.site'),
+            field=models.ForeignKey(null=True, on_delete=django.db.models.deletion.CASCADE, to='python_magnetdb.site'),
         ),
         migrations.AddField(
             model_name='magnet',
             name='cad_attachments',
-            field=models.ManyToManyField(related_name='magnet_cad_attachments', to='magnetdb.cadattachment'),
+            field=models.ManyToManyField(related_name='magnet_cad_attachments', to='python_magnetdb.cadattachment'),
         ),
         migrations.AddField(
             model_name='part',
             name='cad_attachments',
-            field=models.ManyToManyField(related_name='part_cad_attachments', to='magnetdb.cadattachment'),
+            field=models.ManyToManyField(related_name='part_cad_attachments', to='python_magnetdb.cadattachment'),
         ),
         migrations.AddField(
             model_name='site',
             name='cad_attachments',
-            field=models.ManyToManyField(related_name='site_cad_attachments', to='magnetdb.cadattachment'),
+            field=models.ManyToManyField(related_name='site_cad_attachments', to='python_magnetdb.cadattachment'),
         ),
         migrations.RunPython(convert_resource, reverse_code=migrations.RunPython.noop),
     ]

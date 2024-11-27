@@ -89,7 +89,7 @@ class Migration(migrations.Migration):
                 ('created_at', models.DateTimeField(auto_now_add=True)),
                 ('updated_at', models.DateTimeField(auto_now=True)),
                 ('resource_type', models.TextField(null=True)),
-                ('attachment', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='magnetdb.storageattachment')),
+                ('attachment', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='python_magnetdb.storageattachment')),
             ],
             options={
                 'db_table': 'cad_attachments',
@@ -118,7 +118,7 @@ class Migration(migrations.Migration):
                 ('decommissioned_at', models.DateTimeField(null=True)),
                 ('created_at', models.DateTimeField(auto_now_add=True)),
                 ('updated_at', models.DateTimeField(auto_now=True)),
-                ('magnet', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='magnetdb.magnet')),
+                ('magnet', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='python_magnetdb.magnet')),
             ],
             options={
                 'db_table': 'magnet_parts',
@@ -127,7 +127,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='magnet',
             name='magnet_parts',
-            field=models.ManyToManyField(related_name='magnet_magnet_parts', to='magnetdb.magnetpart'),
+            field=models.ManyToManyField(related_name='magnet_magnet_parts', to='python_magnetdb.magnetpart'),
         ),
         migrations.CreateModel(
             name='Part',
@@ -140,9 +140,9 @@ class Migration(migrations.Migration):
                 ('created_at', models.DateTimeField(auto_now_add=True)),
                 ('updated_at', models.DateTimeField(auto_now=True)),
                 ('design_office_reference', models.CharField(max_length=255, null=True)),
-                ('magnet_parts', models.ManyToManyField(related_name='part_magnet_parts', to='magnetdb.magnetpart')),
-                ('magnets', models.ManyToManyField(through='magnetdb.MagnetPart', to='magnetdb.magnet')),
-                ('material', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='magnetdb.material')),
+                ('magnet_parts', models.ManyToManyField(related_name='part_magnet_parts', to='python_magnetdb.magnetpart')),
+                ('magnets', models.ManyToManyField(through='python_magnetdb.MagnetPart', to='python_magnetdb.magnet')),
+                ('material', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='python_magnetdb.material')),
             ],
             options={
                 'db_table': 'parts',
@@ -151,17 +151,17 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='material',
             name='parts',
-            field=models.ManyToManyField(related_name='material_parts', to='magnetdb.part'),
+            field=models.ManyToManyField(related_name='material_parts', to='python_magnetdb.part'),
         ),
         migrations.AddField(
             model_name='magnetpart',
             name='part',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='magnetdb.part'),
+            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='python_magnetdb.part'),
         ),
         migrations.AddField(
             model_name='magnet',
             name='parts',
-            field=models.ManyToManyField(through='magnetdb.MagnetPart', to='magnetdb.part'),
+            field=models.ManyToManyField(through='python_magnetdb.MagnetPart', to='python_magnetdb.part'),
         ),
         migrations.CreateModel(
             name='PartGeometry',
@@ -170,8 +170,8 @@ class Migration(migrations.Migration):
                 ('type', models.CharField(max_length=255)),
                 ('created_at', models.DateTimeField(auto_now_add=True)),
                 ('updated_at', models.DateTimeField(auto_now=True)),
-                ('part', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='magnetdb.part')),
-                ('attachment', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='magnetdb.storageattachment')),
+                ('part', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='python_magnetdb.part')),
+                ('attachment', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='python_magnetdb.storageattachment')),
             ],
             options={
                 'db_table': 'part_geometries',
@@ -180,7 +180,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='part',
             name='geometries',
-            field=models.ManyToManyField(related_name='part_part_geometries', to='magnetdb.partgeometry'),
+            field=models.ManyToManyField(related_name='part_part_geometries', to='python_magnetdb.partgeometry'),
         ),
         migrations.CreateModel(
             name='Simulation',
@@ -211,8 +211,8 @@ class Migration(migrations.Migration):
                 ('value', models.FloatField()),
                 ('created_at', models.DateTimeField(auto_now_add=True)),
                 ('updated_at', models.DateTimeField(auto_now=True)),
-                ('magnet', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='magnetdb.magnet')),
-                ('simulation', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='magnetdb.simulation')),
+                ('magnet', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='python_magnetdb.magnet')),
+                ('simulation', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='python_magnetdb.simulation')),
             ],
             options={
                 'db_table': 'simulation_currents',
@@ -221,7 +221,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='simulation',
             name='currents',
-            field=models.ManyToManyField(related_name='simulation_simulation_currents', to='magnetdb.simulationcurrent'),
+            field=models.ManyToManyField(related_name='simulation_simulation_currents', to='python_magnetdb.simulationcurrent'),
         ),
         migrations.CreateModel(
             name='Site',
@@ -232,7 +232,7 @@ class Migration(migrations.Migration):
                 ('status', models.CharField(max_length=255)),
                 ('created_at', models.DateTimeField(auto_now_add=True)),
                 ('updated_at', models.DateTimeField(auto_now=True)),
-                ('records', models.ManyToManyField(related_name='site_records', to='magnetdb.record')),
+                ('records', models.ManyToManyField(related_name='site_records', to='python_magnetdb.record')),
             ],
             options={
                 'db_table': 'sites',
@@ -241,7 +241,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='record',
             name='site',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='magnetdb.site'),
+            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='python_magnetdb.site'),
         ),
         migrations.CreateModel(
             name='SiteMagnet',
@@ -251,8 +251,8 @@ class Migration(migrations.Migration):
                 ('decommissioned_at', models.DateTimeField(null=True)),
                 ('created_at', models.DateTimeField(auto_now_add=True)),
                 ('updated_at', models.DateTimeField(auto_now=True)),
-                ('magnet', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='magnetdb.magnet')),
-                ('site', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='magnetdb.site')),
+                ('magnet', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='python_magnetdb.magnet')),
+                ('site', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='python_magnetdb.site')),
             ],
             options={
                 'db_table': 'site_magnets',
@@ -261,57 +261,57 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='site',
             name='magnets',
-            field=models.ManyToManyField(through='magnetdb.SiteMagnet', to='magnetdb.magnet'),
+            field=models.ManyToManyField(through='python_magnetdb.SiteMagnet', to='python_magnetdb.magnet'),
         ),
         migrations.AddField(
             model_name='site',
             name='site_magnets',
-            field=models.ManyToManyField(related_name='site_site_magnets', to='magnetdb.sitemagnet'),
+            field=models.ManyToManyField(related_name='site_site_magnets', to='python_magnetdb.sitemagnet'),
         ),
         migrations.AddField(
             model_name='magnet',
             name='site_magnets',
-            field=models.ManyToManyField(related_name='magnet_site_magnets', to='magnetdb.sitemagnet'),
+            field=models.ManyToManyField(related_name='magnet_site_magnets', to='python_magnetdb.sitemagnet'),
         ),
         migrations.AddField(
             model_name='magnet',
             name='sites',
-            field=models.ManyToManyField(through='magnetdb.SiteMagnet', to='magnetdb.site'),
+            field=models.ManyToManyField(through='python_magnetdb.SiteMagnet', to='python_magnetdb.site'),
         ),
         migrations.AddField(
             model_name='site',
             name='config_attachment',
-            field=models.ForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, to='magnetdb.storageattachment'),
+            field=models.ForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, to='python_magnetdb.storageattachment'),
         ),
         migrations.AddField(
             model_name='simulation',
             name='log_attachment',
-            field=models.ForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='simulation_log_attachment', to='magnetdb.storageattachment'),
+            field=models.ForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='simulation_log_attachment', to='python_magnetdb.storageattachment'),
         ),
         migrations.AddField(
             model_name='simulation',
             name='output_attachment',
-            field=models.ForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='simulation_output_attachment', to='magnetdb.storageattachment'),
+            field=models.ForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='simulation_output_attachment', to='python_magnetdb.storageattachment'),
         ),
         migrations.AddField(
             model_name='simulation',
             name='setup_output_attachment',
-            field=models.ForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='simulation_setup_output_attachment', to='magnetdb.storageattachment'),
+            field=models.ForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='simulation_setup_output_attachment', to='python_magnetdb.storageattachment'),
         ),
         migrations.AddField(
             model_name='record',
             name='attachment',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='magnetdb.storageattachment'),
+            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='python_magnetdb.storageattachment'),
         ),
         migrations.AddField(
             model_name='magnet',
             name='geometry_attachment',
-            field=models.ForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, to='magnetdb.storageattachment'),
+            field=models.ForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, to='python_magnetdb.storageattachment'),
         ),
         migrations.AddField(
             model_name='simulation',
             name='owner',
-            field=models.ForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, to='magnetdb.user'),
+            field=models.ForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, to='python_magnetdb.user'),
         ),
         migrations.CreateModel(
             name='Server',
@@ -332,7 +332,7 @@ class Migration(migrations.Migration):
                 ('dns', models.CharField(default='localhost', max_length=255)),
                 ('job_manager', models.CharField(default='none', max_length=255)),
                 ('mesh_gems_directory', models.CharField(default='/opt/MeshGems', max_length=255)),
-                ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='magnetdb.user')),
+                ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='python_magnetdb.user')),
             ],
             options={
                 'db_table': 'servers',
@@ -349,7 +349,7 @@ class Migration(migrations.Migration):
                 ('created_at', models.DateTimeField(auto_now_add=True)),
                 ('updated_at', models.DateTimeField(auto_now=True)),
                 ('resource_type', models.ForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, to='contenttypes.contenttype')),
-                ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='magnetdb.user')),
+                ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='python_magnetdb.user')),
             ],
             options={
                 'db_table': 'audit_logs',

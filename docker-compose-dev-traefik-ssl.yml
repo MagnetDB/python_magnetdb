@@ -1,4 +1,3 @@
-version: '3'
 services:
   proxy:
     image: traefik:v2.9
@@ -96,7 +95,17 @@ services:
       args:
         NODE_ENV: development
         API_ENDPOINT: "https://api.magnetdb-dev.local"
-    command: yarn serve
+    volumes:
+      - ./web:/app
+    command:
+      - /bin/bash
+      - -c
+      - |
+        yarn add caniuse-lite
+        yarn remove caniuse-lite
+        yarn install
+        yarn serve
+    working_dir: /app
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.app.rule=Host(`magnetdb-dev.local`)"

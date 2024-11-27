@@ -33,7 +33,7 @@ class MaterialPayload(BaseModel):
 
 @router.get("/api/materials")
 def index(user=Depends(get_user('read')), page: int = 1, per_page: int = Query(default=25, lte=100),
-          query: str = Query(None), sort_by: str = Query(None), sort_desc: bool = Query(False)):
+          query: str = Query(None), sort_by: str = Query('created_at'), sort_desc: bool = Query(False)):
     db_query = Material.objects
     if query is not None and query.strip() != '':
         db_query = db_query.filter(Q(name__icontains=query))

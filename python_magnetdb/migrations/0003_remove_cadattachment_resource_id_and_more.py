@@ -7,7 +7,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('magnetdb', '0002_cadattachment_magnet_cadattachment_part_and_more'),
+        ('python_magnetdb', '0002_cadattachment_magnet_cadattachment_part_and_more'),
     ]
 
     operations = [
@@ -22,22 +22,22 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='magnet',
             name='simulations',
-            field=models.ManyToManyField(related_name='magnet_simulations', to='magnetdb.simulation'),
+            field=models.ManyToManyField(related_name='magnet_simulations', to='python_magnetdb.simulation'),
         ),
         migrations.AddField(
             model_name='simulation',
             name='magnet',
-            field=models.ForeignKey(null=True, on_delete=django.db.models.deletion.CASCADE, to='magnetdb.magnet'),
+            field=models.ForeignKey(null=True, on_delete=django.db.models.deletion.CASCADE, to='python_magnetdb.magnet'),
         ),
         migrations.AddField(
             model_name='simulation',
             name='site',
-            field=models.ForeignKey(null=True, on_delete=django.db.models.deletion.CASCADE, to='magnetdb.site'),
+            field=models.ForeignKey(null=True, on_delete=django.db.models.deletion.CASCADE, to='python_magnetdb.site'),
         ),
         migrations.AddField(
             model_name='site',
             name='simulations',
-            field=models.ManyToManyField(related_name='site_simulations', to='magnetdb.simulation'),
+            field=models.ManyToManyField(related_name='site_simulations', to='python_magnetdb.simulation'),
         ),
         migrations.AlterField(
             model_name='simulation',
