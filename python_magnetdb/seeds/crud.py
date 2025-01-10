@@ -1,4 +1,8 @@
+import json
 import os
+
+from python_magnetdb.utils.yaml_json import yaml_to_json
+
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'python_magnetdb.settings')
 
 import django
@@ -33,14 +37,14 @@ def create_material(obj):
 
 def create_part(obj):
     """create part"""
+    print("creating part {}".format(obj['name']))
     geometry = obj.pop('geometry', None)
     cad = obj.pop('cad', None)
     part = Part(**obj)
-    part.save()
     if geometry is not None:
-        attachment = upload_attachment(path.join(data_directory, 'geometries', f"{geometry}.yaml"))
-        if attachment is not None:
-            part.partgeometry_set.create(type='default', part=part, attachment=attachment)
+        with open(path.join(data_directory, 'geometries', f"{geometry}.yaml")) as file:
+            part.geometry_config = json.loads(yaml_to_json(file.read()))
+    part.save()
     if cad is not None:
         for file in [f"{cad}.xao", f"{cad}.brep"]:
             attachment = upload_attachment(path.join(data_directory, 'cad', file))

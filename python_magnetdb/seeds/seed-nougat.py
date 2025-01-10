@@ -4,6 +4,7 @@ Create a basic magnetdb
 
 from os import getenv
 
+from python_magnetdb.models.magnet import MagnetType
 from .crud import create_material, create_part, create_magnet, query_site
 
 data_directory = getenv('DATA_DIR')
@@ -40,6 +41,7 @@ MNOUGAT = create_magnet({
     'name': "Nougat",
     'parts': [NOUGAT],
     'status': 'in_study',
+    'type': MagnetType.SUPRAS,
     'design_office_reference': 'Nougat',
     'site': M9_M19020601
 })

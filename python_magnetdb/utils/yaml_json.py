@@ -1,7 +1,7 @@
 import yaml
 import json
 from typing import Any, Dict
-
+from python_magnetgeo.deserialize import *
 
 class TaggedDict(dict):
     def __init__(self, tag: str, value: Dict):

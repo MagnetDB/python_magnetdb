@@ -13,7 +13,7 @@
         </Button>
         <Popover>
           <Button class="btn btn-default">
-            Visualiser
+            Visualize
           </Button>
 
           <template #content>
