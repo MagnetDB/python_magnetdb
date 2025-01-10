@@ -38,7 +38,7 @@ def run_ssh_simulation(simulation: Simulation, server: Server, cores):
     simulation.status = "in_progress"
     simulation.save()
 
-    currents = {current.magnet.name: {'value': current.value, 'type': current.magnet.get_type() } for current in simulation.simulationcurrent_set.all()}
+    currents = {current.magnet.name: {'value': current.value, 'type': current.magnet.type } for current in simulation.simulationcurrent_set.all()}
     print(f'currents={currents}')
 
     with tempfile.TemporaryDirectory() as local_tempdir:

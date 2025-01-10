@@ -41,16 +41,10 @@ export function update({ id, ...values }) {
     .then((res) => res.data)
 }
 
-export function addPart({ magnetId, partId, innerBore, outerBore, angle }) {
+export function addPart({ magnetId, partId, angle }) {
   const form = new FormData()
   form.append('magnet_id', magnetId)
   form.append('part_id', partId)
-  if (innerBore !== undefined) {
-    form.append('inner_bore', innerBore)
-  }
-  if (outerBore !== undefined) {
-    form.append('outer_bore', outerBore)
-  }
   if (angle !== undefined) {
     form.append('angle', angle)
   }

@@ -50,13 +50,21 @@
         Details
       </template>
 
-      <Form :initial-values="magnet" @submit="submit" @validate="validate">
+      <Form :initial-values="initialValues" @submit="submit" @validate="validate">
         <FormField
             label="Name"
             name="name"
             type="text"
             :component="FormInput"
             :required="true"
+        />
+        <FormField
+          label="Type"
+          name="type"
+          :component="FormSelect"
+          :required="true"
+          :disabled="true"
+          :options="typeOptions"
         />
         <FormField
             label="Description"
@@ -69,6 +77,22 @@
             name="design_office_reference"
             type="text"
             :component="FormInput"
+        />
+        <FormField
+            label="Inner bore"
+            name="inner_bore"
+            type="number"
+            placeholder="0"
+            :component="FormInput"
+            :required="true"
+        />
+        <FormField
+            label="Outer bore"
+            name="outer_bore"
+            type="number"
+            placeholder="0"
+            :component="FormInput"
+            :required="true"
         />
         <CadAttachmentEditor
           label="CAD"
@@ -103,8 +127,6 @@
               <th class="whitespace-nowrap">Name</th>
               <th class="whitespace-nowrap">Description</th>
               <th class="whitespace-nowrap">Status</th>
-              <th class="whitespace-nowrap">Inner bore</th>
-              <th class="whitespace-nowrap">Outer bore</th>
               <th class="whitespace-nowrap">Angle</th>
               <th class="whitespace-nowrap">Commissioned At</th>
               <th class="whitespace-nowrap">Decommissioned At</th>
@@ -124,14 +146,6 @@
               </td>
               <td class="whitespace-nowrap">
                 <StatusBadge :status="magnetPart.part.status"></StatusBadge>
-              </td>
-              <td class="whitespace-nowrap">
-                <template v-if="magnetPart.inner_bore !== null">{{ magnetPart.inner_bore }}</template>
-                <span v-else class="text-gray-500 italic">Not set</span>
-              </td>
-              <td class="whitespace-nowrap">
-                <template v-if="magnetPart.outer_bore !== null">{{ magnetPart.outer_bore }}</template>
-                <span v-else class="text-gray-500 italic">Not set</span>
               </td>
               <td class="whitespace-nowrap">
                 <template v-if="magnetPart.angle !== null">{{ magnetPart.angle }}</template>
@@ -204,6 +218,7 @@
     <AddPartToMagnetModal
         :magnet-id="magnet.id"
         :visible="addPartModalVisible"
+        :allowed-types="magnet.supported_part_types"
         @close="addPartModalVisible = false; fetch()"
     />
     <AttachMagnetToSiteModal
@@ -255,6 +270,12 @@ export default {
       magnet: null,
       addPartModalVisible: false,
       attachToSiteModalVisible: false,
+      initialValues: null,
+      typeOptions: [
+        { name: 'Insert', value: 'insert' },
+        { name: 'Bitters', value: 'bitters' },
+        { name: 'Supras', value: 'supras' },
+      ],
     }
   },
   methods: {
@@ -271,6 +292,8 @@ export default {
         name: values.name,
         description: values.description,
         design_office_reference: values.design_office_reference,
+        inner_bore: values.inner_bore,
+        outer_bore: values.outer_bore,
       }
       if (values.cao instanceof File) {
         payload.cao = values.cao
@@ -292,6 +315,10 @@ export default {
       return magnetService.find({id: this.$route.params.id})
           .then((magnet) => {
             this.magnet = magnet
+            this.initialValues = {
+              ...magnet,
+              type: this.typeOptions.find((opt) => opt.value === this.magnet.type),
+            }
           })
           .catch((error) => {
             this.error = error

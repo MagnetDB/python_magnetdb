@@ -27,7 +27,7 @@ def run_simulation_setup(simulation: Simulation):
     simulation.save()
 
     currents = {
-        current.magnet.name: {"value": current.value, "type": current.magnet.get_type()}
+        current.magnet.name: {"value": current.value, "type": current.magnet.type}
         for current in simulation.simulationcurrent_set.all()
     }
     print(f"currents={currents}")
