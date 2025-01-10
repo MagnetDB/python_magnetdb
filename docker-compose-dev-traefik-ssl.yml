@@ -87,31 +87,31 @@ services:
       REDIS_ADDR: redis://redis:6379/0
       DATABASE_HOST: postgres
       IMAGES_DIR: /images
-  web-app:
-    container_name: magnetdb-webapp
-    build:
-      context: web
-      dockerfile: Dockerfile-dev
-      args:
-        NODE_ENV: development
-        API_ENDPOINT: "https://api.magnetdb-dev.local"
-    volumes:
-      - ./web:/app
-    command:
-      - /bin/bash
-      - -c
-      - |
-        yarn add caniuse-lite
-        yarn remove caniuse-lite
-        yarn install
-        yarn serve
-    working_dir: /app
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.app.rule=Host(`magnetdb-dev.local`)"
-      - "traefik.http.routers.app.entrypoints=https"
-      - "traefik.http.routers.app.tls=true"
-      - "traefik.http.services.app.loadbalancer.server.port=8080"
+#  web-app:
+#    container_name: magnetdb-webapp
+#    build:
+#      context: web
+#      dockerfile: Dockerfile-dev
+#      args:
+#        NODE_ENV: development
+#        API_ENDPOINT: "https://api.magnetdb-dev.local"
+#    volumes:
+#      - ./web:/app
+#    command:
+#      - /bin/bash
+#      - -c
+#      - |
+#        yarn add caniuse-lite
+#        yarn remove caniuse-lite
+#        yarn install
+#        yarn serve
+#    working_dir: /app
+#    labels:
+#      - "traefik.enable=true"
+#      - "traefik.http.routers.app.rule=Host(`magnetdb-dev.local`)"
+#      - "traefik.http.routers.app.entrypoints=https"
+#      - "traefik.http.routers.app.tls=true"
+#      - "traefik.http.services.app.loadbalancer.server.port=8080"
   lemonldap:
     container_name: magnetdb-lemonldap
     image: tiredofit/lemonldap:2.0.24

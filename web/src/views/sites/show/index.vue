@@ -98,24 +98,49 @@
         <table>
           <thead class="bg-white">
             <tr>
-              <th>Name</th>
-              <th>Description</th>
-              <th>Status</th>
+              <th class="whitespace-nowrap">Name</th>
+              <th class="whitespace-nowrap">Description</th>
+              <th class="whitespace-nowrap">Status</th>
+              <th class="whitespace-nowrap">Z offset</th>
+              <th class="whitespace-nowrap">R offset</th>
+              <th class="whitespace-nowrap">Parallax</th>
+              <th class="whitespace-nowrap"></th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="siteMagnet in site.site_magnets" :key="siteMagnet.id">
-              <td>
+              <td class="whitespace-nowrap">
                 <router-link :to="{ name: 'magnet', params: { id: siteMagnet.magnet.id } }" class="link">
                   {{ siteMagnet.magnet.name }}
                 </router-link>
               </td>
-              <td>
+              <td class="whitespace-nowrap">
                 <template v-if="siteMagnet.magnet.description">{{ siteMagnet.magnet.description }}</template>
                 <span v-else class="text-gray-500 italic">Not available</span>
               </td>
-              <td>
+              <td class="whitespace-nowrap">
                 <StatusBadge :status="siteMagnet.magnet.status"></StatusBadge>
+              </td>
+              <td class="whitespace-nowrap">
+                <template v-if="siteMagnet.z_offset !== null">{{ siteMagnet.z_offset }}</template>
+                <span v-else class="text-gray-500 italic">Not set</span>
+              </td>
+              <td class="whitespace-nowrap">
+                <template v-if="siteMagnet.r_offset !== null">{{ siteMagnet.r_offset }}</template>
+                <span v-else class="text-gray-500 italic">Not set</span>
+              </td>
+              <td class="whitespace-nowrap">
+                <template v-if="siteMagnet.parallax !== null">{{ siteMagnet.parallax }}</template>
+                <span v-else class="text-gray-500 italic">Not set</span>
+              </td>
+              <td class="whitespace-nowrap">
+                <Button
+                    v-if="['in_study', 'in_stock'].includes(site.status)"
+                    class="btn btn-danger btn-small"
+                    @click="removeMagnet(siteMagnet)"
+                >
+                  Remove magnet
+                </Button>
               </td>
             </tr>
           </tbody>
@@ -238,6 +263,13 @@ export default {
           .then((site) => {
             this.site = site
           })
+          .catch((error) => {
+            this.error = error
+          })
+    },
+    removeMagnet(siteMagnet) {
+      siteService.deleteMagnet({ siteMagnetId: siteMagnet.id })
+          .then(this.fetch)
           .catch((error) => {
             this.error = error
           })

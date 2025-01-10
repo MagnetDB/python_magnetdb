@@ -1,4 +1,8 @@
+import json
+
 from django.db import models
+
+from python_magnetdb.utils.yaml_json import json_to_yaml
 
 
 class Part(models.Model):
@@ -13,10 +17,26 @@ class Part(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, null=False)
     updated_at = models.DateTimeField(auto_now=True, null=False)
     design_office_reference = models.CharField(max_length=255, null=True)
+    geometry_config = models.JSONField(default=dict, null=False)
+    hts_attachment = models.ForeignKey('StorageAttachment', on_delete=models.SET_NULL, null=True, related_name='part_hts')
+    shape_attachment = models.ForeignKey('StorageAttachment', on_delete=models.SET_NULL, null=True, related_name='part_shape')
 
-    def allow_geometry_types(self):
-        if self.type == 'helix':
-            return ['default', 'salome', 'catia', 'cam', 'shape']
-        elif self.type == 'supra':
-            return ['default', 'hts']
-        return ['default']
+    @property
+    def allow_hts_file(self):
+        return self.type == 'supra'
+
+    @property
+    def allow_shape_file(self):
+        return self.type == 'helix'
+
+    @property
+    def geometry_config_to_yaml(self):
+        if self.geometry_config is None:
+            return None
+        return json_to_yaml(json.dumps(self.geometry_config))
+
+    @property
+    def geometry_config_to_json(self):
+        if self.geometry_config is None:
+            return None
+        return json.dumps(self.geometry_config)

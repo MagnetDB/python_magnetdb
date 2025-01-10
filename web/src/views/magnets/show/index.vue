@@ -76,13 +76,6 @@
           :resource-id="magnet.id"
           :default-attachments="magnet.cad"
         />
-        <FormField
-            label="Geometry"
-            name="geometry"
-            type="file"
-            :component="FormUpload"
-            :default-value="magnet.geometry"
-        />
         <Button type="submit" class="btn btn-primary">
           Save
         </Button>
@@ -107,29 +100,60 @@
         <table>
           <thead class="bg-white">
             <tr>
-              <th>Name</th>
-              <th>Description</th>
-              <th>Status</th>
-              <th>Commissioned At</th>
-              <th>Decommissioned At</th>
+              <th class="whitespace-nowrap">Name</th>
+              <th class="whitespace-nowrap">Description</th>
+              <th class="whitespace-nowrap">Status</th>
+              <th class="whitespace-nowrap">Inner bore</th>
+              <th class="whitespace-nowrap">Outer bore</th>
+              <th class="whitespace-nowrap">Angle</th>
+              <th class="whitespace-nowrap">Commissioned At</th>
+              <th class="whitespace-nowrap">Decommissioned At</th>
+              <th class="whitespace-nowrap"></th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="magnetPart in magnet.magnet_parts" :key="magnetPart.id">
-              <td>
+              <td class="whitespace-nowrap">
                 <router-link :to="{ name: 'part', params: { id: magnetPart.part.id } }" class="link">
                   {{ magnetPart.part.name }}
                 </router-link>
               </td>
-              <td>
+              <td class="whitespace-nowrap">
                 <template v-if="magnetPart.part.description">{{ magnetPart.part.description }}</template>
                 <span v-else class="text-gray-500 italic">Not available</span>
               </td>
-              <td>
+              <td class="whitespace-nowrap">
                 <StatusBadge :status="magnetPart.part.status"></StatusBadge>
               </td>
-              <td>{{ magnetPart.commissioned_at | datetime }}</td>
-              <td>{{ magnetPart.decommissioned_at | datetime }}</td>
+              <td class="whitespace-nowrap">
+                <template v-if="magnetPart.inner_bore !== null">{{ magnetPart.inner_bore }}</template>
+                <span v-else class="text-gray-500 italic">Not set</span>
+              </td>
+              <td class="whitespace-nowrap">
+                <template v-if="magnetPart.outer_bore !== null">{{ magnetPart.outer_bore }}</template>
+                <span v-else class="text-gray-500 italic">Not set</span>
+              </td>
+              <td class="whitespace-nowrap">
+                <template v-if="magnetPart.angle !== null">{{ magnetPart.angle }}</template>
+                <span v-else class="text-gray-500 italic">Not set</span>
+              </td>
+              <td class="whitespace-nowrap">
+                <template v-if="magnetPart.commissioned_at !== null">{{ magnetPart.commissioned_at | datetime }}</template>
+                <span v-else class="text-gray-500 italic">Not available</span>
+              </td>
+              <td class="whitespace-nowrap">
+                <template v-if="magnetPart.decommissioned_at !== null">{{ magnetPart.decommissioned_at | datetime }}</template>
+                <span v-else class="text-gray-500 italic">Not available</span>
+              </td>
+              <td class="whitespace-nowrap">
+                <Button
+                  v-if="['in_study', 'in_stock'].includes(magnet.status)"
+                  class="btn btn-danger btn-small"
+                  @click="removePart(magnetPart)"
+                >
+                  Remove part
+                </Button>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -140,13 +164,6 @@
       <template #header>
         <div class="flex items-center justify-between">
           <div>Related Site</div>
-          <Button
-              v-if="['in_study', 'in_stock'].includes(magnet.status)"
-              class="btn btn-primary btn-small"
-              @click="attachToSiteModalVisible = true"
-          >
-            Attach to site
-          </Button>
         </div>
 
       </template>
@@ -174,7 +191,7 @@
                 <span v-else class="text-gray-500 italic">Not available</span>
               </td>
               <td>
-                <StatusBadge :status="siteMagnet.site.status"></StatusBadge>
+                <StatusBadge :status="siteMagnet.site.status" />
               </td>
               <td>{{ siteMagnet.commissioned_at }}</td>
               <td>{{ siteMagnet.decommissioned_at }}</td>
@@ -276,6 +293,13 @@ export default {
           .then((magnet) => {
             this.magnet = magnet
           })
+          .catch((error) => {
+            this.error = error
+          })
+    },
+    removePart(magnetPart) {
+      magnetService.deletePart({ magnetPartId: magnetPart.id })
+          .then(this.fetch)
           .catch((error) => {
             this.error = error
           })

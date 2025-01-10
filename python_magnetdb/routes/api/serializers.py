@@ -3,7 +3,7 @@ from django.db.models import DateTimeField
 from django.db.models.fields.related import ForeignKey
 from django.db.models.fields.related_descriptors import ReverseManyToOneDescriptor
 
-from python_magnetdb.models import Site, Material, Part, Magnet, PartGeometry, Simulation
+from python_magnetdb.models import Site, Material, Part, Magnet, Simulation
 
 
 def _site_post_processor(model: Site, res: dict):
@@ -38,9 +38,14 @@ def _part_post_processor(model: Part, res: dict):
     if 'cadattachment_set' in res:
         res['cad'] = res['cadattachment_set']
         del res['cadattachment_set']
-    if 'partgeometry_set' in res:
-        res['geometries'] = res['partgeometry_set']
-        del res['partgeometry_set']
+    if 'hts_attachment' in res:
+        res['hts'] = res['hts_attachment']
+        del res['hts_attachment']
+    if 'shape_attachment' in res:
+        res['shape'] = res['shape_attachment']
+        del res['shape_attachment']
+    res['allow_hts_file'] = model.allow_hts_file
+    res['allow_shape_file'] = model.allow_shape_file
     return res
 
 
@@ -75,11 +80,6 @@ def _magnet_post_processor(model: Magnet, res: dict):
     return res
 
 
-def _part_geometry_post_processor(model: PartGeometry, res: dict):
-    res['part_id'] = model.part_id
-    return res
-
-
 def _simulation_post_processor(model: Simulation, res: dict):
     if 'simulationcurrent_set' in res:
         res['currents'] = res['simulationcurrent_set']
@@ -98,7 +98,6 @@ POST_PROCESSORS = {
     Material: _material_post_processor,
     Part: _part_post_processor,
     Magnet: _magnet_post_processor,
-    PartGeometry: _part_geometry_post_processor,
     Simulation: _simulation_post_processor,
 }
 

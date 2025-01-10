@@ -96,7 +96,7 @@ def mdata(id: int, user=Depends(get_user("read"))):
 @router.get("/api/magnets/{id}")
 def show(id: int, user=Depends(get_user("read"))):
     magnet = Magnet.objects\
-        .prefetch_related('magnetpart_set__part', 'sitemagnet_set__site', 'cadattachment_set__attachment', 'geometry_attachment')\
+        .prefetch_related('magnetpart_set__part', 'sitemagnet_set__site', 'cadattachment_set__attachment')\
         .get(id=id)
     if not magnet:
         raise HTTPException(status_code=404, detail="Magnet not found")
@@ -114,7 +114,7 @@ def update(
     geometry: UploadFile = File(None),
 ):
     magnet = Magnet.objects \
-        .prefetch_related('magnetpart_set__part', 'sitemagnet_set__site', 'cadattachment_set__attachment', 'geometry_attachment') \
+        .prefetch_related('magnetpart_set__part', 'sitemagnet_set__site', 'cadattachment_set__attachment') \
         .get(id=id)
     if not magnet:
         raise HTTPException(status_code=404, detail="Magnet not found")
@@ -122,8 +122,6 @@ def update(
     magnet.name = name
     magnet.description = description
     magnet.design_office_reference = design_office_reference
-    if geometry:
-        magnet.geometry_attachment = StorageAttachment.upload(geometry)
     magnet.save()
     AuditLog.log(user, "Magnet updated", resource=magnet)
     return model_serializer(magnet)
@@ -132,7 +130,7 @@ def update(
 @router.post("/api/magnets/{id}/defunct")
 def defunct(id: int, decommissioned_at: datetime = Form(datetime.now()), user=Depends(get_user('update'))):
     magnet = Magnet.objects \
-        .prefetch_related('magnetpart_set__part', 'sitemagnet_set__site', 'cadattachment_set__attachment', 'geometry_attachment') \
+        .prefetch_related('magnetpart_set__part', 'sitemagnet_set__site', 'cadattachment_set__attachment') \
         .get(id=id)
     if not magnet:
         raise HTTPException(status_code=404, detail="Magnet not found")
@@ -154,7 +152,7 @@ def defunct(id: int, decommissioned_at: datetime = Form(datetime.now()), user=De
 @router.delete("/api/magnets/{id}")
 def destroy(id: int, user=Depends(get_user("delete"))):
     magnet = Magnet.objects \
-        .prefetch_related('magnetpart_set__part', 'sitemagnet_set__site', 'cadattachment_set__attachment', 'geometry_attachment') \
+        .prefetch_related('magnetpart_set__part', 'sitemagnet_set__site', 'cadattachment_set__attachment') \
         .get(id=id)
     if not magnet:
         raise HTTPException(status_code=404, detail="Magnet not found")

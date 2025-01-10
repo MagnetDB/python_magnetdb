@@ -73,7 +73,23 @@
             :resource-id="part.id"
             :default-attachments="part.cad"
         />
-        <GeometryEditor :part="part" />
+        <FormField
+            label="Geometry YAML"
+            name="geometry_yaml_config"
+            :component="FormUpload"
+        />
+        <FormField
+            v-if="part.allow_hts_file"
+            label="Geometry HTS"
+            name="geometry_hts"
+            :component="FormUpload"
+        />
+        <FormField
+            v-if="part.allow_shape_file"
+            label="Geometry shape"
+            name="geometry_shape"
+            :component="FormUpload"
+        />
         <Button type="submit" class="btn btn-primary">
           Save
         </Button>
@@ -132,12 +148,10 @@ import Alert from "@/components/Alert";
 import StatusBadge from "@/components/StatusBadge";
 import CadAttachmentEditor from "@/components/CadAttachmentEditor";
 import FormValues from "@/components/FormValues";
-import GeometryEditor from "@/views/parts/show/GeometryEditor";
 
 export default {
   name: 'PartShow',
   components: {
-    GeometryEditor,
     FormValues,
     CadAttachmentEditor,
     StatusBadge,
@@ -199,25 +213,39 @@ export default {
             this.error = error
           })
     },
-    submit(values, {setRootError}) {
-      let payload = {
-        id: this.part.id,
-        name: values.name,
-        description: values.description,
-        type: values.type.value,
-        design_office_reference: values.design_office_reference,
-        material_id: values.material.value,
-      }
-      if (values.cao instanceof File) {
-        payload.cao = values.cao
-      }
-      if (values.geometry instanceof File) {
-        payload.geometry = values.geometry
-      }
+    async submit(values, {setRootError}) {
+      try {
+        let payload = {
+          id: this.part.id,
+          name: values.name,
+          description: values.description,
+          type: values.type.value,
+          design_office_reference: values.design_office_reference,
+          material_id: values.material.value,
+        }
+        if (values.cao instanceof File) {
+          payload.cao = values.cao
+        }
+        if (values.geometry_yaml_config instanceof File) {
+          const reader = new FileReader()
+          payload.geometry_yaml_config = await new Promise((resolve, reject) => {
+            reader.addEventListener('loadend', (event) => resolve(event.target.result))
+            reader.addEventListener('error', reject)
+            reader.readAsText(values.geometry_yaml_config, 'utf8')
+          })
+        }
+        if (values.geometry_hts instanceof File) {
+          payload.geometry_hts = values.geometry_hts
+        }
+        if (values.geometry_shape instanceof File) {
+          payload.geometry_shape = values.geometry_shape
+        }
 
-      return partService.update(payload)
-          .then(this.fetch)
-          .catch(setRootError)
+        await partService.update(payload)
+        await this.fetch()
+      } catch (error) {
+        setRootError(error)
+      }
     },
     validate() {
       return Yup.object().shape({

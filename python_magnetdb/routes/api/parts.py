@@ -1,14 +1,16 @@
+import json
 from typing import List
 
 from django.core.paginator import Paginator
 from django.db import IntegrityError
 from django.db.models import Q
-from fastapi import APIRouter, Query, HTTPException, Depends
-from fastapi.params import Form
+from fastapi import APIRouter, Query, HTTPException, Depends, UploadFile
+from fastapi.params import Form, File
 
 from .serializers import model_serializer
 from ...dependencies import get_user
-from ...models import Part, Material, AuditLog
+from ...models import Part, Material, AuditLog, StorageAttachment
+from ...utils.yaml_json import yaml_to_json
 
 router = APIRouter()
 
@@ -34,8 +36,10 @@ def index(user=Depends(get_user('read')), page: int = 1, per_page: int = Query(d
 
 
 @router.post("/api/parts")
-def create(user=Depends(get_user('create')), name: str = Form(...), description: str = Form(None),
-           type: str = Form(...), material_id: str = Form(...), design_office_reference: str = Form(None)):
+def create(
+    user=Depends(get_user('create')), name: str = Form(...), description: str = Form(None),
+    type: str = Form(...), material_id: str = Form(...), design_office_reference: str = Form(None)
+):
     material = Material.objects.filter(id=material_id).get()
     if not material:
         raise HTTPException(status_code=404, detail="Material not found")
@@ -90,8 +94,8 @@ def records(id: int, user=Depends(get_user('read'))):
 @router.get("/api/parts/{id}")
 def show(id: int, user=Depends(get_user('read'))):
     part = Part.objects\
-        .select_related('material')\
-        .prefetch_related('cadattachment_set__attachment', 'partgeometry_set__attachment', 'magnetpart_set__magnet')\
+        .select_related('material', 'hts_attachment', 'shape_attachment')\
+        .prefetch_related('cadattachment_set__attachment', 'magnetpart_set__magnet')\
         .get(id=id)
     if not part:
         raise HTTPException(status_code=404, detail="Part not found")
@@ -100,11 +104,15 @@ def show(id: int, user=Depends(get_user('read'))):
 
 
 @router.patch("/api/parts/{id}")
-def update(id: int, user=Depends(get_user('update')), name: str = Form(...), description: str = Form(None),
-           type: str = Form(...), material_id: str = Form(...), design_office_reference: str = Form(None)):
+def update(
+    id: int, user=Depends(get_user('update')), name: str = Form(...), description: str = Form(None),
+    type: str = Form(...), material_id: str = Form(...), design_office_reference: str = Form(None),
+    geometry_yaml_config: str = Form(None), geometry_hts: UploadFile = File(None),
+    geometry_shape: UploadFile = File(None)
+):
     part = Part.objects \
-        .select_related('material') \
-        .prefetch_related('cadattachment_set__attachment', 'partgeometry_set__attachment', 'magnetpart_set__magnet') \
+        .select_related('material', 'hts_attachment', 'shape_attachment') \
+        .prefetch_related('cadattachment_set__attachment', 'magnetpart_set__magnet') \
         .get(id=id)
     if not part:
         raise HTTPException(status_code=404, detail="Part not found")
@@ -118,6 +126,12 @@ def update(id: int, user=Depends(get_user('update')), name: str = Form(...), des
     part.type = type
     part.design_office_reference = design_office_reference
     part.material = material
+    if geometry_yaml_config is not None:
+        part.geometry_config = json.loads(yaml_to_json(geometry_yaml_config))
+    if geometry_hts is not None and part.allow_hts_file:
+        part.hts_attachment = StorageAttachment.upload(geometry_hts)
+    if geometry_shape is not None and part.allow_shape_file:
+        part.shape_attachment = StorageAttachment.upload(geometry_shape)
     part.save()
     AuditLog.log(user, "Part updated", resource=part)
     return model_serializer(part)

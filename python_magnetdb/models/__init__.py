@@ -2,7 +2,6 @@ from .audit_log import AuditLog
 from .cad_attachment import CadAttachment
 from .magnet_part import MagnetPart
 from .material import Material
-from .part_geometry import PartGeometry
 from .record import Record
 from .server import Server
 from .simulation import Simulation
