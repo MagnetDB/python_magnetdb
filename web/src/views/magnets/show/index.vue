@@ -94,6 +94,10 @@
             :component="FormInput"
             :required="true"
         />
+        <div class="form-field">
+          <label class="form-field-label">Geometry</label>
+          <GeometryModal :default-value="defaultGeometryValue" />
+        </div>
         <CadAttachmentEditor
           label="CAD"
           resource-type="magnet"
@@ -221,11 +225,6 @@
         :allowed-types="magnet.supported_part_types"
         @close="addPartModalVisible = false; fetch()"
     />
-    <AttachMagnetToSiteModal
-        :magnet-id="magnet.id"
-        :visible="attachToSiteModalVisible"
-        @close="attachToSiteModalVisible = false; fetch()"
-    />
   </div>
   <Alert v-else-if="error" class="alert alert-danger" :error="error"/>
 </template>
@@ -242,18 +241,19 @@ import FormUpload from "@/components/FormUpload";
 import Button from "@/components/Button";
 import Alert from "@/components/Alert";
 import AddPartToMagnetModal from "@/views/magnets/show/AddPartToMagnetModal";
-import AttachMagnetToSiteModal from "@/views/magnets/show/AttachMagnetToSiteModal";
 import StatusBadge from "@/components/StatusBadge";
 import CadAttachmentEditor from "@/components/CadAttachmentEditor";
 import Popover from "@/components/Popover";
+import GeometryModal from "@/components/GeometryModal.vue";
+import client from "@/services/client";
 
 export default {
   name: 'MagnetShow',
   components: {
+    GeometryModal,
     Popover,
     CadAttachmentEditor,
     StatusBadge,
-    AttachMagnetToSiteModal,
     AddPartToMagnetModal,
     Alert,
     Button,
@@ -269,8 +269,8 @@ export default {
       error: null,
       magnet: null,
       addPartModalVisible: false,
-      attachToSiteModalVisible: false,
       initialValues: null,
+      defaultGeometryValue: '',
       typeOptions: [
         { name: 'Insert', value: 'insert' },
         { name: 'Bitters', value: 'bitters' },
@@ -312,6 +312,8 @@ export default {
       })
     },
     fetch() {
+      client.get(`/api/magnets/${this.$route.params.id}/geometry.yaml`)
+          .then((res) => this.defaultGeometryValue = res.data)
       return magnetService.find({id: this.$route.params.id})
           .then((magnet) => {
             this.magnet = magnet

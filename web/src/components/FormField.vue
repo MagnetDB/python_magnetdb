@@ -39,7 +39,7 @@ export default {
 }
 </script>
 
-<style scoped>
+<style>
 .form-field {
   @apply mb-3;
 }

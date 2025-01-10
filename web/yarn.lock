@@ -927,6 +927,14 @@
   dependencies:
     "commander" "^2.15.1"
 
+"@guolao/vue-monaco-editor@^1.5.4":
+  "integrity" "sha512-eyBAqxJeDpV4mZYZSpNvh3xUgKCld5eEe0dBtjJhsy2+L0MB6PYFZ/FbPHNwskgp2RoIpfn1DLrIhXXE3lVbwQ=="
+  "resolved" "https://registry.npmjs.org/@guolao/vue-monaco-editor/-/vue-monaco-editor-1.5.4.tgz"
+  "version" "1.5.4"
+  dependencies:
+    "@monaco-editor/loader" "^1.4.0"
+    "vue-demi" "latest"
+
 "@hapi/address@2.x.x":
   "integrity" "sha512-QD1PhQk+s31P1ixsX0H0Suoupp3VMXzIVMSwobR3F3MSUO2YCV0B7xqLcUw/Bh8yuvd3LhpyqLQWTNcRmp6IdQ=="
   "resolved" "https://registry.npmjs.org/@hapi/address/-/address-2.1.4.tgz"
@@ -1049,6 +1057,13 @@
   "integrity" "sha512-Es6WcD0nO5l+2BOQS4uLfNPYQaNDfbot3X1XUoloz+x0mPDS3eeORZJl06HXjwBG1fOGwCRnzK88LMdxKRrd6Q=="
   "resolved" "https://registry.npmjs.org/@mapbox/whoots-js/-/whoots-js-3.1.0.tgz"
   "version" "3.1.0"
+
+"@monaco-editor/loader@^1.4.0":
+  "integrity" "sha512-00ioBig0x642hytVspPl7DbQyaSWRaolYie/UFNjoTdvoKPzo6xrXLhTk9ixgIKcLH5b5vDOjVNiGyY+uDCUlg=="
+  "resolved" "https://registry.npmjs.org/@monaco-editor/loader/-/loader-1.4.0.tgz"
+  "version" "1.4.0"
+  dependencies:
+    "state-local" "^1.0.6"
 
 "@mrmlnc/readdir-enhanced@^2.2.1":
   "integrity" "sha512-bPHp6Ji8b41szTOcaP63VlnbbO5Ny6dwAATtY6JTjh5N2OLrb5Qk/Th5cRkRQhkWCt+EJsYrNB0MiL+Gpn6e3g=="
@@ -1666,6 +1681,11 @@
     "vue-template-es2015-compiler" "^1.9.0"
   optionalDependencies:
     "prettier" "^1.18.2 || ^2.0.0"
+
+"@vue/composition-api@^1.0.0-rc.1", "@vue/composition-api@^1.7.1", "@vue/composition-api@^1.7.2":
+  "integrity" "sha512-M8jm9J/laYrYT02665HkZ5l2fWTK4dcVg3BsDHm/pfz+MjDYwX+9FUaZyGwEyXEDonQYRCo0H7aLgdklcIELjw=="
+  "resolved" "https://registry.npmjs.org/@vue/composition-api/-/composition-api-1.7.2.tgz"
+  "version" "1.7.2"
 
 "@vue/preload-webpack-plugin@^1.1.0":
   "integrity" "sha512-LIZMuJk38pk9U9Ur4YzHjlIyMuxPlACdBIHH9/nGYVTsaGKOSnSuELiE8vS9wa+dJpIYspYUOqk+L1Q4pgHQHQ=="
@@ -6867,6 +6887,11 @@
   "resolved" "https://registry.npmjs.org/modern-normalize/-/modern-normalize-1.1.0.tgz"
   "version" "1.1.0"
 
+"monaco-editor@>= 0.21.0 < 1", "monaco-editor@>=0.43.0":
+  "integrity" "sha512-GEQWEZmfkOGLdd3XK8ryrfWz3AIP8YymVXiPHEdewrUq7mh0qrKrfHLNCXcbB6sTnMLnOZ3ztSiKcciFUkIJwQ=="
+  "resolved" "https://registry.npmjs.org/monaco-editor/-/monaco-editor-0.52.2.tgz"
+  "version" "0.52.2"
+
 "mouse-change@^1.4.0":
   "integrity" "sha512-vpN0s+zLL2ykyyUDh+fayu9Xkor5v/zRD9jhSqjRS1cJTGS0+oakVZzNm5n19JvvEj0you+MXlYTpNxUDQUjkQ=="
   "resolved" "https://registry.npmjs.org/mouse-change/-/mouse-change-1.4.0.tgz"
@@ -9346,6 +9371,11 @@
   "resolved" "https://registry.npmjs.org/stackframe/-/stackframe-1.2.0.tgz"
   "version" "1.2.0"
 
+"state-local@^1.0.6":
+  "integrity" "sha512-HTEHMNieakEnoe33shBYcZ7NX83ACUjCu8c40iOGEZsngj9zRnkqS9j1pqQPXwobB0ZcVTk27REb7COQ0UR59w=="
+  "resolved" "https://registry.npmjs.org/state-local/-/state-local-1.0.7.tgz"
+  "version" "1.0.7"
+
 "static-eval@^2.0.5":
   "integrity" "sha512-agtxZ/kWSsCkI5E4QifRwsaPs0P0JmZV6dkLz6ILYfFYQGn+5plctanRN+IC8dJRiFkyXHrwEE3W9Wmx67uDbw=="
   "resolved" "https://registry.npmjs.org/static-eval/-/static-eval-2.1.0.tgz"
@@ -10217,6 +10247,11 @@
     "@mapbox/vector-tile" "^1.3.1"
     "pbf" "^3.2.1"
 
+"vue-demi@latest":
+  "integrity" "sha512-nMZBOwuzabUO0nLgIcc6rycZEebF6eeUfaiQx9+WSk8e29IbLvPU9feI6tqW4kTo3hvoYAJkMh8n8D0fuISphg=="
+  "resolved" "https://registry.npmjs.org/vue-demi/-/vue-demi-0.14.10.tgz"
+  "version" "0.14.10"
+
 "vue-eslint-parser@^7.0.0":
   "integrity" "sha512-qh3VhDLeh773wjgNTl7ss0VejY9bMMa0GoDG2fQVyDzRFdiU3L7fw74tWZDHNQXdZqxO3EveQroa9ct39D2nqg=="
   "resolved" "https://registry.npmjs.org/vue-eslint-parser/-/vue-eslint-parser-7.11.0.tgz"
@@ -10291,7 +10326,7 @@
   "resolved" "https://registry.npmjs.org/vue-template-es2015-compiler/-/vue-template-es2015-compiler-1.9.1.tgz"
   "version" "1.9.1"
 
-"vue@^2 || ^3.0.0-0", "vue@^2.0.0", "vue@^2.6.11", "vue@>=2.6", "vue@2.x":
+"vue@^2 || ^3.0.0-0", "vue@^2.0.0", "vue@^2.6.11", "vue@^2.6.14 || >=3.0.0", "vue@^3.0.0-0 || ^2.6.0", "vue@>= 2.5 < 2.7", "vue@>=2.6", "vue@2.x":
   "integrity" "sha512-x2284lgYvjOMj3Za7kqzRcUSxBboHqtgRE2zlos1qWaOye5yUmHn42LB1250NJBLRwEcdrB0JRwyPTEPhfQjiQ=="
   "resolved" "https://registry.npmjs.org/vue/-/vue-2.6.14.tgz"
   "version" "2.6.14"

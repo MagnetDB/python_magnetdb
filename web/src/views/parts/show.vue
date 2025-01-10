@@ -19,7 +19,7 @@
         Details
       </template>
 
-      <Form :initial-values="part" @submit="submit" @validate="validate">
+      <Form ref="form" :initial-values="part" @submit="submit" @validate="validate">
         <FormField
             label="Name"
             name="name"
@@ -73,11 +73,10 @@
             :resource-id="part.id"
             :default-attachments="part.cad"
         />
-        <FormField
-            label="Geometry YAML"
-            name="geometry_yaml_config"
-            :component="FormUpload"
-        />
+        <div class="form-field">
+          <label class="form-field-label">Geometry</label>
+          <GeometryModal :default-value="defaultGeometryValue" :editable="true" @input="editGeometry" />
+        </div>
         <FormField
             v-if="part.allow_hts_file"
             label="Geometry HTS"
@@ -137,21 +136,26 @@
 import * as Yup from 'yup'
 import * as partService from '@/services/partService'
 import * as materialService from '@/services/materialService'
-import Card from '@/components/Card'
-import Form from "@/components/Form";
-import FormField from "@/components/FormField";
-import FormInput from "@/components/FormInput";
-import FormSelect from "@/components/FormSelect";
-import FormUpload from "@/components/FormUpload";
-import Button from "@/components/Button";
-import Alert from "@/components/Alert";
-import StatusBadge from "@/components/StatusBadge";
-import CadAttachmentEditor from "@/components/CadAttachmentEditor";
-import FormValues from "@/components/FormValues";
+import Card from '@/components/Card.vue'
+import Form from "@/components/Form.vue";
+import FormField from "@/components/FormField.vue";
+import FormInput from "@/components/FormInput.vue";
+import FormSelect from "@/components/FormSelect.vue";
+import FormUpload from "@/components/FormUpload.vue";
+import Button from "@/components/Button.vue";
+import Alert from "@/components/Alert.vue";
+import StatusBadge from "@/components/StatusBadge.vue";
+import CadAttachmentEditor from "@/components/CadAttachmentEditor.vue";
+import FormValues from "@/components/FormValues.vue";
+import GeometryModal from "@/components/GeometryModal.vue";
+import client from "@/services/client";
+import {cloneDeep, set} from "lodash";
+import {queue} from "@/mixins/createFormField";
 
 export default {
   name: 'PartShow',
   components: {
+    GeometryModal,
     FormValues,
     CadAttachmentEditor,
     StatusBadge,
@@ -169,6 +173,7 @@ export default {
       error: null,
       part: null,
       materialOptions: [],
+      defaultGeometryValue: '',
       typeOptions: [
         {
           name: 'Helix',
@@ -222,17 +227,10 @@ export default {
           type: values.type.value,
           design_office_reference: values.design_office_reference,
           material_id: values.material.value,
+          geometry_yaml_config: values.geometry_yaml_config,
         }
         if (values.cao instanceof File) {
           payload.cao = values.cao
-        }
-        if (values.geometry_yaml_config instanceof File) {
-          const reader = new FileReader()
-          payload.geometry_yaml_config = await new Promise((resolve, reject) => {
-            reader.addEventListener('loadend', (event) => resolve(event.target.result))
-            reader.addEventListener('error', reject)
-            reader.readAsText(values.geometry_yaml_config, 'utf8')
-          })
         }
         if (values.geometry_hts instanceof File) {
           payload.geometry_hts = values.geometry_hts
@@ -247,6 +245,13 @@ export default {
         setRootError(error)
       }
     },
+    editGeometry(value) {
+      queue.run(() => {
+        const values = cloneDeep(this.$refs.form.values)
+        set(values, 'geometry_yaml_config', value)
+        this.$refs.form.setValues(values)
+      })
+    },
     validate() {
       return Yup.object().shape({
         name: Yup.string().required(),
@@ -255,6 +260,8 @@ export default {
       })
     },
     fetch() {
+      client.get(`/api/parts/${this.$route.params.id}/geometry.yaml`)
+          .then((res) => this.defaultGeometryValue = res.data)
       return partService.find({id: this.$route.params.id})
           .then((part) => {
             this.part = part

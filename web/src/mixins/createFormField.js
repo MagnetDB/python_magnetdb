@@ -1,7 +1,7 @@
 import { get, set, cloneDeep } from 'lodash'
 import QueueRunner from "@/utils/QueueRunner";
 
-const queue = new QueueRunner()
+export const queue = new QueueRunner()
 
 export function createFormField() {
   return {
