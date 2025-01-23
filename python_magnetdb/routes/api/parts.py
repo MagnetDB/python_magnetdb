@@ -5,11 +5,13 @@ from django.core.paginator import Paginator
 from django.db import IntegrityError
 from django.db.models import Q
 from fastapi import APIRouter, Query, HTTPException, Depends, UploadFile
+from fastapi import Response
 from fastapi.params import Form, File
 
 from .serializers import model_serializer
 from ...dependencies import get_user
 from ...models import Part, Material, AuditLog, StorageAttachment
+from ...models.part import PartType
 from ...utils.yaml_json import yaml_to_json
 
 router = APIRouter()
@@ -18,8 +20,13 @@ router = APIRouter()
 @router.get("/api/parts")
 def index(user=Depends(get_user('read')), page: int = 1, per_page: int = Query(default=25, lte=100),
           query: str = Query(None), sort_by: str = Query("created_at"), sort_desc: bool = Query(False),
-          status: List[str] = Query(default=None, alias="status[]")):
+          status: List[str] = Query(default=None, alias="status[]"),
+          type: List[str] = Query(default=None, alias="type[]")):
     db_query = Part.objects
+    if status is not None and len(status) > 0:
+        db_query = db_query.filter(status__in=status)
+    if type is not None and len(type) > 0:
+        db_query = db_query.filter(type__in=type)
     if query is not None and query.strip() != '':
         db_query = db_query.filter(Q(name__icontains=query))
     if sort_by is not None:
@@ -38,7 +45,7 @@ def index(user=Depends(get_user('read')), page: int = 1, per_page: int = Query(d
 @router.post("/api/parts")
 def create(
     user=Depends(get_user('create')), name: str = Form(...), description: str = Form(None),
-    type: str = Form(...), material_id: str = Form(...), design_office_reference: str = Form(None)
+    type: PartType = Form(...), material_id: str = Form(...), design_office_reference: str = Form(None)
 ):
     material = Material.objects.filter(id=material_id).get()
     if not material:
@@ -106,7 +113,7 @@ def show(id: int, user=Depends(get_user('read'))):
 @router.patch("/api/parts/{id}")
 def update(
     id: int, user=Depends(get_user('update')), name: str = Form(...), description: str = Form(None),
-    type: str = Form(...), material_id: str = Form(...), design_office_reference: str = Form(None),
+    type: PartType = Form(...), material_id: str = Form(...), design_office_reference: str = Form(None),
     geometry_yaml_config: str = Form(None), geometry_hts: UploadFile = File(None),
     geometry_shape: UploadFile = File(None)
 ):
@@ -135,6 +142,15 @@ def update(
     part.save()
     AuditLog.log(user, "Part updated", resource=part)
     return model_serializer(part)
+
+
+@router.get("/api/parts/{id}/geometry.yaml")
+def geometry(id: int, user=Depends(get_user('read'))):
+    part = Part.objects.get(id=id)
+    if not part:
+        raise HTTPException(status_code=404, detail="Part not found")
+
+    return Response(content=part.geometry_config_to_yaml, media_type="application/x-yaml")
 
 
 @router.post("/api/parts/{id}/defunct")

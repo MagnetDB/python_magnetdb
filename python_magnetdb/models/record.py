@@ -9,5 +9,6 @@ class Record(models.Model):
     description = models.TextField(null=True)
     site = models.ForeignKey('Site', on_delete=models.CASCADE, null=False)
     attachment = models.ForeignKey('StorageAttachment', on_delete=models.CASCADE, null=False)
+    metadata = models.JSONField(default=dict, null=False)
     created_at = models.DateTimeField(auto_now_add=True, null=False)
     updated_at = models.DateTimeField(auto_now=True, null=False)

@@ -19,5 +19,6 @@ class Material(models.Model):
     poisson = models.FloatField(default=0, null=False)
     expansion_coefficient = models.FloatField(default=0, null=False)
     rpe = models.FloatField(null=False)
+    metadata = models.JSONField(default=dict, null=False)
     created_at = models.DateTimeField(auto_now_add=True, null=False)
     updated_at = models.DateTimeField(auto_now=True, null=False)

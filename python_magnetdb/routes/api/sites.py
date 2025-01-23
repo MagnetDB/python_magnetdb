@@ -3,7 +3,7 @@ from typing import List
 
 from django.core.paginator import Paginator
 from django.db import IntegrityError
-from fastapi import Depends, APIRouter, HTTPException, Query, UploadFile, File, Form
+from fastapi import Depends, APIRouter, HTTPException, Query, UploadFile, File, Form, Response
 
 from .serializers import model_serializer
 from ...actions.generate_simulation_config import generate_site_config
@@ -59,6 +59,15 @@ def show(id: int, user=Depends(get_user('read'))):
     if not site:
         raise HTTPException(status_code=404, detail="Site not found")
     return model_serializer(site)
+
+
+@router.get("/api/sites/{id}/geometry.yaml")
+def geometry(id: int, user=Depends(get_user('read'))):
+    site = Site.objects.get(id=id)
+    if not site:
+        raise HTTPException(status_code=404, detail="Site not found")
+
+    return Response(content=site.geometry_config_to_yaml, media_type="application/x-yaml")
 
 
 @router.patch("/api/sites/{id}")

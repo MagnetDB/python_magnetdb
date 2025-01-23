@@ -17,7 +17,7 @@
 
         <Popover>
           <Button class="btn btn-default">
-            Visualiser
+            Visualize
           </Button>
 
           <template #content>
@@ -74,6 +74,10 @@
             :component="FormUpload"
             :default-value="site.config"
         />
+        <div class="form-field">
+          <label class="form-field-label">Geometry</label>
+          <GeometryModal :default-value="defaultGeometryValue" />
+        </div>
         <Button type="submit" class="btn btn-primary">
           Save
         </Button>
@@ -201,10 +205,13 @@ import Alert from "@/components/Alert";
 import AttachMagnetToSiteModal from "@/views/sites/show/AttachMagnetToSiteModal";
 import StatusBadge from "@/components/StatusBadge";
 import Popover from "@/components/Popover";
+import GeometryModal from "@/components/GeometryModal.vue";
+import client from "@/services/client";
 
 export default {
   name: 'SiteShow',
   components: {
+    GeometryModal,
     Popover,
     StatusBadge,
     AttachMagnetToSiteModal,
@@ -222,6 +229,7 @@ export default {
       error: null,
       site: null,
       attachMagnetModalVisible: false,
+      defaultGeometryValue: '',
     }
   },
   methods: {
@@ -259,6 +267,8 @@ export default {
       })
     },
     fetch() {
+      client.get(`/api/sites/${this.$route.params.id}/geometry.yaml`)
+          .then((res) => this.defaultGeometryValue = res.data)
       return siteService.find({id: this.$route.params.id})
           .then((site) => {
             this.site = site

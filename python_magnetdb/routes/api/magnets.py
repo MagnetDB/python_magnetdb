@@ -4,12 +4,13 @@ from typing import List
 from django.core.paginator import Paginator
 from django.db import IntegrityError
 from django.db.models import Q
-from fastapi import APIRouter, Query, HTTPException, Form, UploadFile, File, Depends
+from fastapi import APIRouter, Query, HTTPException, Form, Depends, Response
 
 from .serializers import model_serializer
 from ...actions.generate_magnet_directory import generate_magnet_directory
 from ...dependencies import get_user
-from ...models import Magnet, AuditLog, StorageAttachment
+from ...models import Magnet, AuditLog
+from ...models.magnet import MagnetType
 from ...models.status import Status
 
 router = APIRouter()
@@ -41,11 +42,13 @@ def index(user=Depends(get_user('read')), page: int = 1, per_page: int = Query(d
 def create(
     user=Depends(get_user("create")),
     name: str = Form(...),
+    type: MagnetType = Form(...),
     description: str = Form(None),
     design_office_reference: str = Form(None),
 ):
     magnet = Magnet(
         name=name,
+        type=type,
         description=description,
         design_office_reference=design_office_reference,
         status=Status.IN_STUDY,
@@ -68,6 +71,15 @@ def sites(id: int, user=Depends(get_user("read"))):
     for site_magnet in magnet.sitemagnet_set.all():
         result.append(model_serializer(site_magnet))
     return {"sites": result}
+
+
+@router.get("/api/magnets/{id}/geometry.yaml")
+def geometry(id: int, user=Depends(get_user('read'))):
+    magnet = Magnet.objects.get(id=id)
+    if not magnet:
+        raise HTTPException(status_code=404, detail="Magnet not found")
+
+    return Response(content=magnet.geometry_config_to_yaml, media_type="application/x-yaml")
 
 
 @router.get("/api/magnets/{id}/records")
@@ -111,7 +123,8 @@ def update(
     name: str = Form(...),
     description: str = Form(None),
     design_office_reference: str = Form(None),
-    geometry: UploadFile = File(None),
+    inner_bore: float = Form(None),
+    outer_bore: float = Form(None),
 ):
     magnet = Magnet.objects \
         .prefetch_related('magnetpart_set__part', 'sitemagnet_set__site', 'cadattachment_set__attachment') \
@@ -122,6 +135,8 @@ def update(
     magnet.name = name
     magnet.description = description
     magnet.design_office_reference = design_office_reference
+    magnet.inner_bore = inner_bore
+    magnet.outer_bore = outer_bore
     magnet.save()
     AuditLog.log(user, "Magnet updated", resource=magnet)
     return model_serializer(magnet)

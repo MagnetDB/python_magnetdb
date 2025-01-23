@@ -6,6 +6,7 @@ from os import getenv
 
 from .crud import create_material, create_part, create_site, create_magnet
 from .crud import query_part, query_material
+from python_magnetdb.models.magnet import MagnetType
 
 data_directory = getenv('DATA_DIR')
 
@@ -64,6 +65,7 @@ M18110501 = create_magnet({'name': 'M18110501',
                        'status': 'in_study',
                        'site': M9_M18110501,
                        'geometry': 'HL-31',
+                       'type': MagnetType.INSERT,
                        'parts': [H15101601, H15061703, H15061801, H15100501, H15101501, H18060101, H18012501, H18051801, H14061901, H14062701, H14062001, H10061701, H10061702, H14072201, M19061901_R1, M19061901_R2, M19061901_R3, M19061901_R4, M19061901_R5, M19061901_R6, M19061901_R7, M19061901_R8, M19061901_R9, M19061901_R10, M19061901_R11, M19061901_R12, M19061901_R13, M19061901_iL1, M19061901_oL2]})
 print('M18110501:', M18110501)
 
@@ -96,7 +98,7 @@ H10011501 = create_part({'name': 'H10011501', 'type': 'helix', 'status': 'in_stu
 
 # TODO add inner_H2, outer
 M10_M19071101 = create_site({'name': 'M10_M19071101', 'status': 'in_study', 'config': 'MAGFILEM19071101M9Phi50.conf'})
-M19071101 = create_magnet({'name': 'M19071101', 'status': 'in_study', 'site': M10_M19071101, 'geometry': 'H12-phi50', 'parts': [H18040901, H17062101, H15013001, H08070801, H10011201, H08070810, H08070811, H08060606, H08060607, H08060608, H08060609, H10011501, M19061901_R3, M19061901_R4, M19061901_R5, M19061901_R6, M19061901_R7, M19061901_R8, M19061901_R9, M19061901_R10, M19061901_R11, M19061901_R12, M19061901_R13]})
+M19071101 = create_magnet({'name': 'M19071101', 'status': 'in_study', 'type': MagnetType.INSERT, 'site': M10_M19071101, 'geometry': 'H12-phi50', 'parts': [H18040901, H17062101, H15013001, H08070801, H10011201, H08070810, H08070811, H08060606, H08060607, H08060608, H08060609, H10011501, M19061901_R3, M19061901_R4, M19061901_R5, M19061901_R6, M19061901_R7, M19061901_R8, M19061901_R9, M19061901_R10, M19061901_R11, M19061901_R12, M19061901_R13]})
 
 # Material
 MA19020601 = create_material({'name': 'MA19020601', 'description': '', 't_ref': 293, 'volumic_mass': 9000.0, 'specific_heat': 380, 'alpha': 0.0036, 'electrical_conductivity': 53.0e+6, 'thermal_conductivity': 380, 'magnet_permeability': 1, 'young': 117000000000.0, 'poisson': 0.33, 'expansion_coefficient': 1.8e-05, 'rpe': '500', 'nuance': 'CuAg5,5'})
@@ -116,11 +118,11 @@ H19012101 = create_part({'name': 'H19012101 ', 'type': 'helix', 'status': 'in_st
 H19011601 = create_part({'name': 'H19011601', 'type': 'helix', 'status': 'in_study', 'material': MA19011601, 'geometry': 'HL-31_H12', 'cad': 'HL-31_H12'})
 
 M9_M20022001 = create_site({'name': 'M9_M20022001', 'status': 'in_study', 'config': 'MAGFILEM20022001b.conf'})
-M20022001 = create_magnet({'name': 'M20022001', 'status': 'in_study', 'site': M9_M20022001, 'geometry': 'HL-31', 'parts': [H15101601, H15061703, H15061801, H15100501, H15101501, H18060101, H18012501, H18051801, H18101201, H18110501, H19012101, H19011601, H19020601, H19022701, M19061901_R1, M19061901_R2, M19061901_R3, M19061901_R4, M19061901_R5, M19061901_R6, M19061901_R7, M19061901_R8, M19061901_R9, M19061901_R10, M19061901_R11, M19061901_R12, M19061901_R13, M19061901_iL1, M19061901_oL2]})
+M20022001 = create_magnet({'name': 'M20022001', 'status': 'in_study', 'type': MagnetType.INSERT, 'site': M9_M20022001, 'geometry': 'HL-31', 'parts': [H15101601, H15061703, H15061801, H15100501, H15101501, H18060101, H18012501, H18051801, H18101201, H18110501, H19012101, H19011601, H19020601, H19022701, M19061901_R1, M19061901_R2, M19061901_R3, M19061901_R4, M19061901_R5, M19061901_R6, M19061901_R7, M19061901_R8, M19061901_R9, M19061901_R10, M19061901_R11, M19061901_R12, M19061901_R13, M19061901_iL1, M19061901_oL2]})
 
 # Material
 M9_M22011801 = create_site({'name': 'M9_M22011801', 'status': 'in_study', 'config': 'MAGFILEM22011801.conf'})
-M22011801 = create_magnet({'name': 'M22011801', 'status': 'in_study', 'site': M9_M22011801, 'geometry': 'HL-31', 'parts': [H15101601, H15061703, H15061801, H15100501, H15101501, H18060101, H18012501, H18051801, H18101201, H18110501, H19012101, H19011601, H19020601, H14072201, M19061901_R1, M19061901_R2, M19061901_R3, M19061901_R4, M19061901_R5, M19061901_R6, M19061901_R7, M19061901_R8, M19061901_R9, M19061901_R10, M19061901_R11, M19061901_R12, M19061901_R13, M19061901_iL1, M19061901_oL2]})
+M22011801 = create_magnet({'name': 'M22011801', 'status': 'in_study', 'type': MagnetType.INSERT, 'site': M9_M22011801, 'geometry': 'HL-31', 'parts': [H15101601, H15061703, H15061801, H15100501, H15101501, H18060101, H18012501, H18051801, H18101201, H18110501, H19012101, H19011601, H19020601, H14072201, M19061901_R1, M19061901_R2, M19061901_R3, M19061901_R4, M19061901_R5, M19061901_R6, M19061901_R7, M19061901_R8, M19061901_R9, M19061901_R10, M19061901_R11, M19061901_R12, M19061901_R13, M19061901_iL1, M19061901_oL2]})
 
 M9_M19020601 = create_site({'name': 'M9_M19020601', 'status': 'in_study', 'config': 'MAGFILEM2021.10.11.conf'})
 #MA10061703 = create_material({'name': 'MA10061703', 'description': '', 't_ref': 293, 'volumic_mass': 9000.0, 'specific_heat': 380, 'alpha': 0.0036, 'electrical_conductivity': 50.25e+6, 'thermal_conductivity': 380, 'magnet_permeability': 1, 'young': 117000000000.0, 'poisson': 0.33, 'expansion_coefficient': 1.8e-05, 'rpe': '373', 'nuance': 'CuCrZr'})
@@ -147,5 +149,5 @@ M19020601_iL1 = create_part({
     'geometry': 'inner-Nougat',
     'cad': 'Inner-Nougat',
 })
-M19020601 = create_magnet({'name': 'M19020601', 'status': 'in_study', 'site': M9_M19020601, 'geometry': 'H6-phi170', 'parts': [H18090401, H09031204, H09031205, H10061701, H10061702, H10061703, M19061901_R9, M19061901_R10, M19061901_R11, M19061901_R12, M19061901_R13, M19020601_iL1, M19061901_oL2]})
+M19020601 = create_magnet({'name': 'M19020601', 'status': 'in_study', 'type': MagnetType.INSERT, 'site': M9_M19020601, 'geometry': 'H6-phi170', 'parts': [H18090401, H09031204, H09031205, H10061701, H10061702, H10061703, M19061901_R9, M19061901_R10, M19061901_R11, M19061901_R12, M19061901_R13, M19020601_iL1, M19061901_oL2]})
 

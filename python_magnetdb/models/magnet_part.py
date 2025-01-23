@@ -9,9 +9,8 @@ class MagnetPart(models.Model):
     part = models.ForeignKey('Part', on_delete=models.CASCADE, null=False)
     commissioned_at = models.DateTimeField(null=False)
     decommissioned_at = models.DateTimeField(null=True)
-    inner_bore = models.FloatField(null=True)
-    outer_bore = models.FloatField(null=True)
     angle = models.FloatField(null=True)
+    metadata = models.JSONField(default=dict, null=False)
     created_at = models.DateTimeField(auto_now_add=True, null=False)
     updated_at = models.DateTimeField(auto_now=True, null=False)
 

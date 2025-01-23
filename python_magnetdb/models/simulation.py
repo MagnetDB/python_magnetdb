@@ -20,6 +20,7 @@ class Simulation(models.Model):
     updated_at = models.DateTimeField(auto_now=True, null=False)
     static = models.BooleanField(null=True)
     non_linear = models.BooleanField(null=True)
+    metadata = models.JSONField(default=dict, null=False)
     setup_output_attachment = models.ForeignKey('StorageAttachment', on_delete=models.SET_NULL, null=True, related_name='simulation_setup_output_attachment')
     setup_status = models.TextField(default='pending', null=False)
     setup_state = JSONField(default=dict)

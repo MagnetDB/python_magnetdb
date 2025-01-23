@@ -12,6 +12,7 @@ class SiteMagnet(models.Model):
     parallax = models.FloatField(null=True)
     commissioned_at = models.DateTimeField(null=False)
     decommissioned_at = models.DateTimeField(null=True)
+    metadata = models.JSONField(default=dict, null=False)
     created_at = models.DateTimeField(auto_now_add=True, null=False)
     updated_at = models.DateTimeField(auto_now=True, null=False)
 

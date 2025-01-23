@@ -4,6 +4,7 @@ from django.db.models.fields.related import ForeignKey
 from django.db.models.fields.related_descriptors import ReverseManyToOneDescriptor
 
 from python_magnetdb.models import Site, Material, Part, Magnet, Simulation
+from python_magnetdb.models.magnet import MagnetType
 
 
 def _site_post_processor(model: Site, res: dict):
@@ -63,6 +64,7 @@ def _magnet_post_processor(model: Magnet, res: dict):
             decommissioned_at = site_magnet['decommissioned_at']
         res['site_magnets'] = res['sitemagnet_set']
         del res['sitemagnet_set']
+    res['supported_part_types'] = MagnetType(model.type).supported_part_types
     res['commissioned_at'] = commissioned_at
     res['decommissioned_at'] = decommissioned_at
 

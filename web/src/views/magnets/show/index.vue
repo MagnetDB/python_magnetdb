@@ -13,7 +13,7 @@
         </Button>
         <Popover>
           <Button class="btn btn-default">
-            Visualiser
+            Visualize
           </Button>
 
           <template #content>
@@ -50,13 +50,21 @@
         Details
       </template>
 
-      <Form :initial-values="magnet" @submit="submit" @validate="validate">
+      <Form :initial-values="initialValues" @submit="submit" @validate="validate">
         <FormField
             label="Name"
             name="name"
             type="text"
             :component="FormInput"
             :required="true"
+        />
+        <FormField
+          label="Type"
+          name="type"
+          :component="FormSelect"
+          :required="true"
+          :disabled="true"
+          :options="typeOptions"
         />
         <FormField
             label="Description"
@@ -70,6 +78,26 @@
             type="text"
             :component="FormInput"
         />
+        <FormField
+            label="Inner bore"
+            name="inner_bore"
+            type="number"
+            placeholder="0"
+            :component="FormInput"
+            :required="true"
+        />
+        <FormField
+            label="Outer bore"
+            name="outer_bore"
+            type="number"
+            placeholder="0"
+            :component="FormInput"
+            :required="true"
+        />
+        <div class="form-field">
+          <label class="form-field-label">Geometry</label>
+          <GeometryModal :default-value="defaultGeometryValue" />
+        </div>
         <CadAttachmentEditor
           label="CAD"
           resource-type="magnet"
@@ -103,8 +131,6 @@
               <th class="whitespace-nowrap">Name</th>
               <th class="whitespace-nowrap">Description</th>
               <th class="whitespace-nowrap">Status</th>
-              <th class="whitespace-nowrap">Inner bore</th>
-              <th class="whitespace-nowrap">Outer bore</th>
               <th class="whitespace-nowrap">Angle</th>
               <th class="whitespace-nowrap">Commissioned At</th>
               <th class="whitespace-nowrap">Decommissioned At</th>
@@ -124,14 +150,6 @@
               </td>
               <td class="whitespace-nowrap">
                 <StatusBadge :status="magnetPart.part.status"></StatusBadge>
-              </td>
-              <td class="whitespace-nowrap">
-                <template v-if="magnetPart.inner_bore !== null">{{ magnetPart.inner_bore }}</template>
-                <span v-else class="text-gray-500 italic">Not set</span>
-              </td>
-              <td class="whitespace-nowrap">
-                <template v-if="magnetPart.outer_bore !== null">{{ magnetPart.outer_bore }}</template>
-                <span v-else class="text-gray-500 italic">Not set</span>
               </td>
               <td class="whitespace-nowrap">
                 <template v-if="magnetPart.angle !== null">{{ magnetPart.angle }}</template>
@@ -204,12 +222,8 @@
     <AddPartToMagnetModal
         :magnet-id="magnet.id"
         :visible="addPartModalVisible"
+        :allowed-types="magnet.supported_part_types"
         @close="addPartModalVisible = false; fetch()"
-    />
-    <AttachMagnetToSiteModal
-        :magnet-id="magnet.id"
-        :visible="attachToSiteModalVisible"
-        @close="attachToSiteModalVisible = false; fetch()"
     />
   </div>
   <Alert v-else-if="error" class="alert alert-danger" :error="error"/>
@@ -227,18 +241,19 @@ import FormUpload from "@/components/FormUpload";
 import Button from "@/components/Button";
 import Alert from "@/components/Alert";
 import AddPartToMagnetModal from "@/views/magnets/show/AddPartToMagnetModal";
-import AttachMagnetToSiteModal from "@/views/magnets/show/AttachMagnetToSiteModal";
 import StatusBadge from "@/components/StatusBadge";
 import CadAttachmentEditor from "@/components/CadAttachmentEditor";
 import Popover from "@/components/Popover";
+import GeometryModal from "@/components/GeometryModal.vue";
+import client from "@/services/client";
 
 export default {
   name: 'MagnetShow',
   components: {
+    GeometryModal,
     Popover,
     CadAttachmentEditor,
     StatusBadge,
-    AttachMagnetToSiteModal,
     AddPartToMagnetModal,
     Alert,
     Button,
@@ -254,7 +269,13 @@ export default {
       error: null,
       magnet: null,
       addPartModalVisible: false,
-      attachToSiteModalVisible: false,
+      initialValues: null,
+      defaultGeometryValue: '',
+      typeOptions: [
+        { name: 'Insert', value: 'insert' },
+        { name: 'Bitters', value: 'bitters' },
+        { name: 'Supras', value: 'supras' },
+      ],
     }
   },
   methods: {
@@ -271,6 +292,8 @@ export default {
         name: values.name,
         description: values.description,
         design_office_reference: values.design_office_reference,
+        inner_bore: values.inner_bore,
+        outer_bore: values.outer_bore,
       }
       if (values.cao instanceof File) {
         payload.cao = values.cao
@@ -289,9 +312,15 @@ export default {
       })
     },
     fetch() {
+      client.get(`/api/magnets/${this.$route.params.id}/geometry.yaml`)
+          .then((res) => this.defaultGeometryValue = res.data)
       return magnetService.find({id: this.$route.params.id})
           .then((magnet) => {
             this.magnet = magnet
+            this.initialValues = {
+              ...magnet,
+              type: this.typeOptions.find((opt) => opt.value === this.magnet.type),
+            }
           })
           .catch((error) => {
             this.error = error

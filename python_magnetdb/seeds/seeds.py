@@ -1,10 +1,10 @@
 """
 Create a basic magnetdb
 """
-
 from os import getenv
 
 from .crud import create_material, create_part, create_site, create_magnet
+from ..models.magnet import MagnetType
 
 data_directory = getenv('DATA_DIR')
 
@@ -623,12 +623,13 @@ HLtest = create_magnet({
     'status': 'in_study',
     'site': MTEST,
     'parts': [HLTESTH1, HLTESTH2, HLTESTR1],
+    'type': MagnetType.INSERT,
     'geometry': 'test'
 })
 
 # Add tore for test
 mattore = create_material({
-'name': 'mtore',
+    'name': 'mtore',
     'nuance': 'test',
     't_ref': 293,
     'volumic_mass': 9e+3,
@@ -644,7 +645,7 @@ mattore = create_material({
 })
 
 Tore = create_part({
-'name':'tore',
+    'name':'tore',
     'type':'bitter',
     'geometry':'tore',
     'status': 'in_study',
@@ -658,6 +659,7 @@ MTore = create_magnet({
     'name': "Tore-test",
     'geometry':"MTore",
     'status': 'in_study',
+    'type': MagnetType.BITTERS,
     'site': m_MTore
 })
 
@@ -668,43 +670,46 @@ M9_M19061901 = create_site({
 })
 
 M19061901 = create_magnet({
-'name':"M19061901",
+    'name':"M19061901",
     'geometry': "HL-31",
+    'type': MagnetType.INSERT,
     'status': 'in_study',
-    'parts': [H15101601,
-              H15061703,
-              H15061801,
-              H15100501,
-              H15101501,
-              H18060101,
-              H18012501,
-              H18051801,
-              H19060601,
-              H19060602,
-              H19061201,
-              H19060603,
-              H10061702,
-              H10061703,
-              M19061901_R1,
-              M19061901_R2,
-              M19061901_R3,
-              M19061901_R4,
-              M19061901_R5,
-              M19061901_R6,
-              M19061901_R7,
-              M19061901_R8,
-              M19061901_R9,
-              M19061901_R10,
-              M19061901_R11,
-              M19061901_R12,
-              M19061901_R13,
-              M19061901_iL1,
-              M19061901_oL2],
+    'parts': [
+        H15101601,
+      H15061703,
+      H15061801,
+      H15100501,
+      H15101501,
+      H18060101,
+      H18012501,
+      H18051801,
+      H19060601,
+      H19060602,
+      H19061201,
+      H19060603,
+      H10061702,
+      H10061703,
+      M19061901_R1,
+      M19061901_R2,
+      M19061901_R3,
+      M19061901_R4,
+      M19061901_R5,
+      M19061901_R6,
+      M19061901_R7,
+      M19061901_R8,
+      M19061901_R9,
+      M19061901_R10,
+      M19061901_R11,
+      M19061901_R12,
+      M19061901_R13,
+      M19061901_iL1,
+      M19061901_oL2,
+    ],
     'site': M9_M19061901,
 })
 
 CUAG01 = create_material({
-'name': 'CuAg01',
+    'name': 'CuAg01',
     'nuance': 'CuAg01',
     't_ref': 293,
     'volumic_mass': 9e+3,
@@ -720,7 +725,7 @@ CUAG01 = create_material({
 })
 
 M9BI = create_part({
-'name': 'M9Bi',
+    'name': 'M9Bi',
     'type': 'bitter',
     'design_office_reference': 'BI-03-002-A',
     'status': 'in_study',
@@ -729,7 +734,7 @@ M9BI = create_part({
 })
 
 M9BE = create_part({
-'name': 'M9Be',
+    'name': 'M9Be',
     'type': 'bitter',
     'design_office_reference': 'BE-03-002-A',
     'geometry': 'M9_Be',
@@ -738,16 +743,17 @@ M9BE = create_part({
 })
 
 M9BITTERS = create_magnet({
-'name': 'M9Bitters',
+    'name': 'M9Bitters',
     'status': 'in_study',
     'parts': [M9BI, M9BE],
     'site': M9_M19061901,
     'geometry': 'M9Bitters',
+    'type': MagnetType.BITTERS,
     'design_office_reference': 'M9Bitters'
 })
 
 M10BI = create_part({
-'name': 'M10Bi',
+    'name': 'M10Bi',
     'type': 'bitter',
     'design_office_reference': 'BI-03-002-A',
     'geometry': 'M10_Bi',
@@ -756,7 +762,7 @@ M10BI = create_part({
 })
 
 M10BE = create_part({
-'name': 'M10Be',
+    'name': 'M10Be',
     'type': 'bitter',
     'design_office_reference': 'BE-03-002-A',
     'geometry': 'M10_Be',
@@ -765,9 +771,10 @@ M10BE = create_part({
 })
 
 M10BITTERS = create_magnet({
-'name': 'M10Bitters',
+    'name': 'M10Bitters',
     'status': 'in_study',
     'parts': [M10BI, M10BE],
+    'type': MagnetType.BITTERS,
     'design_office_reference': 'M10Bitters'
 })
 
@@ -794,7 +801,7 @@ M8 = create_site({
 })
 
 M8BI = create_part({
-'name': 'M8Bi',
+    'name': 'M8Bi',
     'type': 'bitter',
     'design_office_reference': 'BI-03-002-A',
     'geometry': 'M8Bitters_Bi',
@@ -803,7 +810,7 @@ M8BI = create_part({
 })
 
 M8BE = create_part({
-'name': 'M8Be',
+    'name': 'M8Be',
     'type': 'bitter',
     'design_office_reference': 'BE-03-002-A',
     'geometry': 'M8Bitters_Be',
@@ -812,15 +819,16 @@ M8BE = create_part({
 })
 
 M8BITTERS = create_magnet({
-'name': 'M8Bitters',
+    'name': 'M8Bitters',
     'status': 'in_study',
     'parts': [M8BI, M8BE],
+    'type': MagnetType.BITTERS,
     'design_office_reference': 'M8Bitters',
     'site':M8
 })
 
 LTS = create_material({
-'name': 'LTS',
+    'name': 'LTS',
     'nuance': 'LTS',
     't_ref': 293,
     'volumic_mass': 9e+3,
@@ -836,7 +844,7 @@ LTS = create_material({
 })
 
 HYBRID = create_part({
-'name': 'Hybrid',
+    'name': 'Hybrid',
     'type': 'supra',
     'geometry':'Hybrid',
     'status':'in_study',
@@ -844,7 +852,8 @@ HYBRID = create_part({
 })
 
 MHYBRID = create_magnet({
-'name':"Hybrid",
+    'name':"Hybrid",
+    'type': MagnetType.SUPRAS,
     'status':'in_study',
     'parts': [HYBRID],
     'site':M8,

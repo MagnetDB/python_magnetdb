@@ -14,22 +14,6 @@
             @search="searchPart"
         />
         <FormField
-            label="Inner bore"
-            name="inner_bore"
-            type="number"
-            placeholder="0"
-            :component="FormInput"
-            :required="true"
-        />
-        <FormField
-            label="Outer bore"
-            name="outer_bore"
-            type="number"
-            placeholder="0"
-            :component="FormInput"
-            :required="true"
-        />
-        <FormField
             v-if="displayAngleField"
             label="Angle"
             name="angle"
@@ -66,7 +50,7 @@ import Modal from "@/components/Modal";
 
 export default {
   name: 'AddPartToMagnetModal',
-  props: ['visible', 'magnetId'],
+  props: ['visible', 'magnetId', 'allowedTypes'],
   components: {
     Modal,
     Button,
@@ -87,7 +71,7 @@ export default {
     },
     searchPart(query, loading) {
       loading(true)
-      partService.list({ query, status: ['in_study', 'in_stock'] })
+      partService.list({ status: ['in_study', 'in_stock'], type: this.allowedTypes })
         .then((parts) => {
           this.partOptions = parts.items.map((item) => ({name: item.name, value: item.id, part: item}))
         })
@@ -97,8 +81,6 @@ export default {
       let payload = {
         magnetId: this.magnetId,
         partId: values.part.value,
-        innerBore: values.inner_bore,
-        outerBore: values.outer_bore,
       }
       if (this.displayAngleField) {
         payload.angle = values.angle
@@ -111,15 +93,14 @@ export default {
     validate() {
       return Yup.object().shape({
         part: Yup.object().required(),
-        inner_bore: Yup.mixed().required(),
-        outer_bore: Yup.mixed().required(),
         ...(this.displayAngleField ? {angle: Yup.mixed().required()} : {})
       })
     },
   },
   async mounted() {
-    const parts = await partService.list({ status: ['in_study', 'in_stock'] })
-    this.partOptions = parts.items.map((item) => ({name: item.name, value: item.id, part: item}))
+    const parts = await partService.list({ status: ['in_study', 'in_stock'], type: this.allowedTypes })
+    this.partOptions = parts.items
+        .map((item) => ({name: item.name, value: item.id, part: item}))
   }
 }
 </script>
