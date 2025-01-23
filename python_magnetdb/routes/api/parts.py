@@ -45,7 +45,8 @@ def index(user=Depends(get_user('read')), page: int = 1, per_page: int = Query(d
 @router.post("/api/parts")
 def create(
     user=Depends(get_user('create')), name: str = Form(...), description: str = Form(None),
-    type: PartType = Form(...), material_id: str = Form(...), design_office_reference: str = Form(None)
+    type: PartType = Form(...), material_id: str = Form(...), design_office_reference: str = Form(None),
+    metadata: str = Form('{}'),
 ):
     material = Material.objects.filter(id=material_id).get()
     if not material:
@@ -57,7 +58,8 @@ def create(
         status='in_study',
         type=type,
         design_office_reference=design_office_reference,
-        material=material
+        material=material,
+        metadata=json.loads(metadata),
     )
     try:
         part.save()
@@ -115,7 +117,7 @@ def update(
     id: int, user=Depends(get_user('update')), name: str = Form(...), description: str = Form(None),
     type: PartType = Form(...), material_id: str = Form(...), design_office_reference: str = Form(None),
     geometry_yaml_config: str = Form(None), geometry_hts: UploadFile = File(None),
-    geometry_shape: UploadFile = File(None)
+    geometry_shape: UploadFile = File(None), metadata: str = Form(None),
 ):
     part = Part.objects \
         .select_related('material', 'hts_attachment', 'shape_attachment') \
@@ -139,6 +141,8 @@ def update(
         part.hts_attachment = StorageAttachment.upload(geometry_hts)
     if geometry_shape is not None and part.allow_shape_file:
         part.shape_attachment = StorageAttachment.upload(geometry_shape)
+    if metadata is not None:
+        part.metadata = json.loads(metadata)
     part.save()
     AuditLog.log(user, "Part updated", resource=part)
     return model_serializer(part)

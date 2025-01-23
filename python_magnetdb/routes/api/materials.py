@@ -29,6 +29,7 @@ class MaterialPayload(BaseModel):
     poisson: Optional[float] = 0
     expansion_coefficient: Optional[float] = 0
     rpe: float
+    metadata: Optional[dict] = None
 
 
 @router.get("/api/materials")
@@ -67,6 +68,7 @@ def create(payload: MaterialPayload, user=Depends(get_user('create'))):
         poisson=payload.poisson,
         expansion_coefficient=payload.expansion_coefficient,
         rpe=payload.rpe,
+        metadata=payload.metadata if payload.metadata is not None else {},
     )
     try:
         material.save()
@@ -92,6 +94,7 @@ def update(id: int, payload: MaterialPayload, user=Depends(get_user('update'))):
 
     for key, value in payload.dict(exclude_unset=True).items():
         setattr(material, key, value)
+    material.save()
     AuditLog.log(user, "Material updated", resource=material)
     return model_serializer(material)
 

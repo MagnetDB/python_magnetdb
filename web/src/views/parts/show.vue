@@ -93,6 +93,7 @@
             @input="editGeometryShape"
           />
         </div>
+        <FormMetadataModal name="metadata" :editable="true" />
         <Button type="submit" class="btn btn-primary">
           Save
         </Button>
@@ -157,10 +158,12 @@ import {cloneDeep, set} from "lodash";
 import {queue} from "@/mixins/createFormField";
 import GeometryStructureModal from "@/components/GeometryStructureModal.vue";
 import GeometryShapeModal from "@/components/GeometryShapeModal.vue";
+import FormMetadataModal from "@/components/FormMetadataModal.vue";
 
 export default {
   name: 'PartShow',
   components: {
+    FormMetadataModal,
     GeometryShapeModal,
     GeometryStructureModal,
     GeometryModal,
@@ -238,6 +241,7 @@ export default {
           design_office_reference: values.design_office_reference,
           material_id: values.material.value,
           geometry_yaml_config: values.geometry_yaml_config,
+          metadata: JSON.stringify(values.metadata),
         }
         if (values.cao instanceof File) {
           payload.cao = values.cao

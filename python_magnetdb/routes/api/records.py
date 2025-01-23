@@ -1,3 +1,4 @@
+import json
 from typing import Optional
 
 from datetime import datetime
@@ -36,14 +37,21 @@ def index(user=Depends(get_user('read')), page: int = 1, per_page: int = Query(d
 
 
 @router.post("/api/records")
-def create(user=Depends(get_user('create')), name: str = Form(...), description: str = Form(None),
-           site_id: str = Form(...), attachment: UploadFile = File(...)):
+def create(
+    user=Depends(get_user('create')),
+    name: str = Form(...),
+    description: str = Form(None),
+    site_id: str = Form(...),
+    attachment: UploadFile = File(...),
+    metadata: str = Form('{}')
+):
     site = Site.objects.get(id=site_id)
     if not site:
         raise HTTPException(status_code=404, detail="Site not found")
 
     record = Record(name=name, description=description)
     record.attachment = StorageAttachment.upload(attachment)
+    record.metadata = json.loads(metadata)
     record.site = site
     record.save()
     AuditLog.log(user, f"Record created {attachment.filename}", resource=record)
@@ -137,8 +145,13 @@ def visualize(id: int, user=Depends(get_user('read')),
 
 
 @router.patch("/api/records/{id}")
-def update(id: int, user=Depends(get_user('update')), name: str = Form(...), description: str = Form(None),
-           site_id: str = Form(...)):
+def update(
+    id: int, user=Depends(get_user('update')),
+    name: str = Form(...),
+    description: str = Form(None),
+    site_id: str = Form(...),
+    metadata: str = Form(None),
+):
     record = Record.objects.get(id=id)
     if not record:
         raise HTTPException(status_code=404, detail="Record not found")
@@ -150,6 +163,8 @@ def update(id: int, user=Depends(get_user('update')), name: str = Form(...), des
     record.name = name
     record.description = description
     record.site = site
+    if metadata is not None:
+        record.metadata = json.loads(metadata)
     record.save()
     AuditLog.log(user, "Record updated", resource=record)
     return model_serializer(record)

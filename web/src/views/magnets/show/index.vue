@@ -104,6 +104,7 @@
           :resource-id="magnet.id"
           :default-attachments="magnet.cad"
         />
+        <FormMetadataModal name="metadata" :editable="true" />
         <Button type="submit" class="btn btn-primary">
           Save
         </Button>
@@ -246,10 +247,12 @@ import CadAttachmentEditor from "@/components/CadAttachmentEditor";
 import Popover from "@/components/Popover";
 import GeometryModal from "@/components/GeometryModal.vue";
 import client from "@/services/client";
+import FormMetadataModal from "@/components/FormMetadataModal.vue";
 
 export default {
   name: 'MagnetShow',
   components: {
+    FormMetadataModal,
     GeometryModal,
     Popover,
     CadAttachmentEditor,
@@ -294,6 +297,7 @@ export default {
         design_office_reference: values.design_office_reference,
         inner_bore: values.inner_bore,
         outer_bore: values.outer_bore,
+        metadata: JSON.stringify(values.metadata),
       }
       if (values.cao instanceof File) {
         payload.cao = values.cao
