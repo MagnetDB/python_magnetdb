@@ -1,3 +1,4 @@
+import json
 from datetime import datetime
 from typing import List
 
@@ -41,8 +42,13 @@ def index(user=Depends(get_user('read')), page: int = 1, per_page: int = Query(d
 
 @router.post("/api/sites")
 def create(user=Depends(get_user('create')), name: str = Form(...), description: str = Form(None),
-           config: UploadFile = File(None)):
-    site = Site(name=name, description=description, status=Status.IN_STUDY)
+           config: UploadFile = File(None), metadata: str = Form('{}')):
+    site = Site(
+        name=name,
+        description=description,
+        status=Status.IN_STUDY,
+        metadata=json.loads(metadata),
+    )
     if config is not None:
         site.config_attachment = StorageAttachment.upload(config)
     try:
@@ -71,8 +77,13 @@ def geometry(id: int, user=Depends(get_user('read'))):
 
 
 @router.patch("/api/sites/{id}")
-def update(id: int, user=Depends(get_user('update')), name: str = Form(...), description: str = Form(None),
-           config: UploadFile = File(None)):
+def update(
+    id: int, user=Depends(get_user('update')),
+    name: str = Form(...),
+    description: str = Form(None),
+    config: UploadFile = File(None),
+    metadata: str = Form(None),
+):
     site = Site.objects.prefetch_related('sitemagnet_set__magnet', 'record_set', 'config_attachment').get(id=id)
     if not site:
         raise HTTPException(status_code=404, detail="Site not found")
@@ -81,6 +92,8 @@ def update(id: int, user=Depends(get_user('update')), name: str = Form(...), des
     site.description = description
     if config:
         site.config_attachment = StorageAttachment.upload(config)
+    if metadata is not None:
+        site.metadata = json.loads(metadata)
     site.save()
     AuditLog.log(user, "Site updated", resource=site)
     return model_serializer(site)

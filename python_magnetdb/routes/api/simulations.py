@@ -1,4 +1,5 @@
-from typing import Union, List
+import json
+from typing import Union, List, Optional
 
 from django.core.paginator import Paginator
 from fastapi import APIRouter, HTTPException, Depends, Form, Query
@@ -74,6 +75,7 @@ class CreatePayload(BaseModel):
     static: bool
     non_linear: bool
     currents: List[CreatePayloadCurrent]
+    metadata: Optional[dict] = {}
 
 
 @router.post("/api/simulations/current")
@@ -101,6 +103,7 @@ def create(payload: CreatePayload, user=Depends(get_user("create"))):
         cooling=payload.cooling,
         static=payload.static,
         non_linear=payload.non_linear,
+        metadata=payload.metadata,
     )
     if payload.resource_type == "magnet":
         simulation.magnet = Magnet.objects.get(id=payload.resource_id)
@@ -171,6 +174,19 @@ def run_setup(id: int, user=Depends(get_user("update"))):
     simulation.save()
     AuditLog.log(user, "Simulation setup scheduled", resource=simulation)
     worker.run_simulation_setup.delay(simulation.id)
+    return model_serializer(simulation)
+
+
+@router.patch("/api/simulations/{id}")
+def update(id: int, user=Depends(get_user('update')), metadata: str = Form(None)):
+    simulation = Simulation.objects.get(id=id)
+    if not simulation:
+        raise HTTPException(status_code=404, detail="Simulation not found")
+
+    if metadata is not None:
+        simulation.metadata = json.loads(metadata)
+    simulation.save()
+    AuditLog.log(user, "Simulation updated", resource=simulation)
     return model_serializer(simulation)
 
 

@@ -1,5 +1,6 @@
+import json
 from datetime import datetime
-from typing import List
+from typing import List, Dict
 
 from django.core.paginator import Paginator
 from django.db import IntegrityError
@@ -45,6 +46,7 @@ def create(
     type: MagnetType = Form(...),
     description: str = Form(None),
     design_office_reference: str = Form(None),
+    metadata: str = Form('{}'),
 ):
     magnet = Magnet(
         name=name,
@@ -52,6 +54,7 @@ def create(
         description=description,
         design_office_reference=design_office_reference,
         status=Status.IN_STUDY,
+        metadata=json.loads(metadata),
     )
     try:
         magnet.save()
@@ -125,6 +128,7 @@ def update(
     design_office_reference: str = Form(None),
     inner_bore: float = Form(None),
     outer_bore: float = Form(None),
+    metadata: str = Form(None),
 ):
     magnet = Magnet.objects \
         .prefetch_related('magnetpart_set__part', 'sitemagnet_set__site', 'cadattachment_set__attachment') \
@@ -137,6 +141,8 @@ def update(
     magnet.design_office_reference = design_office_reference
     magnet.inner_bore = inner_bore
     magnet.outer_bore = outer_bore
+    if metadata is not None:
+        magnet.metadata = json.loads(metadata)
     magnet.save()
     AuditLog.log(user, "Magnet updated", resource=magnet)
     return model_serializer(magnet)

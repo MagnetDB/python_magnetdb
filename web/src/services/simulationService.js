@@ -58,3 +58,14 @@ export function getMeasures({ id, measure }) {
   })
     .then((res) => res.data)
 }
+
+export function update({ id, ...values }) {
+  const form = new FormData()
+  for (const [key, value] of Object.entries(values)) {
+    if (value) {
+      form.append(key, value)
+    }
+  }
+  return client.patch(`/api/simulations/${id}`, form)
+    .then((res) => res.data)
+}

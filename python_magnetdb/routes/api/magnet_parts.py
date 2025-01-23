@@ -1,3 +1,5 @@
+import json
+
 from fastapi import APIRouter, HTTPException, Form, Depends
 from datetime import datetime
 
@@ -12,9 +14,10 @@ router = APIRouter()
 @router.post("/api/magnet_parts")
 def create(
     user=Depends(get_user("create")),
-        magnet_id: int = Form(...),
+    magnet_id: int = Form(...),
     part_id: int = Form(...),
     angle: float = Form(None),
+    metadata: str = Form('{}'),
 ):
     magnet = Magnet.objects.get(id=magnet_id)
     if not magnet:
@@ -28,10 +31,13 @@ def create(
         if magnet_part.magnet.status == Status.IN_STUDY:
             magnet_part.delete()
 
-    magnet_part = MagnetPart(commissioned_at=datetime.now())
-    magnet_part.magnet = magnet
-    magnet_part.part = part
-    magnet_part.angle = angle
+    magnet_part = MagnetPart(
+        magnet=magnet,
+        part=part,
+        angle=angle,
+        metadata=json.loads(metadata),
+        commissioned_at=datetime.now()
+    )
     magnet_part.save()
 
     AuditLog.log(user, "Part added to magnet", resource=magnet)

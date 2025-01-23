@@ -78,6 +78,7 @@
           <label class="form-field-label">Geometry</label>
           <GeometryModal :default-value="defaultGeometryValue" />
         </div>
+        <FormMetadataModal name="metadata" :editable="true" />
         <Button type="submit" class="btn btn-primary">
           Save
         </Button>
@@ -207,10 +208,12 @@ import StatusBadge from "@/components/StatusBadge";
 import Popover from "@/components/Popover";
 import GeometryModal from "@/components/GeometryModal.vue";
 import client from "@/services/client";
+import FormMetadataModal from "@/components/FormMetadataModal.vue";
 
 export default {
   name: 'SiteShow',
   components: {
+    FormMetadataModal,
     GeometryModal,
     Popover,
     StatusBadge,
@@ -252,6 +255,7 @@ export default {
         id: this.site.id,
         name: values.name,
         description: values.description,
+        metadata: JSON.stringify(values.metadata),
       }
       if (values.config instanceof File) {
         payload.config = values.config

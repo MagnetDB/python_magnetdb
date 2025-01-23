@@ -228,6 +228,7 @@
                 }
             ]"
         />
+        <FormMetadataModal name="metadata" :editable="true" />
         <Button type="submit" class="btn btn-primary">
           Save
         </Button>
@@ -283,10 +284,12 @@ import FormSelect from "@/components/FormSelect";
 import Button from "@/components/Button";
 import Alert from "@/components/Alert";
 import StatusBadge from "@/components/StatusBadge";
+import FormMetadataModal from "@/components/FormMetadataModal.vue";
 
 export default {
   name: 'MaterialShow',
   components: {
+    FormMetadataModal,
     StatusBadge,
     Alert,
     Button,
