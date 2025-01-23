@@ -13,6 +13,7 @@ class Site(models.Model):
     description = models.TextField(null=True)
     status = models.CharField(max_length=255, null=False)
     config_attachment = models.ForeignKey('StorageAttachment', on_delete=models.SET_NULL, null=True)
+    metadata = models.JSONField(default=dict, null=False)
     created_at = models.DateTimeField(auto_now_add=True, null=False)
     updated_at = models.DateTimeField(auto_now=True, null=False)
 

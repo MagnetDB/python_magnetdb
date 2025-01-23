@@ -35,6 +35,7 @@ class Part(models.Model):
     geometry_config = models.JSONField(default=dict, null=False)
     hts_attachment = models.ForeignKey('StorageAttachment', on_delete=models.SET_NULL, null=True, related_name='part_hts')
     shape_attachment = models.ForeignKey('StorageAttachment', on_delete=models.SET_NULL, null=True, related_name='part_shape')
+    metadata = models.JSONField(default=dict, null=False)
 
     @property
     def allow_hts_file(self):
@@ -46,7 +47,7 @@ class Part(models.Model):
 
     @property
     def geometry_config_to_json(self):
-        if self.geometry_config is None:
+        if self.geometry_config is None or self.geometry_config == {}:
             return None
 
         config = copy.deepcopy(self.geometry_config)

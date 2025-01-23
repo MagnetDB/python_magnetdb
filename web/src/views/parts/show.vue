@@ -77,18 +77,22 @@
           <label class="form-field-label">Geometry</label>
           <GeometryModal :default-value="defaultGeometryValue" :editable="true" @input="editGeometry" />
         </div>
-        <FormField
-            v-if="part.allow_hts_file"
-            label="Geometry HTS"
-            name="geometry_hts"
-            :component="FormUpload"
-        />
-        <FormField
-            v-if="part.allow_shape_file"
-            label="Geometry shape"
-            name="geometry_shape"
-            :component="FormUpload"
-        />
+        <div v-if="part.allow_hts_file" class="form-field">
+          <label class="form-field-label">Geometry HTS</label>
+          <GeometryStructureModal
+            :default-value="defaultGeometryStructureValue"
+            :editable="true"
+            @input="editGeometryStructure"
+          />
+        </div>
+        <div v-if="part.allow_shape_file" class="form-field">
+          <label class="form-field-label">Geometry shape</label>
+          <GeometryShapeModal
+            :default-value="defaultGeometryShapeValue"
+            :editable="true"
+            @input="editGeometryShape"
+          />
+        </div>
         <Button type="submit" class="btn btn-primary">
           Save
         </Button>
@@ -151,10 +155,14 @@ import GeometryModal from "@/components/GeometryModal.vue";
 import client from "@/services/client";
 import {cloneDeep, set} from "lodash";
 import {queue} from "@/mixins/createFormField";
+import GeometryStructureModal from "@/components/GeometryStructureModal.vue";
+import GeometryShapeModal from "@/components/GeometryShapeModal.vue";
 
 export default {
   name: 'PartShow',
   components: {
+    GeometryShapeModal,
+    GeometryStructureModal,
     GeometryModal,
     FormValues,
     CadAttachmentEditor,
@@ -174,6 +182,8 @@ export default {
       part: null,
       materialOptions: [],
       defaultGeometryValue: '',
+      defaultGeometryStructureValue: '',
+      defaultGeometryShapeValue: '',
       typeOptions: [
         {
           name: 'Helix',
@@ -252,6 +262,20 @@ export default {
         this.$refs.form.setValues(values)
       })
     },
+    editGeometryStructure(value) {
+      queue.run(() => {
+        const values = cloneDeep(this.$refs.form.values)
+        set(values, 'geometry_hts', new File([value], 'structure.json', { type: 'application/json' }))
+        this.$refs.form.setValues(values)
+      })
+    },
+    editGeometryShape(value) {
+      queue.run(() => {
+        const values = cloneDeep(this.$refs.form.values)
+        set(values, 'geometry_shape', new File([value], 'shape.csv', { type: 'text/csv' }))
+        this.$refs.form.setValues(values)
+      })
+    },
     validate() {
       return Yup.object().shape({
         name: Yup.string().required(),
@@ -262,9 +286,22 @@ export default {
     fetch() {
       client.get(`/api/parts/${this.$route.params.id}/geometry.yaml`)
           .then((res) => this.defaultGeometryValue = res.data)
+
       return partService.find({id: this.$route.params.id})
           .then((part) => {
             this.part = part
+            if (part.hts?.id) {
+              client.get(`/api/attachments/${part.hts.id}/download`, { responseType: 'text' }).then((res) => {
+                this.defaultGeometryStructureValue = res.data instanceof String
+                    ? res.data
+                    : JSON.stringify(res.data, null, 2)
+              })
+            }
+            if (part.shape?.id) {
+              client.get(`/api/attachments/${part.shape.id}/download`, { responseType: 'text' }).then((res) => {
+                this.defaultGeometryShapeValue = res.data
+              })
+            }
           })
           .catch((error) => {
             this.error = error

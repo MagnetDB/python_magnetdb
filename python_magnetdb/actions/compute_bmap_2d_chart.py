@@ -1,13 +1,13 @@
-import magnettools.Bmap as bmap
-import magnettools.magnettools as mt
+# import magnettools.Bmap as bmap
+# import magnettools.magnettools as mt
 import numpy as np
 
 
 plotmethod = {
-    'Bz': (bmap.getBz, '[T]', 'Magnetic Field Bz'),
-    'Br': (bmap.getBr, '[T]', 'Magnetic Field Bz'),
-    'B': (bmap.getB, '[T]', 'Magnetic Field'),
-    'A': (bmap.getA, '[A/m]', 'Magnetic Potential'),
+    # 'Bz': (bmap.getBz, '[T]', 'Magnetic Field Bz'),
+    # 'Br': (bmap.getBr, '[T]', 'Magnetic Field Bz'),
+    # 'B': (bmap.getB, '[T]', 'Magnetic Field'),
+    # 'A': (bmap.getA, '[A/m]', 'Magnetic Potential'),
     # 'Grav': (bmap.getGradMagnetoGravPotential, '[%]', 'Compensation of gravity'),
 }
 
@@ -19,7 +19,7 @@ def prepare_bmap_2d_chart_params(data, i_h, i_b, i_s, nr, r0, r1, nz, z0, z1, pk
     r1_def = Tubes[0].get_R_ext() * 8
     z0_def = ( Tubes[-1].get_Z0() - Tubes[-1].get_Half_Electrical_Length() ) * 2
     z1_def = ( Tubes[-1].get_Z0() + Tubes[-1].get_Half_Electrical_Length() ) * 2
-    
+
     return (
         i_h if i_h is not None else (icurrents[0] if len(icurrents) > 0 else 0),
         i_b if i_b is not None else (icurrents[1] if len(icurrents) > 1 else 0),

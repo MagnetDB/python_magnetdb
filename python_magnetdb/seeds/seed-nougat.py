@@ -4,8 +4,8 @@ Create a basic magnetdb
 
 from os import getenv
 
-from python_magnetdb.models.magnet import MagnetType
 from .crud import create_material, create_part, create_magnet, query_site
+from python_magnetdb.models.magnet import MagnetType
 
 data_directory = getenv('DATA_DIR')
 

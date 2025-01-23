@@ -27,13 +27,15 @@ class StorageAttachment(models.Model):
     def upload(cls, file: UploadFile):
         with tempfile.NamedTemporaryFile(delete=False) as temp_file:
             shutil.copyfileobj(file.file, temp_file)
+            temp_file.seek(0)
             return cls.raw_upload(file.filename, file.content_type, temp_file.name)
 
     @classmethod
     def raw_upload(cls, filename: str, content_type: str, filepath: str):
         attachment = cls(filename=filename,content_type=content_type)
-        with open(filepath, 'rb', buffering=0) as f:
+        with open(filepath, 'rb') as f:
             attachment.key = hashlib.file_digest(f, 'sha256').hexdigest()
+        print(attachment.key)
         if cls.objects.filter(key=attachment.key).count() == 0:
             s3_client.fput_object(s3_bucket, attachment.key, filepath, content_type=attachment.content_type)
         attachment.save()
