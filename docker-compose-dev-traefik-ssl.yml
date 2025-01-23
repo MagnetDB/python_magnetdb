@@ -31,7 +31,7 @@ services:
     working_dir: /home/feelpp/test
     volumes:
       - .:/home/feelpp/test
-      - ../magnetdb-data/poetry-cache:/home/feelpp/.cache/pypoetry
+      - ../magnetdb-data/django/poetry-cache:/home/feelpp/.cache/pypoetry
       - ./data/:/data:ro
       - ./images:/images:ro
     links:
@@ -72,7 +72,7 @@ services:
     working_dir: /home/feelpp/test
     volumes:
       - .:/home/feelpp/test
-      - ../magnetdb-data/poetry-cache:/home/feelpp/.cache/pypoetry
+      - ../magnetdb-data/django/poetry-cache:/home/feelpp/.cache/pypoetry
       - ./data/:/data
       - ./images:/images
     links:
@@ -87,31 +87,31 @@ services:
       REDIS_ADDR: redis://redis:6379/0
       DATABASE_HOST: postgres
       IMAGES_DIR: /images
-#  web-app:
-#    container_name: magnetdb-webapp
-#    build:
-#      context: web
-#      dockerfile: Dockerfile-dev
-#      args:
-#        NODE_ENV: development
-#        API_ENDPOINT: "https://api.magnetdb-dev.local"
-#    volumes:
-#      - ./web:/app
-#    command:
-#      - /bin/bash
-#      - -c
-#      - |
-#        yarn add caniuse-lite
-#        yarn remove caniuse-lite
-#        yarn install
-#        yarn serve
-#    working_dir: /app
-#    labels:
-#      - "traefik.enable=true"
-#      - "traefik.http.routers.app.rule=Host(`magnetdb-dev.local`)"
-#      - "traefik.http.routers.app.entrypoints=https"
-#      - "traefik.http.routers.app.tls=true"
-#      - "traefik.http.services.app.loadbalancer.server.port=8080"
+  web-app:
+    container_name: magnetdb-webapp
+    build:
+      context: web
+      dockerfile: Dockerfile-dev
+      args:
+        NODE_ENV: development
+        API_ENDPOINT: "https://api.magnetdb-dev.local"
+    volumes:
+      - ./web:/app
+    command:
+      - /bin/bash
+      - -c
+      - |
+        yarn add caniuse-lite
+        yarn remove caniuse-lite
+        yarn install
+        yarn serve
+    working_dir: /app
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.app.rule=Host(`magnetdb-dev.local`)"
+      - "traefik.http.routers.app.entrypoints=https"
+      - "traefik.http.routers.app.tls=true"
+      - "traefik.http.services.app.loadbalancer.server.port=8080"
   lemonldap:
     container_name: magnetdb-lemonldap
     image: tiredofit/lemonldap:2.0.24
@@ -159,7 +159,7 @@ services:
       TZ: 'Europe/Paris'
       PGTZ: 'Europe/Paris'
     volumes:
-      - ../magnetdb-data/postgres-data:/var/lib/postgresql/data
+      - ../magnetdb-data/django/postgres-data:/var/lib/postgresql/data
   minio:
     container_name: magnetdb-minio
     image: minio/minio
@@ -172,7 +172,7 @@ services:
       - 9000:9000
       - 9080:9080
     volumes:
-      - ../magnetdb-data/minio-data:/data
+      - ../magnetdb-data/django/minio-data:/data
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.minio.rule=Host(`minio.magnetdb-dev.local`)"
@@ -193,7 +193,7 @@ services:
       - "traefik.http.routers.pgadmin.tls=true"
       - "traefik.http.services.pgadmin.loadbalancer.server.port=80"
     volumes:
-      - ../magnetdb-data/pgadmin-data:/var/lib/pgadmin
+      - ../magnetdb-data/django/pgadmin-data:/var/lib/pgadmin
     links:
       - postgres
 volumes:
