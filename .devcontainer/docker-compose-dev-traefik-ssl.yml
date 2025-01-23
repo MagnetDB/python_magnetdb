@@ -1,0 +1,212 @@
+services:
+  proxy:
+    image: traefik:v2.9
+    container_name: magnetdb-traefik
+    command: --api.insecure=true --providers.docker --providers.docker.exposedbydefault=false --entrypoints.web.address=:80
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ../traefik-dev:/etc/traefik/:ro
+      - ../certs:/etc/ssl/traefik/:ro
+    labels:
+      - "traefik.http.routers.dashboard.rule=Host(`traefik.magnetdb-dev.local`)"
+      - "traefik.http.routers.dashboard.entrypoints=https"
+      - "traefik.http.routers.dashborad.tls=true"
+      - "traefik.http.services.dashboard.loadbalancer.server.port=8080"
+  web-api:
+    container_name: magnetdb-api
+    build:
+      context: ..
+      dockerfile: Dockerfile-dev
+    # user: "${UUID}:${GID}"
+    command:
+      - /bin/bash
+      - -c
+      - |
+        whoami
+        cd ..pwd
+        ls -alrth /home/feelpp/
+        ls -alrth /home/feelpp/.cache
+        poetry update
+        poetry lock
+        poetry run uvicorn python_magnetdb.web:app --reload --host 0.0.0.0
+    working_dir: /home/feelpp/test
+    volumes:
+      - ..:/home/feelpp/test
+      - ../../magnetdb-data/django/poetry-cache:/home/feelpp/.cache/pypoetry
+      - ../data/:/data:ro
+      - ../images:/images:ro
+    links:
+      - redis
+      - postgres
+      - minio
+      - lemonldap
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.api.rule=Host(`api.magnetdb-dev.local`)"
+      - "traefik.http.routers.api.entrypoints=https"
+      - "traefik.http.routers.api.tls=true"
+      - "traefik.http.services.api.loadbalancer.server.port=8000"
+    environment:
+      S3_ENDPOINT: minio:9000
+      S3_ACCESS_KEY: minio
+      S3_SECRET_KEY: minio123
+      S3_BUCKET: magnetdb
+      REDIS_ADDR: redis://redis:6379/0
+      DATABASE_HOST: postgres
+      IMAGES_DIR: /images
+      SECURITY_AUTHORIZATION_SERVER: http://lemonldap
+      FRONT_SECURITY_AUTHORIZATION_SERVER: https://auth.lemon.magnetdb-dev.local
+      FRONT_SECURITY_AUTHORIZATION_HOST_SERVER: auth.lemon.magnetdb-dev.local
+  web-worker:
+    container_name: magnetdb-worker
+    build:
+      context: ..
+      dockerfile: Dockerfile-dev
+    privileged: true
+    # user: "${UUID}:${GID}"
+    command:
+      - /bin/bash
+      - -c
+      - |
+        whoami
+        poetry update
+        poetry lock
+        poetry run watchmedo auto-restart -d ./python_magnetdb/ -p '**/*.py' `poetry run celery -A python_magnetdb.worker worker --loglevel=info`
+    working_dir: /home/feelpp/test
+    volumes:
+      - ..:/home/feelpp/test
+      - ../../magnetdb-data/django/poetry-cache:/home/feelpp/.cache/pypoetry
+      - ../data/:/data
+      - ../images:/images
+    links:
+      - redis
+      - postgres
+      - minio
+    environment:
+      S3_ENDPOINT: minio:9000
+      S3_ACCESS_KEY: minio
+      S3_SECRET_KEY: minio123
+      S3_BUCKET: magnetdb
+      REDIS_ADDR: redis://redis:6379/0
+      DATABASE_HOST: postgres
+      IMAGES_DIR: /images
+  web-app:
+    container_name: magnetdb-webapp
+    build:
+      context: ../web
+      dockerfile: Dockerfile-dev
+      args:
+        NODE_ENV: development
+        API_ENDPOINT: "https://api.magnetdb-dev.local"
+    # user: "${UUID}:${GID}"
+    volumes:
+      - ../web:/app
+      - ../..:/workspaces:cached
+
+    command:
+      - /bin/bash
+      - -c
+      - |
+        whoami
+        yarn serve
+    working_dir: /app
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.app.rule=Host(`magnetdb-dev.local`)"
+      - "traefik.http.routers.app.entrypoints=https"
+      - "traefik.http.routers.app.tls=true"
+      - "traefik.http.services.app.loadbalancer.server.port=8080"
+    # Runs app on the same network as the database container, allows "forwardPorts" in devcontainer.json function.
+    network_mode: service:postgres
+  lemonldap:
+    container_name: magnetdb-lemonldap
+    image: tiredofit/lemonldap:2.0.24
+    environment:
+      LOGLEVEL: debug
+      LETSENCRYPT_HOST: auth.lemon.magnetdb-dev.local manager.lemon.magnetdb-dev.local handler.lemon.magnetdb-dev.local api.lemon.magnetdb-dev.local
+      VIRTUAL_HOST: auth.lemon.magnetdb-dev.local manager.lemon.magnetdb-dev.local handler.lemon.magnetdb-dev.local api.lemon.magnetdb-dev.local
+      VIRTUAL_PROTO: https
+      VIRTUAL_PORT: 80
+      DOMAIN_NAME: lemon.magnetdb-dev.local
+      API_HOSTNAME: api.lemon.magnetdb-dev.local
+      MANAGER_HOSTNAME: manager.lemon.magnetdb-dev.local
+      PORTAL_HOSTNAME: auth.lemon.magnetdb-dev.local
+      HANDLER_HOSTNAME: handler.lemon.magnetdb-dev.local
+      TEST_HOSTNAME: test.lemon.magnetdb-dev.local
+      TIMEZONE: Europe/Paris
+      MANAGER_LOG_LEVEL: debug
+    volumes:
+      #- ../magnetdb-data/lemonldap-ng-data/etc/lemonldap-ng:/etc/lemonldap-ng
+      - /magnetdb-data/lemonldap-ng-data/conf:/var/lib/lemonldap-ng/conf
+      #- ../magnetdb-data/lemonldap-ng-data/sessions:/var/lib/lemonldap-ng/sessions
+      #- ../magnetdb-data/lemonldap-ng-data/psessions:/var/lib/lemonldap-ng/psessions
+      - /magnetdb-data/logs:/www/logs
+      #- ./assets/custom:/assets/custom
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.lemon.rule=Host(`lemon.magnetdb-dev.local`) || Host(`auth.lemon.magnetdb-dev.local`) || Host(`manager.lemon.magnetdb-dev.local`) || Host(`handler.lemon.magnetdb-dev.local`) || Host(`api.lemon.magnetdb-dev.local`)"
+      - "traefik.http.routers.lemon.entrypoints=https"
+      - "traefik.http.routers.lemon.tls=true"
+      # - "traefik.http.services.lemon.loadbalancer.server.port=80"
+  redis:
+    container_name: magnetdb-redis
+    image: redis
+    ports:
+      - 6379:6379
+  postgres:
+    container_name: magnetdb-postgres
+    image: postgres:13
+    ports:
+      - 5432:5432
+    environment:
+      POSTGRES_USER: magnetdb
+      POSTGRES_PASSWORD: magnetdb
+      TZ: 'Europe/Paris'
+      PGTZ: 'Europe/Paris'
+    volumes:
+      - /magnetdb-data/django/postgres-data:/var/lib/postgresql/data
+  minio:
+    container_name: magnetdb-minio
+    image: minio/minio
+    command: server /data --console-address ":9080"
+    environment:
+      MINIO_ROOT_USER: minio
+      MINIO_ROOT_PASSWORD: minio123
+      MINIO_BROWSER_REDIRECT_URL: https://minio.magnetdb-dev.local
+    ports:
+      - 9000:9000
+      - 9080:9080
+    volumes:
+      - /magnetdb-data/django/minio-data:/data
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.minio.rule=Host(`minio.magnetdb-dev.local`)"
+      - "traefik.http.routers.minio.entrypoints=https"
+      - "traefik.http.routers.minio.tls=true"
+      - "traefik.http.services.minio.loadbalancer.server.port=9080"
+  pgadmin:
+    container_name: magnetdb-pgadmin
+    image: dpage/pgadmin4:7
+    environment:
+      PGADMIN_DEFAULT_EMAIL: christophe.trophime@lncmi.cnrs.fr
+      PGADMIN_DEFAULT_PASSWORD: admin
+      # PGADMIN_CONFIG_SERVER_MODE: 'False'
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.pgadmin.rule=Host(`pgadmin.magnetdb-dev.local`)"
+      - "traefik.http.routers.pgadmin.entrypoints=https"
+      - "traefik.http.routers.pgadmin.tls=true"
+      - "traefik.http.services.pgadmin.loadbalancer.server.port=80"
+    volumes:
+      - /magnetdb-data/django/pgadmin-data:/var/lib/pgadmin
+    links:
+      - postgres
+volumes:
+  minio: {}
+  postgres: {}
+  lemonldap: {}
+  pgadmin: {}
