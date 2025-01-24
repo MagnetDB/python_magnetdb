@@ -49,7 +49,7 @@ The first time you run the service, you would need to:
 * Fix the permissions for pgadmin-data
 
 ```shell
-sudo chown -R 5050:5050 pgadmin-data
+sudo chown -R 5050:0 pgadmin-data
 ```
 
 2. Set timezone in nginx-proxy
