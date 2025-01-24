@@ -22,5 +22,6 @@
 			]
 		}
 	},
-	"remoteUser": "feelpp"
+	"remoteUser": "feelpp",
+	"shutdownAction": "stopCompose"
 }
