@@ -1,8 +1,10 @@
 module.exports = {
   devServer: {
-    overlay: {
-      warnings: false,
-      errors: false
+    client: {
+      overlay: {
+        warnings: false,
+        errors: false
+      }
     },
     allowedHosts: [
       'lncmig.local',

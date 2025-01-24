@@ -28,7 +28,7 @@ RUN apt-get update \
 
 WORKDIR /app
 COPY package.json .
-COPY yarn.lock .
+# COPY yarn.lock .
 RUN yarn add caniuse-lite && \
     yarn remove caniuse-lite && \
     yarn install
