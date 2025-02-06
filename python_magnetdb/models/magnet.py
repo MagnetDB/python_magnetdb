@@ -42,6 +42,7 @@ class Magnet(models.Model):
     design_office_reference = models.CharField(max_length=255, null=True)
     geometry_attachment = models.ForeignKey('StorageAttachment', on_delete=models.SET_NULL, null=True)
     metadata = models.JSONField(default=dict, null=False)
+    flow_params = models.JSONField(null=True)
 
     @property
     def geometry_config_to_json(self):

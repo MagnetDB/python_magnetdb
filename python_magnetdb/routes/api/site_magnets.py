@@ -1,3 +1,4 @@
+import json
 from datetime import datetime
 
 from fastapi import APIRouter, HTTPException, Form, Depends
@@ -12,8 +13,13 @@ router = APIRouter()
 
 @router.post("/api/site_magnets")
 def create(
-    user=Depends(get_user('create')), site_id: int = Form(...),  magnet_id: int = Form(...),
-    z_offset: float = Form(None), r_offset: float = Form(None), parallax: float = Form(None),
+    user=Depends(get_user('create')),
+    site_id: int = Form(...),
+    magnet_id: int = Form(...),
+    z_offset: float = Form(None),
+    r_offset: float = Form(None),
+    parallax: float = Form(None),
+    metadata: str = Form('{}'),
 ):
     site = Site.objects.get(id=site_id)
     if not site:
@@ -28,8 +34,13 @@ def create(
             AuditLog.log(user, "Magnet detached from Site", resource=magnet)
 
     site_magnet = SiteMagnet(
-        commissioned_at=datetime.now(), site=site, magnet=magnet,
-        z_offset=z_offset, r_offset=r_offset, parallax=parallax
+        commissioned_at=datetime.now(),
+        site=site,
+        magnet=magnet,
+        z_offset=z_offset,
+        r_offset=r_offset,
+        parallax=parallax,
+        metadata=json.loads(metadata),
     )
     site_magnet.save()
     AuditLog.log(user, "Magnet added to site", resource=magnet)

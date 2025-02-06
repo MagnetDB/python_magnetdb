@@ -50,7 +50,7 @@
         Details
       </template>
 
-      <Form :initial-values="initialValues" @submit="submit" @validate="validate">
+      <Form ref="form" :initial-values="initialValues" @submit="submit" @validate="validate">
         <FormField
             label="Name"
             name="name"
@@ -104,6 +104,14 @@
           :resource-id="magnet.id"
           :default-attachments="magnet.cad"
         />
+        <div class="form-field">
+          <label class="form-field-label">Flow params</label>
+          <MagnetFlowParamsModal
+            :default-value="defaultFlowParamsValue"
+            @input="editFlowParams"
+            :editable="true"
+          />
+        </div>
         <FormMetadataModal name="metadata" :editable="true" />
         <Button type="submit" class="btn btn-primary">
           Save
@@ -248,10 +256,14 @@ import Popover from "@/components/Popover";
 import GeometryModal from "@/components/GeometryModal.vue";
 import client from "@/services/client";
 import FormMetadataModal from "@/components/FormMetadataModal.vue";
+import MagnetFlowParamsModal from "@/components/MagnetFlowParamsModal.vue";
+import {queue} from "@/mixins/createFormField";
+import {cloneDeep, set} from "lodash";
 
 export default {
   name: 'MagnetShow',
   components: {
+    MagnetFlowParamsModal,
     FormMetadataModal,
     GeometryModal,
     Popover,
@@ -274,6 +286,7 @@ export default {
       addPartModalVisible: false,
       initialValues: null,
       defaultGeometryValue: '',
+      defaultFlowParamsValue: '',
       typeOptions: [
         { name: 'Insert', value: 'insert' },
         { name: 'Bitters', value: 'bitters' },
@@ -282,6 +295,13 @@ export default {
     }
   },
   methods: {
+    editFlowParams(value) {
+      queue.run(() => {
+        const values = cloneDeep(this.$refs.form.values)
+        set(values, 'flow_params', JSON.parse(value))
+        this.$refs.form.setValues(values)
+      })
+    },
     defunct() {
       return magnetService.defunct({ magnetId: this.magnet.id })
           .then(this.fetch)
@@ -298,6 +318,7 @@ export default {
         inner_bore: values.inner_bore,
         outer_bore: values.outer_bore,
         metadata: JSON.stringify(values.metadata),
+        flow_params: JSON.stringify(values.flow_params),
       }
       if (values.cao instanceof File) {
         payload.cao = values.cao
@@ -321,9 +342,11 @@ export default {
       return magnetService.find({id: this.$route.params.id})
           .then((magnet) => {
             this.magnet = magnet
+            this.defaultFlowParamsValue = magnet.flow_params ? JSON.stringify(magnet.flow_params, null, 2) : ''
             this.initialValues = {
               ...magnet,
               type: this.typeOptions.find((opt) => opt.value === this.magnet.type),
+              flow_params: this.defaultFlowParamsValue,
             }
           })
           .catch((error) => {

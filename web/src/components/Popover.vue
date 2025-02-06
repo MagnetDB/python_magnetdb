@@ -3,7 +3,7 @@
     <div @click="active = !active">
       <slot></slot>
     </div>
-    <div v-if="active" class="absolute bg-white shadow rounded-md border border-gray-200 w-64 p-4">
+    <div v-if="active" class="absolute bg-white shadow rounded-md border border-gray-200 w-64 p-4 z-10">
       <slot name="content"></slot>
     </div>
   </div>
