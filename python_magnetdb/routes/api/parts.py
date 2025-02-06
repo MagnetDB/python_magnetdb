@@ -166,7 +166,7 @@ def defunct(id: int, user=Depends(get_user('update'))):
     part.status = 'defunct'
     part.save()
     AuditLog.log(user, "Part defunct", resource=part)
-    return part.serialize()
+    return model_serializer(part)
 
 
 @router.delete("/api/parts/{id}")
@@ -177,4 +177,4 @@ def destroy(id: int, user=Depends(get_user('delete'))):
 
     part.delete()
     AuditLog.log(user, "Part deleted", resource=part)
-    return part.serialize()
+    return model_serializer(part)

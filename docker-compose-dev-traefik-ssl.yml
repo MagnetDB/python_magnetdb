@@ -68,7 +68,7 @@ services:
       - |
         poetry update
         poetry lock
-        poetry run watchmedo auto-restart -d ./python_magnetdb/ -p '**/*.py' `poetry run celery -A python_magnetdb.worker worker --loglevel=info`
+        poetry run python manage.py celery_worker
     working_dir: /home/feelpp/test
     volumes:
       - .:/home/feelpp/test

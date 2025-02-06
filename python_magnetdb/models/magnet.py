@@ -40,7 +40,6 @@ class Magnet(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, null=False)
     updated_at = models.DateTimeField(auto_now=True, null=False)
     design_office_reference = models.CharField(max_length=255, null=True)
-    geometry_attachment = models.ForeignKey('StorageAttachment', on_delete=models.SET_NULL, null=True)
     metadata = models.JSONField(default=dict, null=False)
     flow_params = models.JSONField(null=True)
 

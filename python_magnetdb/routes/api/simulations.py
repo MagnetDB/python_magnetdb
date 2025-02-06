@@ -116,14 +116,15 @@ def create(payload: CreatePayload, user=Depends(get_user("create"))):
     else:
         raise HTTPException(status_code=404, detail="Resource not found")
 
-
-    # TODO add magnet_type to current
-    simulation.currents = map(
-        lambda value: SimulationCurrent(magnet_id=value.magnet_id, value=value.value),
-        payload.currents,
-    )
     simulation.owner = user
     simulation.save()
+    # TODO add magnet_type to current
+    for payload in payload.currents:
+        simulation.simulationcurrent_set.create(
+            magnet_id=payload.magnet_id,
+            value=payload.value
+        )
+
     AuditLog.log(user, "Simulation created", resource=simulation)
     return model_serializer(simulation)
 
