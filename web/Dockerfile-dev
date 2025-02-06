@@ -11,19 +11,19 @@ RUN apt-get update \
     && apt-get -y install --no-install-recommends apt-utils dialog 2>&1 \
     && apt-get install -y sudo \
     && echo "create local user $USERNAME (uid=${USER_UID}, gid=${USER_GID})" \
-    && echo "group: $(getent group $USER_GID)" \
-    && echo "user: $(getent passwd $USER_UID)" \
+    && echo "getent group ${USER_GID}: $(getent group ${USER_GID})" \
+    && echo "getent passwd ${USER_UID}: $(getent passwd ${USER_UID})" \
     # Create a non-root user to use if preferred - see https://aka.ms/vscode-remote/containers/non-root-user.\
-    && if [ ! $(getent group $USER_GID) ]; then groupadd --gid $USER_GID $USERNAME; fi \
-    && if [ ! $(getent passwd $USER_UID) ]; then useradd -s /bin/bash --uid $USER_UID --gid $USER_GID -m $USERNAME; fi \
+    && if [ ! $(getent group ${USER_GID}) ]; then groupadd --gid ${USER_GID} $USERNAME; fi \
+    && if [ ! $(getent passwd ${USER_UID}) ]; then useradd -s /bin/bash --uid ${USER_UID} --gid ${USER_GID} -m $USERNAME; fi \
     && echo $USERNAME ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/$USERNAME \
     && chmod 0440 /etc/sudoers.d/$USERNAME \
-    && echo "local user $(getent group $USER_GID)" \
-    && echo "local user $(getent passwd $USER_UID)" \
+    && echo "local user $(getent group ${USER_GID})" \
+    && echo "local user $(getent passwd ${USER_UID})" \
     # add github ssh key\
     && mkdir -p ~${USERNAME}/.ssh/ \
     && ssh-keyscan github.com >> ~${USERNAME}/.ssh/known_hosts \
-    && chown -R $USER_GID:$USER_UID ~${USERNAME}/.ssh
+    && chown -R ${USER_GID}:${USER_UID} ~${USERNAME}/.ssh
 
 
 WORKDIR /app

@@ -16,11 +16,14 @@ RUN apt-get update \
     && apt-get install -y libpq-dev
 
 RUN echo "create local user $USERNAME (uid=${USER_UID}, gid=${USER_GID})" \
-    && echo "group: $(getent group $USER_GID)" \
-    && echo "user: $(getent passwd $USER_UID)" \
+    && echo "create local user $USERNAME (uid=${USER_UID}, gid=${USER_GID})" \
+    && echo "getent group ${USER_GID}: $(getent group ${USER_GID})" \
+    && echo "getent passwd ${USER_UID}: $(getent passwd ${USER_UID})" \
+    && echo "id ${USERNAME}: $(id ${USERNAME})" \
     # Create a non-root user to use if preferred - see https://aka.ms/vscode-remote/containers/non-root-user.\
-    && if [ ! $(getent group $USER_GID) ]; then groupadd --gid $USER_GID $USERNAME; fi \
-    && if [ ! $(getent passwd $USER_UID) ]; then useradd -s /bin/bash --uid $USER_UID --gid $USER_GID -m $USERNAME; fi \
+    # modify the user id and group id to match the host user id and group id\
+    && if [ ! $(getent group ${USER_GID}) ]; then groupmod -g "${USER_GID}" "${USERNAME}"; fi \
+    && if [ ! $(getent passwd ${USER_UID}) ]; then usermod -u "${USER_UID}" -g "${USER_GID}" "${USERNAME}"; fi \
     && echo $USERNAME ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/$USERNAME \
     && chmod 0440 /etc/sudoers.d/$USERNAME \
     && echo "local user $(getent group $USER_GID)" \

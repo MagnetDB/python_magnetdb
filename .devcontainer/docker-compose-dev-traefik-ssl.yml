@@ -18,9 +18,13 @@ services:
       - "traefik.http.services.dashboard.loadbalancer.server.port=8080"
   web-api:
     container_name: magnetdb-api
+    user: "${UUID:-1000}:${GID:-1000}"
     build:
       context: ..
       dockerfile: Dockerfile-dev
+      args:
+        USER_UID: "${UUID:-1000}"
+        USER_GID: "${GID:-1000}"
     command:
       - /bin/bash
       - -c
@@ -62,9 +66,13 @@ services:
       FRONT_SECURITY_AUTHORIZATION_HOST_SERVER: auth.lemon.magnetdb-dev.local
   web-worker:
     container_name: magnetdb-worker
+    user: "${UUID:-1000}:${GID:-1000}"
     build:
       context: ..
       dockerfile: Dockerfile-dev
+      args:
+        USER_UID: "${UUID:-1000}"
+        USER_GID: "${GID:-1000}"
     privileged: true
     command:
       - /bin/bash
@@ -100,6 +108,8 @@ services:
       args:
         NODE_ENV: development
         API_ENDPOINT: "https://api.magnetdb-dev.local"
+        USER_UID: "${UUID:-1000}"
+        USER_GID: "${GID:-1000}"
     volumes:
       - ../web:/app
       - ../..:/workspaces:cached
