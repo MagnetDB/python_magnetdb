@@ -15,9 +15,8 @@ def mkdir(dir):
 
 def generate_magnet_directory(magnet_id, directory):
     magnet = Magnet.objects.prefetch_related(
-        "magnetpart_set__part__partgeometry_set__attachment",
+        "magnetpart_set__part",
         "magnetpart_set__part__cadattachment_set__attachment",
-        "geometry_attachment",
         "magnetpart_set__part__material",
         "sitemagnet_set__site",
         "cadattachment_set__attachment",
@@ -27,17 +26,13 @@ def generate_magnet_directory(magnet_id, directory):
     mkdir(f"{directory}/data/cad")
     print(f"generate_magnet_directory: {os.getcwd()}/flow_params.json")
     shutil.copyfile(f"{os.getcwd()}/flow_params.json", f"{directory}/flow_params.json")
-    if magnet.geometry_attachment:
-        magnet.geometry_attachment.download(
-            f"{directory}/data/geometries/{magnet.geometry_attachment.filename}"
-        )
+    with open(f"{directory}/data/geometries/{magnet.name}.yaml", "w") as f:
+        f.write(magnet.geometry_config_to_yaml)
     for magnet_part in magnet.magnetpart_set.all():
         # if not magnet_part.active:
         #     continue
-        for geometry in magnet_part.part.partgeometry_set.all():
-            geometry.attachment.download(
-                f"{directory}/data/geometries/{geometry.attachment.filename}"
-            )
+        with open(f"{directory}/data/geometries/{magnet_part.part.name}.yaml", "w") as f:
+            f.write(magnet_part.part.geometry_config_to_yaml)
         if magnet_part.part.cadattachment_set.all():
             for cad in magnet_part.part.cadattachment_set.all():
                 cad.attachment.download(

@@ -22,28 +22,23 @@ def format_material(material):
 
 def generate_magnet_config(magnet_id):
     magnet = Magnet.objects.prefetch_related(
-        'magnetpart_set__part__partgeometry_set__attachment',
+        'magnetpart_set__part',
         'magnetpart_set__part__material',
         'sitemagnet_set__site',
-        'geometry_attachment',
     ).get(id=magnet_id)
     print(
-        f"generate_magnet_config[{magnet_id}]: magnet={magnet.name}, geometry={magnet.geometry_attachment}"
+        f"generate_magnet_config[{magnet_id}]: magnet={magnet.name}"
     )
-    payload = {"geom": magnet.geometry_attachment.filename}
+    payload = {"geom": f"{magnet.name}.yaml"}
     insulator_payload = format_material(Material.objects.get(name="MAT_ISOLANT"))
     for magnet_part in magnet.magnetpart_set.all():
         # if not magnet_part.active:
         #     continue
         if magnet_part.part.type.capitalize() not in payload:
             payload[magnet_part.part.type.capitalize()] = []
-        geom = None
-        for geometry in magnet_part.part.partgeometry_set.all():
-            if geometry.type == "default":
-                geom = geometry.attachment.filename
         payload[magnet_part.part.type.capitalize()].append(
             {
-                "geom": geom,
+                "geom": f"{magnet_part.part.name}.yaml",
                 "material": format_material(magnet_part.part.material),
                 "insulator": insulator_payload,
             }

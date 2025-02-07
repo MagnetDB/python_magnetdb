@@ -47,6 +47,7 @@ def create(
     description: str = Form(None),
     design_office_reference: str = Form(None),
     metadata: str = Form('{}'),
+    flow_params: str = Form('null'),
 ):
     magnet = Magnet(
         name=name,
@@ -55,6 +56,7 @@ def create(
         design_office_reference=design_office_reference,
         status=Status.IN_STUDY,
         metadata=json.loads(metadata),
+        flow_params=json.loads(flow_params),
     )
     try:
         magnet.save()
@@ -129,6 +131,7 @@ def update(
     inner_bore: float = Form(None),
     outer_bore: float = Form(None),
     metadata: str = Form(None),
+    flow_params: str = Form(None),
 ):
     magnet = Magnet.objects \
         .prefetch_related('magnetpart_set__part', 'sitemagnet_set__site', 'cadattachment_set__attachment') \
@@ -143,6 +146,8 @@ def update(
     magnet.outer_bore = outer_bore
     if metadata is not None:
         magnet.metadata = json.loads(metadata)
+    if flow_params is not None:
+        magnet.flow_params = json.loads(flow_params)
     magnet.save()
     AuditLog.log(user, "Magnet updated", resource=magnet)
     return model_serializer(magnet)

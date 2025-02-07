@@ -8,14 +8,19 @@ from python_magnetdb.models.magnet import MagnetType
 
 
 def _site_post_processor(model: Site, res: dict):
-    site_magnets = model.sitemagnet_set.all()
-    res['commissioned_at'] = sorted(
-        list(map(lambda curr: curr.commissioned_at, site_magnets)), reverse=True
-    )[0].isoformat() if len(site_magnets) > 0 else None
-    decommissioned_at = list(
-        filter(lambda curr: curr is not None, map(lambda curr: curr.decommissioned_at, list(site_magnets)))
-    )
-    res['decommissioned_at'] = sorted(decommissioned_at, reverse=True)[0].isoformat() if len(decommissioned_at) > 0 else None
+    if model.pk is not None:
+        site_magnets = model.sitemagnet_set.all()
+        res['commissioned_at'] = sorted(
+            list(map(lambda curr: curr.commissioned_at, site_magnets)), reverse=True
+        )[0].isoformat() if len(site_magnets) > 0 else None
+        decommissioned_at = list(
+            filter(lambda curr: curr is not None, map(lambda curr: curr.decommissioned_at, list(site_magnets)))
+        )
+        if len(decommissioned_at) > 0:
+            res['decommissioned_at'] = sorted(decommissioned_at, reverse=True)[0].isoformat()
+        else:
+            res['decommissioned_at'] = None
+
     if 'sitemagnet_set' in res:
         res['site_magnets'] = res['sitemagnet_set']
         del res['sitemagnet_set']

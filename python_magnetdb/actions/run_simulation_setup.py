@@ -27,8 +27,10 @@ def run_simulation_setup(simulation: Simulation):
     simulation.save()
 
     currents = {
-        current.magnet.name: {"value": current.value, "type": current.magnet.type}
-        for current in simulation.simulationcurrent_set.all()
+        current.magnet.name: {
+            "value": current.value,
+            "type": current.magnet.type
+        } for current in simulation.simulationcurrent_set.all()
     }
     print(f"currents={currents}")
 
@@ -39,7 +41,7 @@ def run_simulation_setup(simulation: Simulation):
         print(f"generating config in {tempdir}...")
         prepare_directory(simulation, tempdir)
 
-        # done = subprocess.run([f"ls -lR {tempdir}"], shell=True)
+        done = subprocess.run([f"ls -lR {tempdir}"], shell=True)
         print("generating config done")
 
         print(
@@ -113,6 +115,12 @@ def run_simulation_setup(simulation: Simulation):
             simulation.setup_output_attachment = attachment
             simulation.setup_status = "done"
         except Exception as err:
+            output_archive = f"{tempdir}/setup.tar.gz"
+            subprocess.run([f"tar czf {output_archive} *"], shell=True, check=True)
+            attachment = StorageAttachment.raw_upload(
+                basename(output_archive), "application/x-tar", output_archive
+            )
+            simulation.setup_output_attachment = attachment
             simulation.setup_status = "failed"
             print_exception(None, err, err.__traceback__)
         os.chdir(current_dir)
