@@ -1,5 +1,4 @@
-FROM trophime/magnettools:bookworm-poetry-new
-#FROM trophime/magnettools:bullseye-poetry
+FROM trophime/magnettools:1.1.0-bookworm-poetry-1.8.4
 
 ENV LANG=C.UTF-8 LC_ALL=C.UTF-8 DEBIAN_FRONTEND=noninteractive
 RUN echo 'debconf debconf/frontend select Noninteractive' | sudo debconf-set-selections
@@ -10,6 +9,6 @@ RUN apt-get update \
     && apt-get install -y wait-for-it \
     && apt-get install -y debconf-utils \
     && apt-get install -y libpq-dev
-    
+
 USER feelpp
 
