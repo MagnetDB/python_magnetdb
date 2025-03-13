@@ -3,10 +3,10 @@ FROM node:18-bookworm AS builder
 WORKDIR /app
 
 COPY package.json .
-COPY yarn.lock .
+COPY package-lock.json .
 RUN yarn add caniuse-lite && \
     yarn remove caniuse-lite && \
-    yarn install
+    npm ci --legacy-peer-deps
 
 ARG NODE_ENV
 ARG API_ENDPOINT
