@@ -59,7 +59,7 @@ def run_simulation(simulation: Simulation):
                 env = appenv(envfile=None, url_api=data_dir, yaml_repo=f"{data_dir}/geometries",
                              cad_repo=f"{data_dir}/cad", mesh_repo=data_dir, simage_repo=os.getenv('IMAGES_DIR'),
                              mrecord_repo=data_dir, optim_repo=data_dir)
-                node_spec = NodeSpec(name="local-node", otype=NodeType.compute, smp=True, dns=server.host, cores=8,
+                node_spec = NodeSpec(name="local-node", otype=NodeType.compute, smp=True, dns="localhost", cores=8, # todo server dns
                                      multithreading=True, manager=JobManager(otype=JobManagerType.none, queues=[]),
                                      mgkeydir=None)
                 cmds = setup_cmds(env, args, node_spec, simulation.setup_state['yamlfile'],

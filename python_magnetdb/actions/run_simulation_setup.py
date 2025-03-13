@@ -91,8 +91,7 @@ def run_simulation_setup(simulation: Simulation):
                     "meshfile": meshfile,
                     "csvfiles": csvfiles,
                 }
-            # subprocess.run([f"pwd"], shell=True, check=True)
-            # subprocess.run([f"ls -alrth"], shell=True, check=True)
+
             config_file_path = None
             for file in os.listdir(tempdir):
                 if file.endswith(".cfg"):

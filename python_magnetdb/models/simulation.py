@@ -1,7 +1,6 @@
 from django.db import models
 from django.db.models.signals import pre_delete
 from django.dispatch import receiver
-from jsonfield import JSONField
 
 
 class Simulation(models.Model):
@@ -23,7 +22,7 @@ class Simulation(models.Model):
     metadata = models.JSONField(default=dict, null=False)
     setup_output_attachment = models.ForeignKey('StorageAttachment', on_delete=models.SET_NULL, null=True, related_name='simulation_setup_output_attachment')
     setup_status = models.TextField(default='pending', null=False)
-    setup_state = JSONField(default=dict)
+    setup_state = models.JSONField(default=dict)
     owner = models.ForeignKey('User', on_delete=models.SET_NULL, null=True)
     log_attachment = models.ForeignKey('StorageAttachment', on_delete=models.SET_NULL, null=True, related_name='simulation_log_attachment')
 
