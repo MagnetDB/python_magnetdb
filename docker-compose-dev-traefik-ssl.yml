@@ -101,10 +101,8 @@ services:
       - /bin/bash
       - -c
       - |
-        yarn add caniuse-lite
-        yarn remove caniuse-lite
-        yarn install
-        yarn serve
+        npm install
+        npm run serve
     working_dir: /app
     labels:
       - "traefik.enable=true"
