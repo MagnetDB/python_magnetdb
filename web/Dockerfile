@@ -1,19 +1,20 @@
-FROM node:16-bullseye AS builder
+FROM node:18-bookworm AS builder
 
 WORKDIR /app
 
 COPY package.json .
-COPY yarn.lock .
-RUN yarn install
+COPY package-lock.json .
+RUN npm ci --legacy-peer-deps
 
 ARG NODE_ENV
 ARG API_ENDPOINT
 
 ENV NODE_ENV=$NODE_ENV
 ENV VUE_APP_API_ENDPOINT=$API_ENDPOINT
+ENV NODE_OPTIONS=--openssl-legacy-provider
 
 COPY . .
-RUN yarn build
+RUN npm run build
 
 FROM nginx
 
