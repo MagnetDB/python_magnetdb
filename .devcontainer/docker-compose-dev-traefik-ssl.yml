@@ -10,7 +10,7 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ../traefik-dev:/etc/traefik/:ro
-      - ../certs:/etc/ssl/traefik/:ro
+      - ../../magnetdb-data/certs:/etc/ssl/traefik/:ro
     labels:
       - "traefik.http.routers.dashboard.rule=Host(`traefik.magnetdb-dev.local`)"
       - "traefik.http.routers.dashboard.entrypoints=https"
@@ -49,10 +49,10 @@ services:
       - lemonldap
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.api.rule=Host(`api.magnetdb-dev.local`)"
-      - "traefik.http.routers.api.entrypoints=https"
-      - "traefik.http.routers.api.tls=true"
-      - "traefik.http.services.api.loadbalancer.server.port=8000"
+      - "traefik.http.routers.webapi.rule=Host(`api.magnetdb-dev.local`)"
+      - "traefik.http.routers.webapi.entrypoints=https"
+      - "traefik.http.routers.webapi.tls=true"
+      - "traefik.http.services.webapi.loadbalancer.server.port=8000"
     environment:
       S3_ENDPOINT: minio:9000
       S3_ACCESS_KEY: minio
@@ -81,7 +81,7 @@ services:
         whoami
         poetry update
         poetry lock
-        poetry run watchmedo auto-restart -d ./python_magnetdb/ -p '**/*.py' `poetry run celery -A python_magnetdb.worker worker --loglevel=info`
+        poetry run python manage.py celery_worker
     working_dir: /home/feelpp/test
     volumes:
       - ..:/home/feelpp/test
@@ -118,10 +118,8 @@ services:
       - /bin/bash
       - -c
       - |
-        whoami
-        node --version
-        yarn --version
-        yarn serve
+        npm install --legacy-peer-deps
+        npm run serve
     working_dir: /app
     labels:
       - "traefik.enable=true"
