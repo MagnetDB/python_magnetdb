@@ -1,5 +1,4 @@
 FROM trophime/magnettools:1.1.0-bookworm-poetry-1.8.4
-#FROM trophime/magnettools:bullseye-poetry
 
 ARG USERNAME=feelpp
 ARG USER_UID=1000

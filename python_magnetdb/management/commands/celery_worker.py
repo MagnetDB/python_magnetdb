@@ -10,4 +10,4 @@ def run_celery():
 
 class Command(BaseCommand):
     def handle(self, *args, **kwargs):
-        run_process('./python_magnetdb', target=run_celery)
+        run_process('.', target=run_celery)

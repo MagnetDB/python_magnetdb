@@ -49,8 +49,8 @@ class Magnet(models.Model):
             '__tag__': 'Unknown',
             '__value__': {
                 'name': self.name,
-                'inner_bore': self.inner_bore,
-                'outer_bore': self.outer_bore,
+                'innerbore': self.inner_bore,
+                'outerbore': self.outer_bore,
             }
         }
         if self.type == MagnetType.INSERT:
