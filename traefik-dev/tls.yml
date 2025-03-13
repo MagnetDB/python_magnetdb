@@ -7,3 +7,56 @@ tls:
   certificates:
     - certFile: /etc/ssl/traefik/_wildcard.magnetdb-dev.local.pem
       keyFile: /etc/ssl/traefik/_wildcard.magnetdb-dev.local-key.pem
+http:
+  routers:
+    webapi:
+      rule: "Host(`api.magnetdb-dev.local`)"
+      service: "webapi"
+      entryPoints:
+        - "https"
+      tls: {}
+    lemon:
+      rule: "Host(`lemon.magnetdb-dev.local`) || Host(`auth.lemon.magnetdb-dev.local`) || Host(`manager.lemon.magnetdb-dev.local`) || Host(`handler.lemon.magnetdb-dev.local`) || Host(`api.lemon.magnetdb-dev.local`)"
+      service: "lemon"
+      entryPoints:
+        - "https"
+      tls: { }
+    minio:
+      rule: "Host(`minio.magnetdb-dev.local`)"
+      service: "minio"
+      entryPoints:
+        - "https"
+      tls: { }
+    pgadmin:
+      rule: "Host(`pgadmin.magnetdb-dev.local`)"
+      service: "pgadmin"
+      entryPoints:
+        - "https"
+      tls: { }
+    app:
+      rule: "Host(`magnetdb-dev.local`)"
+      service: "app"
+      entryPoints:
+        - "https"
+      tls: { }
+  services:
+    webapi:
+      loadBalancer:
+        servers:
+          - url: "http://magnetdb-api:8000"
+    lemon:
+      loadBalancer:
+        servers:
+          - url: "http://lemonldap"
+    minio:
+      loadBalancer:
+        servers:
+          - url: "http://minio:9080"
+    pgadmin:
+      loadBalancer:
+        servers:
+          - url: "http://pgadmin"
+    app:
+      loadBalancer:
+        servers:
+          - url: "http://web-app:8080"

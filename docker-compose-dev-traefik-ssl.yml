@@ -2,7 +2,6 @@ services:
   proxy:
     image: traefik:3.3
     container_name: magnetdb-traefik
-    command: --api.insecure=true --providers.docker --providers.docker.exposedbydefault=false --entrypoints.web.address=:80
     ports:
       - "80:80"
       - "443:443"
@@ -11,11 +10,6 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./traefik-dev:/etc/traefik/:ro
       - ./certs:/etc/ssl/traefik/:ro
-    labels:
-      - "traefik.http.routers.dashboard.rule=Host(`traefik.magnetdb-dev.local`)"
-      - "traefik.http.routers.dashboard.entrypoints=https"
-      - "traefik.http.routers.dashborad.tls=true"
-      - "traefik.http.services.dashboard.loadbalancer.server.port=8080"
   web-api:
     container_name: magnetdb-api
     build:
@@ -39,12 +33,6 @@ services:
       - postgres
       - minio
       - lemonldap
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.webapi.rule=Host(`api.magnetdb-dev.local`)"
-      - "traefik.http.routers.webapi.entrypoints=https"
-      - "traefik.http.routers.webapi.tls=true"
-      - "traefik.http.services.webapi.loadbalancer.server.port=8000"
     environment:
       S3_ENDPOINT: minio:9000
       S3_ACCESS_KEY: minio
@@ -104,12 +92,6 @@ services:
 #        npm install --legacy-peer-deps
 #        npm run serve
 #    working_dir: /app
-#    labels:
-#      - "traefik.enable=true"
-#      - "traefik.http.routers.app.rule=Host(`magnetdb-dev.local`)"
-#      - "traefik.http.routers.app.entrypoints=https"
-#      - "traefik.http.routers.app.tls=true"
-#      - "traefik.http.services.app.loadbalancer.server.port=8080"
   lemonldap:
     container_name: magnetdb-lemonldap
     image: tiredofit/lemonldap:2.0.24
@@ -134,12 +116,6 @@ services:
       #- ../magnetdb-data/lemonldap-ng-data/psessions:/var/lib/lemonldap-ng/psessions
       - ../magnetdb-data/logs:/www/logs
       #- ./assets/custom:/assets/custom
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.lemon.rule=Host(`lemon.magnetdb-dev.local`) || Host(`auth.lemon.magnetdb-dev.local`) || Host(`manager.lemon.magnetdb-dev.local`) || Host(`handler.lemon.magnetdb-dev.local`) || Host(`api.lemon.magnetdb-dev.local`)"
-      - "traefik.http.routers.lemon.entrypoints=https"
-      - "traefik.http.routers.lemon.tls=true"
-      # - "traefik.http.services.lemon.loadbalancer.server.port=80"
   redis:
     container_name: magnetdb-redis
     image: redis
@@ -171,12 +147,6 @@ services:
       - 9080:9080
     volumes:
       - ../magnetdb-data/minio-data:/data
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.minio.rule=Host(`minio.magnetdb-dev.local`)"
-      - "traefik.http.routers.minio.entrypoints=https"
-      - "traefik.http.routers.minio.tls=true"
-      - "traefik.http.services.minio.loadbalancer.server.port=9080"
   pgadmin:
     container_name: magnetdb-pgadmin
     image: dpage/pgadmin4:7
@@ -184,12 +154,6 @@ services:
       PGADMIN_DEFAULT_EMAIL: christophe.trophime@lncmi.cnrs.fr
       PGADMIN_DEFAULT_PASSWORD: admin
       # PGADMIN_CONFIG_SERVER_MODE: 'False'
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.pgadmin.rule=Host(`pgadmin.magnetdb-dev.local`)"
-      - "traefik.http.routers.pgadmin.entrypoints=https"
-      - "traefik.http.routers.pgadmin.tls=true"
-      - "traefik.http.services.pgadmin.loadbalancer.server.port=80"
     volumes:
       - ../magnetdb-data/pgadmin-data:/var/lib/pgadmin
     links:
