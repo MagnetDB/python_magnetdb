@@ -1,7 +1,6 @@
-version: '3'
 services:
   proxy:
-    image: traefik:v2.9
+    image: traefik:3.3
     container_name: magnetdb-traefik
     command: --api.insecure=true --providers.docker --providers.docker.exposedbydefault=false --entrypoints.web.address=:80
     ports:
@@ -32,7 +31,7 @@ services:
     working_dir: /home/feelpp/test
     volumes:
       - .:/home/feelpp/test
-      - ../magnetdb-data/poetry-cache:/home/feelpp/.cache/pypoetry
+      - ../magnetdb-data/django/poetry-cache:/home/feelpp/.cache/pypoetry
       - ./data/:/data:ro
       - ./images:/images:ro
     links:
@@ -42,10 +41,10 @@ services:
       - lemonldap
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.api.rule=Host(`api.magnetdb-dev.local`)"
-      - "traefik.http.routers.api.entrypoints=https"
-      - "traefik.http.routers.api.tls=true"
-      - "traefik.http.services.api.loadbalancer.server.port=8000"
+      - "traefik.http.routers.webapi.rule=Host(`api.magnetdb-dev.local`)"
+      - "traefik.http.routers.webapi.entrypoints=https"
+      - "traefik.http.routers.webapi.tls=true"
+      - "traefik.http.services.webapi.loadbalancer.server.port=8000"
     environment:
       S3_ENDPOINT: minio:9000
       S3_ACCESS_KEY: minio
@@ -69,11 +68,11 @@ services:
       - |
         poetry update
         poetry lock
-        poetry run watchmedo auto-restart -d ./python_magnetdb/ -p '**/*.py' `poetry run celery -A python_magnetdb.worker worker --loglevel=info`
+        poetry run python manage.py celery_worker
     working_dir: /home/feelpp/test
     volumes:
       - .:/home/feelpp/test
-      - ../magnetdb-data/poetry-cache:/home/feelpp/.cache/pypoetry
+      - ../magnetdb-data/django/poetry-cache:/home/feelpp/.cache/pypoetry
       - ./data/:/data
       - ./images:/images
     links:
@@ -96,13 +95,21 @@ services:
       args:
         NODE_ENV: development
         API_ENDPOINT: "https://api.magnetdb-dev.local"
-    # command: yarn serve
+    volumes:
+      - ./web:/app
+    command:
+      - /bin/bash
+      - -c
+      - |
+        npm install
+        npm run serve
+    working_dir: /app
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.app.rule=Host(`magnetdb-dev.local`)"
       - "traefik.http.routers.app.entrypoints=https"
       - "traefik.http.routers.app.tls=true"
-      - "traefik.http.services.app.loadbalancer.server.port=80"
+      - "traefik.http.services.app.loadbalancer.server.port=8080"
   lemonldap:
     container_name: magnetdb-lemonldap
     image: tiredofit/lemonldap:2.0.24
@@ -129,7 +136,7 @@ services:
       #- ./assets/custom:/assets/custom
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.lemon.rule=Host(`auth.lemon.magnetdb-dev.local`) || Host(`manager.lemon.magnetdb-dev.local`) || Host(`handler.lemon.magnetdb-dev.local`) || Host(`api.lemon.magnetdb-dev.local`)"
+      - "traefik.http.routers.lemon.rule=Host(`lemon.magnetdb-dev.local`) || Host(`auth.lemon.magnetdb-dev.local`) || Host(`manager.lemon.magnetdb-dev.local`) || Host(`handler.lemon.magnetdb-dev.local`) || Host(`api.lemon.magnetdb-dev.local`)"
       - "traefik.http.routers.lemon.entrypoints=https"
       - "traefik.http.routers.lemon.tls=true"
       # - "traefik.http.services.lemon.loadbalancer.server.port=80"
@@ -150,7 +157,7 @@ services:
       TZ: 'Europe/Paris'
       PGTZ: 'Europe/Paris'
     volumes:
-      - ../magnetdb-data/postgres-data:/var/lib/postgresql/data
+      - ../magnetdb-data/django/postgres-data:/var/lib/postgresql/data
   minio:
     container_name: magnetdb-minio
     image: minio/minio
@@ -163,7 +170,7 @@ services:
       - 9000:9000
       - 9080:9080
     volumes:
-      - ../magnetdb-data/minio-data:/data
+      - ../magnetdb-data/django/minio-data:/data
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.minio.rule=Host(`minio.magnetdb-dev.local`)"
@@ -184,7 +191,7 @@ services:
       - "traefik.http.routers.pgadmin.tls=true"
       - "traefik.http.services.pgadmin.loadbalancer.server.port=80"
     volumes:
-      - ../magnetdb-data/pgadmin-data:/var/lib/pgadmin
+      - ../magnetdb-data/django/pgadmin-data:/var/lib/pgadmin
     links:
       - postgres
 volumes:

@@ -1,55 +1,27 @@
 {
-	"name": "MagnetDB Project version",
-	"build": {
-		"dockerfile": "Dockerfile"
-	},
-	"runArgs": [
-		"--cap-add=SYS_PTRACE",
-		"--security-opt",
-		"seccomp=unconfined",
-		"--net",
-		"host",
-		"-e",
-		"DISPLAY=${env:DISPLAY}",
-		"-v",
-		"/tmp/.X11-unix:/tmp/.X11-unix"
-	],
+	"name": "MagnetDB",
+	"dockerComposeFile": "docker-compose-dev-traefik-ssl.yml",
+	"service": "web-app",
+	"workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
+	// Features to add to the dev container. More info: https://containers.dev/features.
+	// "features": {},
+	// Configure tool-specific properties.
 	"mounts": [
-		// "source=${localWorkspaceFolder}\\..\\python_magnetsetup\\data,target=/data,type=bind,consistency=cached"
 		"source=${localWorkspaceFolder}/data,target=/data,type=bind,consistency=cached",
 		"source=${localWorkspaceFolder}/images,target=/images,type=bind,consistency=cached"
+		//	"source=${localWorkspaceFolder}/../magnetdb-data,target=/magnetdb-data,type=bind,consistency=cached"
 	],
-	// Set *default* container specific settings.json values on container create.
 	"customizations": {
-		"settings": {
-			"terminal.integrated.defaultProfile.linux": "bash",
-			"python.defaultInterpreterPath": "/usr/bin/python",
-			"python.linting.enabled": true,
-			"python.linting.pylintEnabled": true,
-			"python.formatting.autopep8Path": "/usr/bin/autopep8",
-			"python.formatting.blackPath": "/usr/bin/black",
-			"python.formatting.yapfPath": "/usr/bin/yapf3",
-			"python.linting.banditPath": "/usr/bin/bandit",
-			"python.linting.flake8Path": "/usr/bin/flake8",
-			"python.linting.mypyPath": "/usr/bin/mypy",
-			"python.linting.pycodestylePath": "/usr/bin/pycodestyle",
-			"python.linting.pydocstylePath": "/usr/bin/pydocstyle",
-			"python.linting.pylintPath": "/usr/bin/pylint",
-			"python.testing.pytestPath": "/usr/bin/pytest-3"
-		},
-		// Add the IDs of extensions you want installed when the container is created.
+		// Configure properties specific to VS Code.
 		"vscode": {
+			// Add the IDs of extensions you want installed when the container is created.
 			"extensions": [
 				"ms-python.python",
-				"ms-python.vscode-pylance"
+				"ms-python.vscode-pylance",
+				"ms-python.black-formatter"
 			]
 		}
 	},
-	// Use 'forwardPorts' to make a list of ports inside the container available locally.
-	// This can be used to network with other containers or the host.
-	// "forwardPorts": [5000, 5432],
-	// Use 'postCreateCommand' to run commands after the container is created.
-	// "postCreateCommand": "pip install --user -r requirements.txt",
-	// Comment out to connect as root instead. More info: https://aka.ms/vscode-remote/containers/non-root.
-	"remoteUser": "feelpp"
+	"remoteUser": "feelpp",
+	"shutdownAction": "stopCompose"
 }

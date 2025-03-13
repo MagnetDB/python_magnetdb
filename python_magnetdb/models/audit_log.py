@@ -1,26 +1,26 @@
-from orator import Model
-from orator.orm import belongs_to, morph_to
+from pydoc import classname
+
+from django.db import models
 
 
-class AuditLog(Model):
-    __table__ = "audit_logs"
-    __fillable__ = ['message', 'metadata', 'user_id', 'resource_id', 'resource_type', 'resource_name']
-
-    @morph_to
-    def resource(self):
-        return
-
-    @belongs_to('user_id')
-    def user(self):
-        from python_magnetdb.models.user import User
-        return User
+class AuditLog(models.Model):
+    class Meta:
+        db_table = 'audit_logs'
+    id = models.BigAutoField(primary_key=True)
+    message = models.TextField(null=False)
+    metadata = models.JSONField(null=True)
+    user = models.ForeignKey('User', on_delete=models.CASCADE, null=False)
+    resource_type = models.TextField(null=False)
+    resource_id = models.BigIntegerField(null=True)
+    resource_name = models.TextField(null=True)
+    created_at = models.DateTimeField(auto_now_add=True, null=False)
+    updated_at = models.DateTimeField(auto_now=True, null=False)
 
     @classmethod
     def log(cls, user, message, metadata=None, resource=None, resource_name=None):
-        log = cls(message=message, metadata=metadata)
-        log.user().associate(user)
+        log = cls(message=message, metadata=metadata, user=user)
         if resource is not None:
-            log.resource().associate(resource)
+            log.resource_type = resource.__class__.__name__
             if hasattr(resource, 'name'):
                 log.resource_name = resource.name
         if resource_name is not None:

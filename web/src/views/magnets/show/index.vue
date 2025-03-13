@@ -13,7 +13,7 @@
         </Button>
         <Popover>
           <Button class="btn btn-default">
-            Visualiser
+            Visualize
           </Button>
 
           <template #content>
@@ -50,13 +50,21 @@
         Details
       </template>
 
-      <Form :initial-values="magnet" @submit="submit" @validate="validate">
+      <Form ref="form" :initial-values="initialValues" @submit="submit" @validate="validate">
         <FormField
             label="Name"
             name="name"
             type="text"
             :component="FormInput"
             :required="true"
+        />
+        <FormField
+          label="Type"
+          name="type"
+          :component="FormSelect"
+          :required="true"
+          :disabled="true"
+          :options="typeOptions"
         />
         <FormField
             label="Description"
@@ -70,19 +78,41 @@
             type="text"
             :component="FormInput"
         />
+        <FormField
+            label="Inner bore"
+            name="inner_bore"
+            type="number"
+            placeholder="0"
+            :component="FormInput"
+            :required="true"
+        />
+        <FormField
+            label="Outer bore"
+            name="outer_bore"
+            type="number"
+            placeholder="0"
+            :component="FormInput"
+            :required="true"
+        />
+        <div class="form-field">
+          <label class="form-field-label">Geometry</label>
+          <GeometryModal :default-value="defaultGeometryValue" />
+        </div>
         <CadAttachmentEditor
           label="CAD"
           resource-type="magnet"
           :resource-id="magnet.id"
           :default-attachments="magnet.cad"
         />
-        <FormField
-            label="Geometry"
-            name="geometry"
-            type="file"
-            :component="FormUpload"
-            :default-value="magnet.geometry"
-        />
+        <div class="form-field">
+          <label class="form-field-label">Flow params</label>
+          <MagnetFlowParamsModal
+            :default-value="defaultFlowParamsValue"
+            @input="editFlowParams"
+            :editable="true"
+          />
+        </div>
+        <FormMetadataModal name="metadata" :editable="true" />
         <Button type="submit" class="btn btn-primary">
           Save
         </Button>
@@ -107,29 +137,50 @@
         <table>
           <thead class="bg-white">
             <tr>
-              <th>Name</th>
-              <th>Description</th>
-              <th>Status</th>
-              <th>Commissioned At</th>
-              <th>Decommissioned At</th>
+              <th class="whitespace-nowrap">Name</th>
+              <th class="whitespace-nowrap">Description</th>
+              <th class="whitespace-nowrap">Status</th>
+              <th class="whitespace-nowrap">Angle</th>
+              <th class="whitespace-nowrap">Commissioned At</th>
+              <th class="whitespace-nowrap">Decommissioned At</th>
+              <th class="whitespace-nowrap"></th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="magnetPart in magnet.magnet_parts" :key="magnetPart.id">
-              <td>
+              <td class="whitespace-nowrap">
                 <router-link :to="{ name: 'part', params: { id: magnetPart.part.id } }" class="link">
                   {{ magnetPart.part.name }}
                 </router-link>
               </td>
-              <td>
+              <td class="whitespace-nowrap">
                 <template v-if="magnetPart.part.description">{{ magnetPart.part.description }}</template>
                 <span v-else class="text-gray-500 italic">Not available</span>
               </td>
-              <td>
+              <td class="whitespace-nowrap">
                 <StatusBadge :status="magnetPart.part.status"></StatusBadge>
               </td>
-              <td>{{ magnetPart.commissioned_at | datetime }}</td>
-              <td>{{ magnetPart.decommissioned_at | datetime }}</td>
+              <td class="whitespace-nowrap">
+                <template v-if="magnetPart.angle !== null">{{ magnetPart.angle }}</template>
+                <span v-else class="text-gray-500 italic">Not set</span>
+              </td>
+              <td class="whitespace-nowrap">
+                <template v-if="magnetPart.commissioned_at !== null">{{ magnetPart.commissioned_at | datetime }}</template>
+                <span v-else class="text-gray-500 italic">Not available</span>
+              </td>
+              <td class="whitespace-nowrap">
+                <template v-if="magnetPart.decommissioned_at !== null">{{ magnetPart.decommissioned_at | datetime }}</template>
+                <span v-else class="text-gray-500 italic">Not available</span>
+              </td>
+              <td class="whitespace-nowrap">
+                <Button
+                  v-if="['in_study', 'in_stock'].includes(magnet.status)"
+                  class="btn btn-danger btn-small"
+                  @click="removePart(magnetPart)"
+                >
+                  Remove part
+                </Button>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -140,13 +191,6 @@
       <template #header>
         <div class="flex items-center justify-between">
           <div>Related Site</div>
-          <Button
-              v-if="['in_study', 'in_stock'].includes(magnet.status)"
-              class="btn btn-primary btn-small"
-              @click="attachToSiteModalVisible = true"
-          >
-            Attach to site
-          </Button>
         </div>
 
       </template>
@@ -174,7 +218,7 @@
                 <span v-else class="text-gray-500 italic">Not available</span>
               </td>
               <td>
-                <StatusBadge :status="siteMagnet.site.status"></StatusBadge>
+                <StatusBadge :status="siteMagnet.site.status" />
               </td>
               <td>{{ siteMagnet.commissioned_at }}</td>
               <td>{{ siteMagnet.decommissioned_at }}</td>
@@ -187,12 +231,8 @@
     <AddPartToMagnetModal
         :magnet-id="magnet.id"
         :visible="addPartModalVisible"
+        :allowed-types="magnet.supported_part_types"
         @close="addPartModalVisible = false; fetch()"
-    />
-    <AttachMagnetToSiteModal
-        :magnet-id="magnet.id"
-        :visible="attachToSiteModalVisible"
-        @close="attachToSiteModalVisible = false; fetch()"
     />
   </div>
   <Alert v-else-if="error" class="alert alert-danger" :error="error"/>
@@ -210,18 +250,25 @@ import FormUpload from "@/components/FormUpload";
 import Button from "@/components/Button";
 import Alert from "@/components/Alert";
 import AddPartToMagnetModal from "@/views/magnets/show/AddPartToMagnetModal";
-import AttachMagnetToSiteModal from "@/views/magnets/show/AttachMagnetToSiteModal";
 import StatusBadge from "@/components/StatusBadge";
 import CadAttachmentEditor from "@/components/CadAttachmentEditor";
 import Popover from "@/components/Popover";
+import GeometryModal from "@/components/GeometryModal.vue";
+import client from "@/services/client";
+import FormMetadataModal from "@/components/FormMetadataModal.vue";
+import MagnetFlowParamsModal from "@/components/MagnetFlowParamsModal.vue";
+import {queue} from "@/mixins/createFormField";
+import {cloneDeep, set} from "lodash";
 
 export default {
   name: 'MagnetShow',
   components: {
+    MagnetFlowParamsModal,
+    FormMetadataModal,
+    GeometryModal,
     Popover,
     CadAttachmentEditor,
     StatusBadge,
-    AttachMagnetToSiteModal,
     AddPartToMagnetModal,
     Alert,
     Button,
@@ -237,10 +284,24 @@ export default {
       error: null,
       magnet: null,
       addPartModalVisible: false,
-      attachToSiteModalVisible: false,
+      initialValues: null,
+      defaultGeometryValue: '',
+      defaultFlowParamsValue: '',
+      typeOptions: [
+        { name: 'Insert', value: 'insert' },
+        { name: 'Bitters', value: 'bitters' },
+        { name: 'Supras', value: 'supras' },
+      ],
     }
   },
   methods: {
+    editFlowParams(value) {
+      queue.run(() => {
+        const values = cloneDeep(this.$refs.form.values)
+        set(values, 'flow_params', JSON.parse(value))
+        this.$refs.form.setValues(values)
+      })
+    },
     defunct() {
       return magnetService.defunct({ magnetId: this.magnet.id })
           .then(this.fetch)
@@ -254,6 +315,10 @@ export default {
         name: values.name,
         description: values.description,
         design_office_reference: values.design_office_reference,
+        inner_bore: values.inner_bore,
+        outer_bore: values.outer_bore,
+        metadata: JSON.stringify(values.metadata),
+        flow_params: JSON.stringify(values.flow_params),
       }
       if (values.cao instanceof File) {
         payload.cao = values.cao
@@ -272,10 +337,25 @@ export default {
       })
     },
     fetch() {
+      client.get(`/api/magnets/${this.$route.params.id}/geometry.yaml`)
+          .then((res) => this.defaultGeometryValue = res.data)
       return magnetService.find({id: this.$route.params.id})
           .then((magnet) => {
             this.magnet = magnet
+            this.defaultFlowParamsValue = magnet.flow_params ? JSON.stringify(magnet.flow_params, null, 2) : ''
+            this.initialValues = {
+              ...magnet,
+              type: this.typeOptions.find((opt) => opt.value === this.magnet.type),
+              flow_params: this.defaultFlowParamsValue,
+            }
           })
+          .catch((error) => {
+            this.error = error
+          })
+    },
+    removePart(magnetPart) {
+      magnetService.deletePart({ magnetPartId: magnetPart.id })
+          .then(this.fetch)
           .catch((error) => {
             this.error = error
           })

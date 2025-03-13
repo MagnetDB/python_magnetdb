@@ -1,112 +1,117 @@
+import json
 from datetime import datetime
 from typing import List
 
-import orator
-from fastapi import Depends, APIRouter, HTTPException, Query, UploadFile, File, Form
+from django.core.paginator import Paginator
+from django.db import IntegrityError
+from fastapi import Depends, APIRouter, HTTPException, Query, UploadFile, File, Form, Response
 
+from .serializers import model_serializer
+from ...actions.generate_simulation_config import generate_site_config
 from ...dependencies import get_user
-from ...models.attachment import Attachment
+from ...models import StorageAttachment
 from ...models.audit_log import AuditLog
 from ...models.site import Site
 from ...models.status import Status
 
-from ...actions.generate_simulation_config import generate_site_config
 router = APIRouter()
 
 
 @router.get("/api/sites")
 def index(user=Depends(get_user('read')), page: int = 1, per_page: int = Query(default=25, lte=100),
-          query: str = Query(None), sort_by: str = Query(None), sort_desc: bool = Query(False),
+          query: str = Query(None), sort_by: str = Query('created_at'), sort_desc: bool = Query(False),
           status: List[str] = Query(default=None, alias="status[]")):
-    sites = Site.with_('site_magnets.magnet') \
-        .order_by(sort_by or 'created_at', 'desc' if sort_desc else 'asc')
+    db_query = Site.objects.prefetch_related('sitemagnet_set__magnet')
+    if sort_by is not None:
+        order_field = f"-{sort_by}" if sort_desc else sort_by
+        db_query = db_query.order_by(order_field)
     if query is not None and query.strip() != '':
-        sites = sites.where('name', 'ilike', f'%{query}%')
+        db_query = db_query.filter(name__icontains=query)
     if status is not None:
-        sites = sites.where_in('status', status)
-    sites = sites.paginate(per_page, page)
-
-    items = []
-    for site in sites:
-        item = site.serialize()
-        item['commissioned_at'] = sorted(
-            list(map(lambda curr: curr.commissioned_at, site.site_magnets)), reverse=True
-        )[0] if len(site.site_magnets) > 0 else None
-        decommissioned_at = list(
-            filter(lambda curr: curr is not None, map(lambda curr: curr.decommissioned_at, list(site.site_magnets)))
-        )
-        item['decommissioned_at'] = sorted(decommissioned_at, reverse=True)[0] if len(decommissioned_at) > 0 else None
-        items.append(item)
+        db_query = db_query.filter(status__in=status)
+    paginator = Paginator(db_query.all(), per_page)
+    items = [model_serializer(site) for site in paginator.get_page(page).object_list]
 
     return {
-        "current_page": sites.current_page,
-        "last_page": sites.last_page,
-        "total": sites.total,
+        "current_page": page,
+        "last_page": paginator.num_pages,
+        "total": paginator.count,
         "items": items,
     }
 
 
 @router.post("/api/sites")
 def create(user=Depends(get_user('create')), name: str = Form(...), description: str = Form(None),
-           config: UploadFile = File(None)):
-    site = Site(name=name, description=description, status=Status.IN_STUDY)
+           config: UploadFile = File(None), metadata: str = Form('{}')):
+    site = Site(
+        name=name,
+        description=description,
+        status=Status.IN_STUDY,
+        metadata=json.loads(metadata),
+    )
     if config is not None:
-        site.config().associate(Attachment.upload(config))
+        site.config_attachment = StorageAttachment.upload(config)
     try:
         site.save()
-    except orator.exceptions.query.QueryException as e:
-        raise HTTPException(status_code=422, detail="Name already taken.") if e.message.find('sites_name_unique') != -1 else e
+    except IntegrityError as e:
+        raise HTTPException(status_code=422, detail="Name already taken.") if 'sites_name_unique' in str(e) else e
     AuditLog.log(user, "Site created", resource=site)
-    return site.serialize()
+    return model_serializer(site)
 
 
 @router.get("/api/sites/{id}")
 def show(id: int, user=Depends(get_user('read'))):
-    site = Site.with_('config', 'site_magnets.magnet', 'records').find(id)
+    site = Site.objects.prefetch_related('sitemagnet_set__magnet', 'record_set', 'config_attachment').get(id=id)
+    if not site:
+        raise HTTPException(status_code=404, detail="Site not found")
+    return model_serializer(site)
+
+
+@router.get("/api/sites/{id}/geometry.yaml")
+def geometry(id: int, user=Depends(get_user('read'))):
+    site = Site.objects.get(id=id)
     if not site:
         raise HTTPException(status_code=404, detail="Site not found")
 
-    res = site.serialize()
-    res['commissioned_at'] = sorted(
-        list(map(lambda curr: curr.commissioned_at, list(site.site_magnets))), reverse=True
-    )[0] if len(site.site_magnets) > 0 else None
-    decommissioned_at = list(
-        filter(lambda curr: curr is not None, map(lambda curr: curr.decommissioned_at, list(site.site_magnets)))
-    )
-    res['decommissioned_at'] = sorted(decommissioned_at, reverse=True)[0] if len(decommissioned_at) > 0 else None
-    return res
+    return Response(content=site.geometry_config_to_yaml, media_type="application/x-yaml")
 
 
 @router.patch("/api/sites/{id}")
-def update(id: int, user=Depends(get_user('update')), name: str = Form(...), description: str = Form(None),
-           config: UploadFile = File(None)):
-    site = Site.find(id)
+def update(
+    id: int, user=Depends(get_user('update')),
+    name: str = Form(...),
+    description: str = Form(None),
+    config: UploadFile = File(None),
+    metadata: str = Form(None),
+):
+    site = Site.objects.prefetch_related('sitemagnet_set__magnet', 'record_set', 'config_attachment').get(id=id)
     if not site:
         raise HTTPException(status_code=404, detail="Site not found")
 
     site.name = name
     site.description = description
     if config:
-        site.config().associate(Attachment.upload(config))
+        site.config_attachment = StorageAttachment.upload(config)
+    if metadata is not None:
+        site.metadata = json.loads(metadata)
     site.save()
     AuditLog.log(user, "Site updated", resource=site)
-    return site.serialize()
+    return model_serializer(site)
 
 @router.get("/api/sites/{id}/records")
 def records(id: int, user=Depends(get_user('read'))):
-    site = Site.with_('records').find(id)
+    site = Site.objects.prefetch_related('record_set').get(id=id)
     if not site:
         raise HTTPException(status_code=404, detail="Site not found")
 
-    print(f'/api/sites/{id}/records: {site}')
     result = []
-    for record in site.records:
-        result.append(record.serialize())
+    for record in site.record_set.all():
+        result.append(model_serializer(record))
     return {'records': result}
 
 @router.get("/api/sites/{id}/mdata")
 def mdata(id: int, user=Depends(get_user('read'))):
-    site = Site.find(id)
+    site = Site.objects.get(id=id)
     if not site:
         raise HTTPException(status_code=404, detail="Site not found")
 
@@ -116,18 +121,18 @@ def mdata(id: int, user=Depends(get_user('read'))):
 
 @router.post("/api/sites/{id}/put_in_operation")
 def put_in_operation(id: int, commissioned_at: datetime = Form(datetime.now()), user=Depends(get_user('update'))):
-    site = Site.with_('site_magnets.magnet.magnet_parts.part').find(id)
+    site = Site.objects.prefetch_related('sitemagnet_set__magnet__magnetpart_set__part').get(id=id)
     if not site:
         raise HTTPException(status_code=404, detail="Site not found")
 
-    for site_magnet in site.site_magnets:
+    for site_magnet in site.sitemagnet_set.all():
         if not site_magnet.active:
             continue
         site_magnet.magnet.status = Status.IN_OPERATION
         site_magnet.magnet.save()
         site_magnet.commissioned_at = commissioned_at
         site_magnet.save()
-        for magnet_part in site_magnet.magnet.magnet_parts:
+        for magnet_part in site_magnet.magnet.magnetpart_set.all():
             if not magnet_part.active:
                 continue
             magnet_part.part.status = Status.IN_OPERATION
@@ -138,16 +143,16 @@ def put_in_operation(id: int, commissioned_at: datetime = Form(datetime.now()), 
     site.status = Status.IN_OPERATION
     site.save()
     AuditLog.log(user, "Site put in operation", resource=site)
-    return site.serialize()
+    return model_serializer(site)
 
 
 @router.post("/api/sites/{id}/shutdown")
 def shutdown(id: int, decommissioned_at: datetime = Form(datetime.now()), user=Depends(get_user('update'))):
-    site = Site.with_('site_magnets.magnet').find(id)
+    site = Site.objects.prefetch_related('sitemagnet_set__magnet').get(id=id)
     if not site:
         raise HTTPException(status_code=404, detail="Site not found")
 
-    for site_magnet in site.site_magnets:
+    for site_magnet in site.sitemagnet_set.all():
         if not site_magnet.active:
             continue
         site_magnet.magnet.status = Status.IN_STOCK
@@ -158,14 +163,15 @@ def shutdown(id: int, decommissioned_at: datetime = Form(datetime.now()), user=D
     site.status = Status.DEFUNCT
     site.save()
     AuditLog.log(user, "Site shutdown", resource=site)
-    return site.serialize()
+    return model_serializer(site)
 
 
 @router.delete("/api/sites/{id}")
 def destroy(id: int, user=Depends(get_user('delete'))):
-    site = Site.find(id)
+    site = Site.objects.prefetch_related('sitemagnet_set__magnet', 'record_set', 'config_attachment').get(id=id)
     if not site:
         raise HTTPException(status_code=404, detail="Site not found")
+
     site.delete()
     AuditLog.log(user, "Site deleted", resource=site)
-    return site.serialize()
+    return model_serializer(site)

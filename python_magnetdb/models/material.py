@@ -1,14 +1,24 @@
-from orator import Model
-from orator.orm import has_many
+from django.db import models
 
 
-class Material(Model):
-    __table__ = "materials"
-    __fillable__ = ['name', 'nuance', 'description', 't_ref', 'volumic_mass', 'alpha', 'specific_heat',
-                    'electrical_conductivity', 'thermal_conductivity', 'magnet_permeability', 'young',
-                    'poisson', 'expansion_coefficient', 'rpe']
-
-    @has_many
-    def parts(self):
-        from .part import Part
-        return Part
+class Material(models.Model):
+    class Meta:
+        db_table = 'materials'
+    id = models.BigAutoField(primary_key=True)
+    name = models.CharField(max_length=255, unique=True, null=False)
+    nuance = models.CharField(max_length=255, null=True)
+    description = models.TextField(null=True)
+    t_ref = models.FloatField(default=20, null=False)
+    volumic_mass = models.FloatField(default=0, null=False)
+    alpha = models.FloatField(default=0, null=False)
+    specific_heat = models.FloatField(default=0, null=False)
+    electrical_conductivity = models.FloatField(default=0, null=False)
+    thermal_conductivity = models.FloatField(default=0, null=False)
+    magnet_permeability = models.FloatField(default=0, null=False)
+    young = models.FloatField(default=0, null=False)
+    poisson = models.FloatField(default=0, null=False)
+    expansion_coefficient = models.FloatField(default=0, null=False)
+    rpe = models.FloatField(null=False)
+    metadata = models.JSONField(default=dict, null=False)
+    created_at = models.DateTimeField(auto_now_add=True, null=False)
+    updated_at = models.DateTimeField(auto_now=True, null=False)

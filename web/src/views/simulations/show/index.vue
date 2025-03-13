@@ -38,7 +38,7 @@
         </div>
       </template>
 
-      <Form :initial-values="simulation">
+      <Form :initial-values="simulation" @submit="submit">
         <FormField
             label="Resource"
             name="magnet"
@@ -143,6 +143,10 @@
               }
             ]"
         />
+        <FormMetadataModal name="metadata" :editable="true" />
+        <Button type="submit" class="btn btn-primary">
+          Save
+        </Button>
       </Form>
     </Card>
 
@@ -166,10 +170,12 @@ import StatusBadge from "@/components/StatusBadge";
 import MeasuresCard from "@/views/simulations/show/MeasuresCard";
 import RunSimulationModal from "@/views/simulations/show/RunSimulationModal";
 import client from "@/services/client";
+import FormMetadataModal from "@/components/FormMetadataModal.vue";
 
 export default {
   name: 'SimulationShow',
   components: {
+    FormMetadataModal,
     RunSimulationModal,
     MeasuresCard,
     StatusBadge,
@@ -201,6 +207,12 @@ export default {
     },
   },
   methods: {
+    submit(values) {
+      return simulationService.update({
+        id: this.simulation.id,
+        metadata: JSON.stringify(values.metadata),
+      })
+    },
     deleteSimulation() {
       return simulationService.deleteSimulation({ id: this.simulation.id })
           .then(() => this.$router.push({ name: 'simulations' }))

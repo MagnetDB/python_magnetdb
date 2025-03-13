@@ -51,6 +51,7 @@
             :default-value="record.attachment"
             :disabled="true"
         />
+        <FormMetadataModal name="metadata" :editable="true" />
         <Button type="submit" class="btn btn-primary">
           Save
         </Button>
@@ -75,10 +76,12 @@ import FormUpload from "@/components/FormUpload";
 import Button from "@/components/Button";
 import Alert from "@/components/Alert";
 import VisualisationCard from "@/views/records/show/VisualisationCard";
+import FormMetadataModal from "@/components/FormMetadataModal.vue";
 
 export default {
   name: 'RecordShow',
   components: {
+    FormMetadataModal,
     VisualisationCard,
     Alert,
     Button,
@@ -103,6 +106,7 @@ export default {
         name: values.name,
         description: values.description,
         site_id: values.site.value,
+        metadata: JSON.stringify(values.metadata),
       })
           .catch(setRootError)
     },

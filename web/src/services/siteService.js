@@ -41,11 +41,24 @@ export function update({ id, ...values }) {
     .then((res) => res.data)
 }
 
-export function addMagnet({ siteId, magnetId }) {
+export function addMagnet({ siteId, magnetId, zOffset, rOffset, parallax }) {
   const form = new FormData()
+  form.append('site_id', siteId)
   form.append('magnet_id', magnetId)
-  return client.post(`/api/sites/${siteId}/magnets`, form)
-    .then((res) => res.data)
+  if (zOffset !== undefined) {
+    form.append('z_offset', zOffset)
+  }
+  if (rOffset !== undefined) {
+    form.append('r_offset', rOffset)
+  }
+  if (parallax !== undefined) {
+    form.append('parallax', parallax)
+  }
+  return client.post(`/api/site_magnets`, form).then((res) => res.data)
+}
+
+export function deleteMagnet({ siteMagnetId }) {
+  return client.delete(`/api/site_magnets/${siteMagnetId}`).then((res) => res.data)
 }
 
 export function putInOperation({ siteId }) {

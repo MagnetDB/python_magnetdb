@@ -13,6 +13,30 @@
             :options="magnetOptions"
             @search="searchMagnet"
         />
+        <FormField
+            label="Z offset"
+            name="z_offset"
+            type="number"
+            placeholder="0"
+            :component="FormInput"
+            :required="true"
+        />
+        <FormField
+            label="R offset"
+            name="r_offset"
+            type="number"
+            placeholder="0"
+            :component="FormInput"
+            :required="true"
+        />
+        <FormField
+            label="Parallax"
+            name="parallax"
+            type="number"
+            placeholder="0"
+            :component="FormInput"
+            :required="true"
+        />
       </Form>
     </template>
     <template #footer>
@@ -35,6 +59,7 @@ import * as magnetService from '@/services/magnetService'
 import Form from "@/components/Form";
 import FormField from "@/components/FormField";
 import FormSelect from "@/components/FormSelect";
+import FormInput from "@/components/FormInput";
 import Button from "@/components/Button";
 import Modal from "@/components/Modal";
 
@@ -50,6 +75,7 @@ export default {
   data() {
     return {
       FormSelect,
+      FormInput,
       magnetOptions: [],
     }
   },
@@ -66,6 +92,9 @@ export default {
       let payload = {
         siteId: this.siteId,
         magnetId: values.magnet.value,
+        zOffset: values.z_offset,
+        rOffset: values.r_offset,
+        parallax: values.parallax,
       }
 
       return siteService.addMagnet(payload)

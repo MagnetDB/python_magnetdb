@@ -1,8 +1,7 @@
 from fastapi import Request, HTTPException
 
-from .database import db
 from .models.user import User
-from .security import parse_user_token
+from python_magnetdb.actions.security import parse_user_token
 
 
 def is_authorize(user: User, action: str) -> bool:
@@ -23,7 +22,7 @@ def get_user(action=False):
         if authorization is None:
             raise HTTPException(detail="Forbidden.", status_code=403)
         token = parse_user_token(authorization)
-        user = User.find(token['user_id']) if token else User.where('api_key', authorization).first()
+        user = User.objects.filter(id=token['user_id']).get() if token else User.objects.filter(api_key=authorization).get()
         if not (user is not None and (action is False or is_authorize(user, action))):
             raise HTTPException(detail="Forbidden.", status_code=403)
         return user
@@ -32,4 +31,4 @@ def get_user(action=False):
 
 
 def get_db():
-    return db
+    return None

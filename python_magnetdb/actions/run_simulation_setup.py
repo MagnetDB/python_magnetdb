@@ -7,29 +7,30 @@ from os.path import basename
 from traceback import print_exception
 
 from python_magnetsetup.config import appenv
-from python_magnetsetup.setup import setup
 
 from python_magnetdb.actions.generate_magnet_directory import generate_magnet_directory
 from python_magnetdb.actions.generate_site_directory import generate_site_directory
-from python_magnetdb.models.attachment import Attachment
+from python_magnetdb.models import Simulation, StorageAttachment
+from python_magnetsetup.setup import setup
 
 
-def prepare_directory(simulation, directory):
-    if simulation.resource_type == "magnets":
-        return generate_magnet_directory(simulation.resource_id, directory)
-    elif simulation.resource_type == "sites":
-        return generate_site_directory(simulation.resource_id, directory)
+def prepare_directory(simulation: Simulation, directory):
+    if simulation.magnet_id is not None:
+        return generate_magnet_directory(simulation.magnet_id, directory)
+    elif simulation.site_id is not None:
+        return generate_site_directory(simulation.site_id, directory)
     raise Exception("Unsupported resource type")
 
 
-def run_simulation_setup(simulation):
+def run_simulation_setup(simulation: Simulation):
     simulation.setup_status = "in_progress"
     simulation.save()
-    simulation.load("currents.magnet.parts")
 
     currents = {
-        current.magnet.name: {"value": current.value, "type": current.magnet.get_type()}
-        for current in simulation.currents
+        current.magnet.name: {
+            "value": current.value,
+            "type": current.magnet.type
+        } for current in simulation.simulationcurrent_set.all()
     }
     print(f"currents={currents}")
 
@@ -40,7 +41,7 @@ def run_simulation_setup(simulation):
         print(f"generating config in {tempdir}...")
         prepare_directory(simulation, tempdir)
 
-        # done = subprocess.run([f"ls -lR {tempdir}"], shell=True)
+        done = subprocess.run([f"ls -lR {tempdir}"], shell=True)
         print("generating config done")
 
         print(
@@ -108,12 +109,18 @@ def run_simulation_setup(simulation):
                 )
             else:
                 subprocess.run([f"tar czf {output_archive} *"], shell=True, check=True)
-            attachment = Attachment.raw_upload(
+            attachment = StorageAttachment.raw_upload(
                 basename(output_archive), "application/x-tar", output_archive
             )
-            simulation.setup_output_attachment().associate(attachment)
+            simulation.setup_output_attachment = attachment
             simulation.setup_status = "done"
         except Exception as err:
+            output_archive = f"{tempdir}/setup.tar.gz"
+            subprocess.run([f"tar czf {output_archive} *"], shell=True, check=True)
+            attachment = StorageAttachment.raw_upload(
+                basename(output_archive), "application/x-tar", output_archive
+            )
+            simulation.setup_output_attachment = attachment
             simulation.setup_status = "failed"
             print_exception(None, err, err.__traceback__)
         os.chdir(current_dir)

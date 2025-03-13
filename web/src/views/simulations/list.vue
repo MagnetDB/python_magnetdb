@@ -4,9 +4,22 @@
       <div class="display-1">
         Simulations from MagnetDB
       </div>
-      <router-link class="btn btn-success" :to="{ name: 'new_simulation' }">
-        New simulation
-      </router-link>
+      <Popover>
+        <Button class="btn btn-success">
+          New simulation
+        </Button>
+
+        <template #content>
+          <div class="space-y-2">
+            <router-link class="btn btn-default btn-block" :to="{ name: 'new_simulation' }">
+              New simulation
+            </router-link>
+            <router-link class="btn btn-default btn-block" :to="{ name: 'new_simulation_commissioning' }">
+              New commissioning
+            </router-link>
+          </div>
+        </template>
+      </Popover>
     </div>
 
     <Card>
@@ -42,10 +55,13 @@ import * as simulationService from '@/services/simulationService'
 import Card from '@/components/Card'
 import DataTable from "@/components/DataTable";
 import StatusBadge from "@/components/StatusBadge";
+import Button from "@/components/Button.vue";
+import Popover from "@/components/Popover.vue";
 
 export default {
   name: 'SimulationList',
   components: {
+    Popover, Button,
     StatusBadge,
     Card,
     DataTable,

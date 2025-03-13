@@ -1,17 +1,12 @@
-from orator import Model
-from orator.orm import belongs_to
+from django.db import models
 
 
-class SimulationCurrent(Model):
-    __table__ = "simulation_currents"
-    __fillable__ = ['simulation_id', 'magnet_id', 'value']
-
-    @belongs_to('simulation_id')
-    def simulation(self):
-        from .simulation import Simulation
-        return Simulation
-
-    @belongs_to('magnet_id')
-    def magnet(self):
-        from .magnet import Magnet
-        return Magnet
+class SimulationCurrent(models.Model):
+    class Meta:
+        db_table = 'simulation_currents'
+    id = models.BigAutoField(primary_key=True)
+    simulation = models.ForeignKey('Simulation', on_delete=models.CASCADE, null=False)
+    magnet = models.ForeignKey('Magnet', on_delete=models.CASCADE, null=False)
+    value = models.FloatField(null=False)
+    created_at = models.DateTimeField(auto_now_add=True, null=False)
+    updated_at = models.DateTimeField(auto_now=True, null=False)

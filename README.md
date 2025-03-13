@@ -49,7 +49,7 @@ The first time you run the service, you would need to:
 * Fix the permissions for pgadmin-data
 
 ```shell
-sudo chown -R 5050:5050 pgadmin-data
+sudo chown -R 5050:0 pgadmin-data
 ```
 
 2. Set timezone in nginx-proxy
@@ -75,16 +75,16 @@ docker exec -it magnetdb-api /bin/bash
 In the container, to perform database migration run:
 
 ```shell
-poetry run orator migrate -c python_magnetdb/database.py
+poetry run python3 manage.py migrate
 ```
 
 Eventually, run seeds to populate the database
 
 ```shell
 export DATA_DIR=/data
-poetry run python3 -m python_magnetdb.seeds
-poetry run python3 -m python_magnetdb.seed-again
-poetry run python3 -m python_magnetdb.seed-records
+poetry run python3 -m python_magnetdb.seeds.seeds
+poetry run python3 -m python_magnetdb.seeds.seed-again
+poetry run python3 -m python_magnetdb.seeds.seed-records
 ```
     
 4. Configure LemonLDAP (https://github.com/LemonLDAPNG/lemonldap-ng-docker):

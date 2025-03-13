@@ -1,60 +1,40 @@
+import json
 from datetime import datetime
-from typing import List
+from typing import List, Dict
 
-import orator.exceptions.query
-from fastapi import APIRouter, Query, HTTPException, Form, UploadFile, File, Depends
+from django.core.paginator import Paginator
+from django.db import IntegrityError
+from django.db.models import Q
+from fastapi import APIRouter, Query, HTTPException, Form, Depends, Response
 
-from ...dependencies import get_user
-from ...models.attachment import Attachment
-from ...models.audit_log import AuditLog
-from ...models.magnet import Magnet
-from ...models.status import Status
-
+from .serializers import model_serializer
 from ...actions.generate_magnet_directory import generate_magnet_directory
+from ...dependencies import get_user
+from ...models import Magnet, AuditLog
+from ...models.magnet import MagnetType
+from ...models.status import Status
 
 router = APIRouter()
 
 
 @router.get("/api/magnets")
 def index(user=Depends(get_user('read')), page: int = 1, per_page: int = Query(default=25, lte=100),
-          query: str = Query(None), sort_by: str = Query(None), sort_desc: bool = Query(False),
+          query: str = Query(None), sort_by: str = Query('created_at'), sort_desc: bool = Query(False),
           status: List[str] = Query(default=None, alias="status[]")):
-    magnets = Magnet.with_('site_magnets') \
-        .order_by(sort_by or 'created_at', 'desc' if sort_desc else 'asc')
+    db_query = Magnet.objects.prefetch_related('sitemagnet_set')
     if query is not None and query.strip() != '':
-        magnets = magnets.where('name', 'ilike', f'%{query}%')
+        db_query = db_query.filter(Q(name__icontains=query))
     if status is not None:
-        magnets = magnets.where_in('status', status)
-    magnets = magnets.paginate(per_page, page)
-
-    items = []
-    for magnet in magnets:
-        item = magnet.serialize()
-        item["commissioned_at"] = (
-            sorted(
-                list(map(lambda curr: curr.commissioned_at, magnet.site_magnets)),
-                reverse=True,
-            )[0]
-            if len(magnet.site_magnets) > 0
-            else None
-        )
-        decommissioned_at = list(
-            filter(
-                lambda curr: curr is not None,
-                map(lambda curr: curr.decommissioned_at, list(magnet.site_magnets)),
-            )
-        )
-        item["decommissioned_at"] = (
-            sorted(decommissioned_at, reverse=True)[0]
-            if len(decommissioned_at) > 0
-            else None
-        )
-        items.append(item)
-
+        db_query = db_query.filter(Q(status__in=status))
+    if sort_by is not None:
+        order_field = f"-{sort_by}" if sort_desc else sort_by
+        db_query = db_query.order_by(order_field)
+    paginator = Paginator(db_query.all(), per_page)
+    items = [model_serializer(magnet) for magnet in paginator.get_page(page).object_list]
     return {
-        "current_page": magnets.current_page,
-        "last_page": magnets.last_page,
-        "total": magnets.total,
+        "current_page": page,
+        "last_page": paginator.num_pages,
+        "total": paginator.count,
         "items": items,
     }
 
@@ -63,54 +43,66 @@ def index(user=Depends(get_user('read')), page: int = 1, per_page: int = Query(d
 def create(
     user=Depends(get_user("create")),
     name: str = Form(...),
+    type: MagnetType = Form(...),
     description: str = Form(None),
     design_office_reference: str = Form(None),
+    metadata: str = Form('{}'),
+    flow_params: str = Form('null'),
 ):
     magnet = Magnet(
         name=name,
+        type=type,
         description=description,
         design_office_reference=design_office_reference,
         status=Status.IN_STUDY,
+        metadata=json.loads(metadata),
+        flow_params=json.loads(flow_params),
     )
     try:
         magnet.save()
-    except orator.exceptions.query.QueryException as e:
-        if e.message.find("magnets_name_unique") != -1:
-            raise HTTPException(status_code=422, detail="Name already taken.")
-        raise e
-
+    except IntegrityError as e:
+        raise HTTPException(status_code=422, detail="Name already taken.") if 'magnets_name_unique' in str(e) else e
     AuditLog.log(user, "Magnet created", resource=magnet)
-    return magnet.serialize()
+    return model_serializer(magnet)
 
 
 @router.get("/api/magnets/{id}/sites")
 def sites(id: int, user=Depends(get_user("read"))):
-    magnet = Magnet.with_("site_magnets.site").find(id)
+    magnet = Magnet.objects.prefetch_related('sitemagnet_set__site').get(id=id)
     if not magnet:
         raise HTTPException(status_code=404, detail="Magnet not found")
 
     result = []
-    for site_magnet in magnet.site_magnets:
-        result.append(site_magnet.serialize())
+    for site_magnet in magnet.sitemagnet_set.all():
+        result.append(model_serializer(site_magnet))
     return {"sites": result}
+
+
+@router.get("/api/magnets/{id}/geometry.yaml")
+def geometry(id: int, user=Depends(get_user('read'))):
+    magnet = Magnet.objects.get(id=id)
+    if not magnet:
+        raise HTTPException(status_code=404, detail="Magnet not found")
+
+    return Response(content=magnet.geometry_config_to_yaml, media_type="application/x-yaml")
 
 
 @router.get("/api/magnets/{id}/records")
 def records(id: int, user=Depends(get_user("read"))):
-    magnet = Magnet.with_("site_magnets.site.records").find(id)
+    magnet = Magnet.objects.prefetch_related('sitemagnet_set__site__record_set').get(id=id)
     if not magnet:
         raise HTTPException(status_code=404, detail="Magnet not found")
 
     result = []
-    for site_magnet in magnet.site_magnets:
-        for record in site_magnet.site.records:
-            result.append(record.serialize())
+    for site_magnet in magnet.sitemagnet_set.all():
+        for record in site_magnet.site.record_set.all():
+            result.append(model_serializer(record))
     return {"records": result}
 
 
 @router.get("/api/magnets/{id}/mdata")
 def mdata(id: int, user=Depends(get_user("read"))):
-    magnet = Magnet.find(id)
+    magnet = Magnet.objects.get(id=id)
     if not magnet:
         raise HTTPException(status_code=404, detail="Magnet not found")
 
@@ -120,33 +112,13 @@ def mdata(id: int, user=Depends(get_user("read"))):
 
 @router.get("/api/magnets/{id}")
 def show(id: int, user=Depends(get_user("read"))):
-    magnet = Magnet.with_(
-        "magnet_parts.part", "site_magnets.site", "cad.attachment", "geometry"
-    ).find(id)
+    magnet = Magnet.objects\
+        .prefetch_related('magnetpart_set__part', 'sitemagnet_set__site', 'cadattachment_set__attachment')\
+        .get(id=id)
     if not magnet:
         raise HTTPException(status_code=404, detail="Magnet not found")
 
-    res = magnet.serialize()
-    res["commissioned_at"] = (
-        sorted(
-            list(map(lambda curr: curr.commissioned_at, list(magnet.site_magnets))),
-            reverse=True,
-        )[0]
-        if len(magnet.site_magnets) > 0
-        else None
-    )
-    decommissioned_at = list(
-        filter(
-            lambda curr: curr is not None,
-            map(lambda curr: curr.decommissioned_at, list(magnet.site_magnets)),
-        )
-    )
-    res["decommissioned_at"] = (
-        sorted(decommissioned_at, reverse=True)[0]
-        if len(decommissioned_at) > 0
-        else None
-    )
-    return res
+    return model_serializer(magnet)
 
 
 @router.patch("/api/magnets/{id}")
@@ -156,29 +128,40 @@ def update(
     name: str = Form(...),
     description: str = Form(None),
     design_office_reference: str = Form(None),
-    geometry: UploadFile = File(None),
+    inner_bore: float = Form(None),
+    outer_bore: float = Form(None),
+    metadata: str = Form(None),
+    flow_params: str = Form(None),
 ):
-    magnet = Magnet.with_("cad.attachment", "geometry").find(id)
+    magnet = Magnet.objects \
+        .prefetch_related('magnetpart_set__part', 'sitemagnet_set__site', 'cadattachment_set__attachment') \
+        .get(id=id)
     if not magnet:
         raise HTTPException(status_code=404, detail="Magnet not found")
 
     magnet.name = name
     magnet.description = description
     magnet.design_office_reference = design_office_reference
-    if geometry:
-        magnet.geometry().associate(Attachment.upload(geometry))
+    magnet.inner_bore = inner_bore
+    magnet.outer_bore = outer_bore
+    if metadata is not None:
+        magnet.metadata = json.loads(metadata)
+    if flow_params is not None:
+        magnet.flow_params = json.loads(flow_params)
     magnet.save()
     AuditLog.log(user, "Magnet updated", resource=magnet)
-    return magnet.serialize()
+    return model_serializer(magnet)
 
 
 @router.post("/api/magnets/{id}/defunct")
 def defunct(id: int, decommissioned_at: datetime = Form(datetime.now()), user=Depends(get_user('update'))):
-    magnet = Magnet.with_('magnet_parts.part').find(id)
+    magnet = Magnet.objects \
+        .prefetch_related('magnetpart_set__part', 'sitemagnet_set__site', 'cadattachment_set__attachment') \
+        .get(id=id)
     if not magnet:
         raise HTTPException(status_code=404, detail="Magnet not found")
 
-    for magnet_part in magnet.magnet_parts:
+    for magnet_part in magnet.magnetpart_set.all():
         if not magnet_part.active:
             continue
         magnet_part.part.status = Status.IN_STOCK
@@ -189,14 +172,17 @@ def defunct(id: int, decommissioned_at: datetime = Form(datetime.now()), user=De
     magnet.status = Status.DEFUNCT
     magnet.save()
     AuditLog.log(user, "Magnet defunct", resource=magnet)
-    return magnet.serialize()
+    return model_serializer(magnet)
 
 
 @router.delete("/api/magnets/{id}")
 def destroy(id: int, user=Depends(get_user("delete"))):
-    magnet = Magnet.find(id)
+    magnet = Magnet.objects \
+        .prefetch_related('magnetpart_set__part', 'sitemagnet_set__site', 'cadattachment_set__attachment') \
+        .get(id=id)
     if not magnet:
         raise HTTPException(status_code=404, detail="Magnet not found")
+
     magnet.delete()
     AuditLog.log(user, "Magnet deleted", resource=magnet)
-    return magnet.serialize()
+    return model_serializer(magnet)

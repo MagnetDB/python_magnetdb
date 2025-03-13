@@ -1,40 +1,62 @@
-from orator import Model
-from orator.orm import belongs_to, has_many, has_many_through, morph_many
+import copy
+import enum
+import json
 
-from .magnet_part import MagnetPart
+from django.db import models
+
+from python_magnetdb.utils.yaml_json import json_to_yaml
 
 
-class Part(Model):
-    __table__ = "parts"
-    __fillable__ = ['name', 'description', 'status', 'type', 'design_office_reference', 'material_id']
+class PartType(str, enum.Enum):
+    SUPRA = 'supra'
+    HELIX = 'helix'
+    RING = 'ring'
+    SCREEN = 'screen'
+    LEAD = 'lead'
+    BITTER = 'bitter'
 
-    def allow_geometry_types(self):
-        if self.type == 'helix':
-            return ['default', 'salome', 'catia', 'cam', 'shape']
-        elif self.type == 'supra':
-            return ['default', 'hts']
-        return ['default']
+    @classmethod
+    def choices(cls):
+        return [(item.value, item.name) for item in cls]
 
-    @has_many
-    def geometries(self):
-        from python_magnetdb.models.part_geometry import PartGeometry
-        return PartGeometry
 
-    @morph_many('resource')
-    def cad(self):
-        from python_magnetdb.models.cad_attachment import CadAttachment
-        return CadAttachment
+class Part(models.Model):
+    class Meta:
+        db_table = 'parts'
+    id = models.BigAutoField(primary_key=True)
+    name = models.CharField(max_length=255, unique=True, null=False)
+    description = models.TextField(null=True)
+    type = models.CharField(max_length=255, null=False, choices=PartType.choices())
+    status = models.CharField(max_length=255, null=False)
+    material = models.ForeignKey('Material', on_delete=models.CASCADE, null=False)
+    created_at = models.DateTimeField(auto_now_add=True, null=False)
+    updated_at = models.DateTimeField(auto_now=True, null=False)
+    design_office_reference = models.CharField(max_length=255, null=True)
+    geometry_config = models.JSONField(default=dict, null=False)
+    hts_attachment = models.ForeignKey('StorageAttachment', on_delete=models.SET_NULL, null=True, related_name='part_hts')
+    shape_attachment = models.ForeignKey('StorageAttachment', on_delete=models.SET_NULL, null=True, related_name='part_shape')
+    metadata = models.JSONField(default=dict, null=False)
 
-    @belongs_to('material_id')
-    def material(self):
-        from python_magnetdb.models.material import Material
-        return Material
+    @property
+    def allow_hts_file(self):
+        return self.type == PartType.SUPRA
 
-    @has_many
-    def magnet_parts(self):
-        return MagnetPart
+    @property
+    def allow_shape_file(self):
+        return self.type == PartType.HELIX
 
-    @has_many_through(MagnetPart, 'part_id', 'id')
-    def magnets(self):
-        from .magnet import Magnet
-        return Magnet
+    @property
+    def geometry_config_to_json(self):
+        if self.geometry_config is None or self.geometry_config == {}:
+            return None
+
+        config = copy.deepcopy(self.geometry_config)
+        config['__value__']['name'] = self.name
+        return json.dumps(config)
+
+    @property
+    def geometry_config_to_yaml(self):
+        json_config = self.geometry_config_to_json
+        if json_config is None:
+            return None
+        return json_to_yaml(json_config)

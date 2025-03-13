@@ -1,21 +1,20 @@
-from orator import Model
-from orator.orm import belongs_to
+from django.db import models
 
 
-class SiteMagnet(Model):
-    __table__ = "site_magnets"
-    __fillable__ = ['commissioned_at', 'decommissioned_at']
+class SiteMagnet(models.Model):
+    class Meta:
+        db_table = 'site_magnets'
+    id = models.BigAutoField(primary_key=True)
+    magnet = models.ForeignKey('Magnet', on_delete=models.CASCADE, null=False)
+    site = models.ForeignKey('Site', on_delete=models.CASCADE, null=False)
+    z_offset = models.FloatField(null=True)
+    r_offset = models.FloatField(null=True)
+    parallax = models.FloatField(null=True)
+    commissioned_at = models.DateTimeField(null=False)
+    decommissioned_at = models.DateTimeField(null=True)
+    metadata = models.JSONField(default=dict, null=False)
+    created_at = models.DateTimeField(auto_now_add=True, null=False)
+    updated_at = models.DateTimeField(auto_now=True, null=False)
 
-    @property
     def active(self):
         return self.decommissioned_at is None
-
-    @belongs_to('magnet_id')
-    def magnet(self):
-        from .magnet import Magnet
-        return Magnet
-
-    @belongs_to('site_id')
-    def site(self):
-        from .site import Site
-        return Site

@@ -1,14 +1,24 @@
-from orator import Model
-from orator.orm import belongs_to
+from django.db import models
 
 
-class Server(Model):
-    __table__ = "servers"
-    __fillable__ = ['name', 'user_id', 'username', 'host', 'private_key', 'public_key', 'image_directory', 'type',
-                    'smp', 'multithreading', 'cores', 'dns', 'job_manager', 'mesh_gems_directory']
-    __hidden__ = ['private_key']
+class Server(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    name = models.CharField(max_length=255, null=False)
+    user = models.ForeignKey('User', on_delete=models.CASCADE, null=False)
+    username = models.CharField(max_length=255, null=False)
+    host = models.CharField(max_length=255, null=False)
+    private_key = models.TextField(null=False)
+    public_key = models.TextField(null=False)
+    created_at = models.DateTimeField(auto_now_add=True, null=False)
+    updated_at = models.DateTimeField(auto_now=True, null=False)
+    image_directory = models.CharField(max_length=255, null=False)
+    type = models.CharField(max_length=255, default='compute', null=False)
+    smp = models.BooleanField(default=True, null=False)
+    multithreading = models.BooleanField(default=True, null=False)
+    cores = models.IntegerField(default=1, null=False)
+    dns = models.CharField(max_length=255, default='localhost', null=False)
+    job_manager = models.CharField(max_length=255, default='none', null=False)
+    mesh_gems_directory = models.CharField(max_length=255, default='/opt/MeshGems', null=False)
 
-    @belongs_to('user_id')
-    def user(self):
-        from .user import User
-        return User
+    class Meta:
+        db_table = 'servers'

@@ -1,12 +1,35 @@
 FROM node:18-bookworm AS builder
 
-WORKDIR /app
+ARG USERNAME=feelpp
+ARG USER_UID=1001
+ARG USER_GID=$USER_UID
 
+# Avoid warnings by switching to noninteractive
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update \
+    && apt-get -y install --no-install-recommends apt-utils dialog 2>&1 \
+    && apt-get install -y sudo \
+    && echo "create local user $USERNAME (uid=${USER_UID}, gid=${USER_GID})" \
+    && echo "getent group ${USER_GID}: $(getent group ${USER_GID})" \
+    && echo "getent passwd ${USER_UID}: $(getent passwd ${USER_UID})" \
+    # Create a non-root user to use if preferred - see https://aka.ms/vscode-remote/containers/non-root-user.\
+    && if [ ! $(getent group ${USER_GID}) ]; then groupadd --gid ${USER_GID} $USERNAME; fi \
+    && if [ ! $(getent passwd ${USER_UID}) ]; then useradd -s /bin/bash --uid ${USER_UID} --gid ${USER_GID} -m $USERNAME; fi \
+    && echo $USERNAME ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/$USERNAME \
+    && chmod 0440 /etc/sudoers.d/$USERNAME \
+    && echo "local user $(getent group ${USER_GID})" \
+    && echo "local user $(getent passwd ${USER_UID})" \
+    # add github ssh key\
+    && mkdir -p ~${USERNAME}/.ssh/ \
+    && ssh-keyscan github.com >> ~${USERNAME}/.ssh/known_hosts \
+    && chown -R ${USER_GID}:${USER_UID} ~${USERNAME}/.ssh
+
+
+WORKDIR /app
 COPY package.json .
-COPY yarn.lock .
-RUN yarn add caniuse-lite && \
-    yarn remove caniuse-lite && \
-    yarn install
+COPY package-lock.json .
+RUN npm ci --legacy-peer-deps
 
 ARG NODE_ENV
 ARG API_ENDPOINT
@@ -16,11 +39,11 @@ ENV VUE_APP_API_ENDPOINT=$API_ENDPOINT
 ENV NODE_OPTIONS=--openssl-legacy-provider
 
 COPY . .
-RUN yarn build
+#RUN yarn build
 
-FROM nginx
-
-COPY config/nginx.conf /etc/nginx/nginx.conf
-COPY --from=builder /app/dist /usr/share/nginx/html
-
-RUN chown -R nginx.nginx /usr/share/nginx/html/
+#FROM nginx
+#
+#COPY config/nginx.conf /etc/nginx/nginx.conf
+#COPY --from=builder /app/dist /usr/share/nginx/html
+#
+#RUN chown -R nginx.nginx /usr/share/nginx/html/

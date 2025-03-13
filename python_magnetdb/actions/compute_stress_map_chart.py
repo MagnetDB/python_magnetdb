@@ -1,5 +1,5 @@
-import magnettools.Bmap as bmap
-import magnettools.magnettools as mt
+# import magnettools.Bmap as bmap
+# import magnettools.magnettools as mt
 import pandas as pd
 
 
@@ -54,7 +54,7 @@ def compute_stress_map_chart(data, i_h: float, i_b: float, i_s: float, magnet_ty
         df = pd.DataFrame.from_records(values)
         df.columns = headers
         print(f'df = {df}')
-        return (df['num'].tolist(), df['Hoop[MPa]'].tolist()) 
+        return (df['num'].tolist(), df['Hoop[MPa]'].tolist())
 
     def compute_max():
         (Tubes, Helices, OHelices, BMagnets, UMagnets, Shims) = data

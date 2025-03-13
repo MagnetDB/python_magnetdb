@@ -3,32 +3,35 @@ name = "python_magnetdb"
 version = "0.1.0"
 description = "MagnetDB platform"
 authors = ["Christophe Trophime <christophe.trophime@lncmi.cnrs.fr>",
-           "Remi Caumette <remicaumette@icloud.com>" 
+           "Remi Caumette <remicaumette@icloud.com>"
           ]
 
 [tool.poetry.dependencies]
 python = "^3.11"
-fastapi = "^0.75.0"
-pydantic = "^1.9.0"
-python-multipart = "^0.0.5"
-minio = "^7.1.5"
-psycopg2 = "^2.9.3"
-orator = "^0.9.9"
-PyJWT = "^2.3.0"
-requests = "^2.27.1"
-cryptography = "^3.3.1"
-uvicorn = "^0.17.6"
-celery = {extras = ["redis"], version = "^5.2.6"}
-pandas = "^1.5.3"
-pyarrow = "^15.0.1"
-numpy = "^1.24.0"
-scipy = "^1.12.0"
-tabulate = "^0.9.0"
 magnettools = {path = "/home/feelpp/magnettools"}
-python-magnetsetup = {path = "python_magnetsetup"}
-watchdog="^1.0.2"
-
-[tool.poetry.dev-dependencies]
+python-magnetsetup = {path = "./python_magnetsetup", develop = true }
+#watchdog="^1.0.2"
+django = "^5.0.7"
+psycopg = {extras = ["binary"], version = "^3.2.1"}
+jsonfield = "^3.1.0"
+pyjwt = "^2.8.0"
+uvicorn = "^0.30.3"
+uvloop = "^0.19.0"
+fastapi = "^0.111.1"
+pydantic = "^2.8.2"
+python-multipart = "^0.0.9"
+minio = "^7.2.7"
+requests = "^2.32.3"
+cryptography = "^43.0.0"
+celery = {extras = ["redis"], version = "^5.4.0"}
+pandas = "^2.2.1"
+pyarrow = "^17.0.0"
+numpy = "^2.2.2"
+scipy = "^1.14.0"
+tabulate = "^0.9.0"
+pyyaml = "^6.0.2"
+Pint = "^0.24"
+watchfiles = "^1.0.4"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

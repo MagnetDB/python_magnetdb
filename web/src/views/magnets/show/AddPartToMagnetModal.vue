@@ -4,14 +4,23 @@
       Add a part
     </template>
     <template>
-      <Form ref="form" @submit="submit" @validate="validate">
+      <Form ref="form" @submit="submit" @validate="validate" @change="computeFormChanges">
         <FormField
-          label="Part"
-          name="part"
-          :component="FormSelect"
-          :required="true"
-          :options="partOptions"
-          @search="searchPart"
+            label="Part"
+            name="part"
+            :component="FormSelect"
+            :required="true"
+            :options="partOptions"
+            @search="searchPart"
+        />
+        <FormField
+            v-if="displayAngleField"
+            label="Angle"
+            name="angle"
+            type="number"
+            placeholder="0"
+            :component="FormInput"
+            :required="true"
         />
       </Form>
     </template>
@@ -35,12 +44,13 @@ import * as magnetService from '@/services/magnetService'
 import Form from "@/components/Form";
 import FormField from "@/components/FormField";
 import FormSelect from "@/components/FormSelect";
+import FormInput from "@/components/FormInput";
 import Button from "@/components/Button";
 import Modal from "@/components/Modal";
 
 export default {
   name: 'AddPartToMagnetModal',
-  props: ['visible', 'magnetId'],
+  props: ['visible', 'magnetId', 'allowedTypes'],
   components: {
     Modal,
     Button,
@@ -50,15 +60,20 @@ export default {
   data() {
     return {
       FormSelect,
+      FormInput,
       partOptions: [],
+      displayAngleField: false,
     }
   },
   methods: {
+    computeFormChanges(values) {
+      this.displayAngleField = ['ring', 'helix'].includes(values.part?.part?.type)
+    },
     searchPart(query, loading) {
       loading(true)
-      partService.list({ query, status: ['in_study', 'in_stock'] })
+      partService.list({ status: ['in_study', 'in_stock'], type: this.allowedTypes })
         .then((parts) => {
-          this.partOptions = parts.items.map((item) => ({name: item.name, value: item.id}))
+          this.partOptions = parts.items.map((item) => ({name: item.name, value: item.id, part: item}))
         })
         .finally(() => loading(false))
     },
@@ -66,6 +81,9 @@ export default {
       let payload = {
         magnetId: this.magnetId,
         partId: values.part.value,
+      }
+      if (this.displayAngleField) {
+        payload.angle = values.angle
       }
 
       return magnetService.addPart(payload)
@@ -75,12 +93,14 @@ export default {
     validate() {
       return Yup.object().shape({
         part: Yup.object().required(),
+        ...(this.displayAngleField ? {angle: Yup.mixed().required()} : {})
       })
     },
   },
   async mounted() {
-    const parts = await partService.list({ status: ['in_study', 'in_stock'] })
-    this.partOptions = parts.items.map((item) => ({name: item.name, value: item.id}))
+    const parts = await partService.list({ status: ['in_study', 'in_stock'], type: this.allowedTypes })
+    this.partOptions = parts.items
+        .map((item) => ({name: item.name, value: item.id, part: item}))
   }
 }
 </script>

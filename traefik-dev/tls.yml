@@ -2,20 +2,8 @@ tls:
   stores:
     default:
       defaultCertificate:
-        certFile: /etc/ssl/traefik/magnetdb-dev.local+2.pem
-        keyFile: /etc/ssl/traefik/magnetdb-dev.local+2-key.pem
+        certFile: /etc/ssl/traefik/magnetdb-dev.local.pem
+        keyFile: /etc/ssl/traefik/magnetdb-dev.local-key.pem
   certificates:
-    - certFile: /etc/ssl/traefik/api.magnetdb-dev.local.pem
-      keyFile: /etc/ssl/traefik/api.magnetdb-dev.local-key.pem
-
-    - certFile: /etc/ssl/traefik/lemon.magnetdb-dev.local.pem
-      keyFile: /etc/ssl/traefik/lemon.magnetdb-dev.local-key.pem
-
-    - certFile: /etc/ssl/traefik/pgadmin.magnetdb-dev.local.pem
-      keyFile: /etc/ssl/traefik/pgadmin.magnetdb-dev.local-key.pem
-
-    - certFile: /etc/ssl/traefik/traefik.magnetdb-dev.local.pem
-      keyFile: /etc/ssl/traefik/traefik.magnetdb-dev.local-key.pem
-
-    - certFile: /etc/ssl/traefik/minio.magnetdb-dev.local.pem
-      keyFile: /etc/ssl/traefik/minio.magnetdb-dev.local-key.pem
+    - certFile: /etc/ssl/traefik/_wildcard.magnetdb-dev.local.pem
+      keyFile: /etc/ssl/traefik/_wildcard.magnetdb-dev.local-key.pem

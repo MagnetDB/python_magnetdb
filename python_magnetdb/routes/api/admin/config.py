@@ -3,7 +3,7 @@ from os import getenv
 from fastapi import Depends, APIRouter
 
 from ....dependencies import get_user
-from ....security import authorization_server, client_id, client_secret
+from python_magnetdb.actions.security import authorization_server, client_id, client_secret
 
 router = APIRouter()
 

@@ -3,7 +3,7 @@ import os
 import shutil
 
 from python_magnetdb.actions.generate_simulation_config import generate_magnet_config
-from python_magnetdb.models.site import Site
+from python_magnetdb.models import Site
 
 
 def mkdir(dir):
@@ -14,19 +14,19 @@ def mkdir(dir):
 
 
 def generate_site_directory(site_id, directory):
-    site = Site.with_(
-        "site_magnets.magnet.magnet_parts.part.geometries.attachment",
-        "site_magnets.magnet.magnet_parts.part.cad.attachment",
-        "site_magnets.magnet.geometry",
-        "site_magnets.magnet.magnet_parts.part.material",
-        "site_magnets.magnet.cad.attachment",
-    ).find(site_id)
+    site = Site.objects.prefetch_related(
+        'sitemagnet_set__magnet__magnetpart_set__part__partgeometry_set__attachment',
+        'sitemagnet_set__magnet__magnetpart_set__part__cadattachment_set__attachment',
+        'sitemagnet_set__magnet__geometry_attachment'
+        'sitemagnet_set__magnet__magnetpart_set__part__material',
+        'sitemagnet_set__magnet__cadattachment_set__attachment',
+    ).get(id=site_id)
     mkdir(f"{directory}/data")
     mkdir(f"{directory}/data/geometries")
     mkdir(f"{directory}/data/cad")
     shutil.copyfile(f"{os.getcwd()}/flow_params.json", f"{directory}/flow_params.json")
     site_config = {"name": site.name, "magnets": []}
-    for site_magnet in site.site_magnets:
+    for site_magnet in site.sitemagnet_set.all():
         print(
             f"generate_site_config({site_id}): site_magnet={site_magnet.magnet.name}, site_magnet={site_magnet.active}"
         )
@@ -34,22 +34,22 @@ def generate_site_directory(site_id, directory):
         #     continue
         magnet = site_magnet.magnet
         # print(f'site_magnet: name={magnet.name} id={magnet.id}')
-        if magnet.geometry:
-            print(f"download: magnet geometry={magnet.geometry.filename}")
-            magnet.geometry.download(
-                f"{directory}/data/geometries/{magnet.geometry.filename}"
+        if magnet.geometry_attachment:
+            print(f"download: magnet geometry={magnet.geometry_attachment.filename}")
+            magnet.geometry_attachment.download(
+                f"{directory}/data/geometries/{magnet.geometry_attachment.filename}"
             )
-        for magnet_part in magnet.magnet_parts:
+        for magnet_part in magnet.magnetpart_set.all():
             print(f"magnet_part: name={magnet_part.part.name}")
             # if not magnet_part.active:
             #     continue
-            for geometry in magnet_part.part.geometries:
+            for geometry in magnet_part.part.partgeometry_set.all():
                 print(f"download: magnet geometry={geometry.attachment.filename}")
                 geometry.attachment.download(
                     f"{directory}/data/geometries/{geometry.attachment.filename}"
                 )
-            if magnet_part.part.cad:
-                for cad in magnet_part.part.cad:
+            if magnet_part.part.cadattachment_set.all():
+                for cad in magnet_part.part.cadattachment_set.all():
                     cad.attachment.download(
                         f"{directory}/data/cad/{cad.attachment.filename}"
                     )

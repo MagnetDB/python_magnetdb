@@ -14,6 +14,13 @@
             :required="true"
         />
         <FormField
+          label="Type"
+          name="type"
+          :component="FormSelect"
+          :required="true"
+          :options="typeOptions"
+        />
+        <FormField
             label="Description"
             name="description"
             type="text"
@@ -58,11 +65,16 @@ export default {
       FormSelect,
       FormUpload,
       error: null,
+      typeOptions: [
+        { name: 'Insert', value: 'insert' },
+        { name: 'Bitters', value: 'bitters' },
+        { name: 'Supras', value: 'supras' },
+      ],
     }
   },
   methods: {
     submit(values, {setRootError}) {
-      return magnetService.create(values)
+      return magnetService.create({ ...values, type: values.type.value })
           .then((magnet) => {
             this.$router.push({ name: 'magnet', params: { id: magnet.id } })
           })
@@ -71,6 +83,7 @@ export default {
     validate() {
       return Yup.object().shape({
         name: Yup.string().required(),
+        type: Yup.mixed().required(),
       })
     },
   },

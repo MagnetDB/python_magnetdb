@@ -8,9 +8,11 @@ See `python_magnetrun` for more details
 
 0. Pre-requisites
 
+* Certificates
+
 On your host, set /etc/hosts:
 ```shell
-... | sudo tee -a /etc/hosts
+echo "127.0.0.1 magnetdb-dev.local api.magnetdb-dev.local lemon.magnetdb-dev.local manager.lemon.magnetdb-dev.local auth.lemon.magnetdb-dev.local pgadmin.magnetdb-dev.local minio.magnetdb-dev.local traefik.magnetdb-dev.local" | sudo tee -a /etc/hosts
 ```
 
 Create a self signed certificate for the magnetdb server:
@@ -18,10 +20,17 @@ Create a self signed certificate for the magnetdb server:
 ```shell
 mkdir -p certs
 cd certs
-mkcerts -CAROOT
-mkcerts ...
-mkcerts -install
+mkcert -CAROOT
+mkcert 'magnetdb-dev.local'
+mkcert '*.magnetdb-dev.local'
+mkcert -install
 chmod 600 certs/*.key
+```
+
+* Create and Fix the permissions for pgadmin-data
+
+```shell
+sudo chown -R 5050:0 pgadmin-data 
 ```
 
 1. Start dependencies with docker:
@@ -56,7 +65,7 @@ docker exec -it magnetdb-api bash
 
 
 ```shell
-poetry run orator migrate -c python_magnetdb/database.py
+poetry run python3 manage.py migrate
 ```
 
 
@@ -66,9 +75,9 @@ poetry run orator migrate -c python_magnetdb/database.py
    
 ```shell
 export DATA_DIR=/data
-poetry run python3 -m python_magnetdb.seeds
-poetry run python3 -m python_magnetdb.seed-again
-poetry run python3 -m python_magnetdb.seed-records
+poetry run python3 -m python_magnetdb.seeds.seeds
+poetry run python3 -m python_magnetdb.seeds.seed-again
+poetry run python3 -m python_magnetdb.seeds.seed-records
 ```
 
 8. PgAdmin setup

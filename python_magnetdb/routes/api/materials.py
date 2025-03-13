@@ -1,11 +1,14 @@
 from typing import Optional
 
-import orator
-from pydantic import BaseModel
+from django.core.paginator import Paginator
+from django.db import IntegrityError
+from django.db.models import Q
 from fastapi import APIRouter, HTTPException, Query, Depends
+from pydantic import BaseModel
 
+from .serializers import model_serializer
 from ...dependencies import get_user
-from ...models.audit_log import AuditLog
+from ...models import AuditLog
 from ...models.material import Material
 
 router = APIRouter()
@@ -26,59 +29,81 @@ class MaterialPayload(BaseModel):
     poisson: Optional[float] = 0
     expansion_coefficient: Optional[float] = 0
     rpe: float
+    metadata: Optional[dict] = None
 
 
 @router.get("/api/materials")
 def index(user=Depends(get_user('read')), page: int = 1, per_page: int = Query(default=25, lte=100),
-          query: str = Query(None), sort_by: str = Query(None), sort_desc: bool = Query(False)):
-    materials = Material
+          query: str = Query(None), sort_by: str = Query('created_at'), sort_desc: bool = Query(False)):
+    db_query = Material.objects
     if query is not None and query.strip() != '':
-        materials = materials.where('name', 'ilike', f'%{query}%')
+        db_query = db_query.filter(Q(name__icontains=query))
     if sort_by is not None:
-        materials = materials.order_by(sort_by, 'desc' if sort_desc else 'asc')
-    materials = materials.paginate(per_page, page)
+        order_field = f"-{sort_by}" if sort_desc else sort_by
+        db_query = db_query.order_by(order_field)
+    paginator = Paginator(db_query.all(), per_page)
+    items = [model_serializer(site) for site in paginator.get_page(page).object_list]
     return {
-        "current_page": materials.current_page,
-        "last_page": materials.last_page,
-        "total": materials.total,
-        "items": materials.serialize(),
+        "current_page": page,
+        "last_page": paginator.num_pages,
+        "total": paginator.count,
+        "items": items,
     }
 
 
 @router.post("/api/materials")
 def create(payload: MaterialPayload, user=Depends(get_user('create'))):
-    material = Material(payload.dict(exclude_unset=True))
+    material = Material(
+        name=payload.name,
+        description=payload.description,
+        nuance=payload.nuance,
+        t_ref=payload.t_ref,
+        volumic_mass=payload.volumic_mass,
+        alpha=payload.alpha,
+        specific_heat=payload.specific_heat,
+        electrical_conductivity=payload.electrical_conductivity,
+        thermal_conductivity=payload.thermal_conductivity,
+        magnet_permeability=payload.magnet_permeability,
+        young=payload.young,
+        poisson=payload.poisson,
+        expansion_coefficient=payload.expansion_coefficient,
+        rpe=payload.rpe,
+        metadata=payload.metadata if payload.metadata is not None else {},
+    )
     try:
         material.save()
-    except orator.exceptions.query.QueryException as e:
-        raise HTTPException(status_code=422, detail="Name already taken.") if e.message.find('materials_name_unique') != -1 else e
+    except IntegrityError as e:
+        raise HTTPException(status_code=422, detail="Name already taken.") if 'materials_name_unique' in str(e) else e
     AuditLog.log(user, "Material created", resource=material)
-    return material.serialize()
+    return model_serializer(material)
 
 
 @router.get("/api/materials/{id}")
 def show(id: int, user=Depends(get_user('read'))):
-    material = Material.with_('parts').find(id)
+    material = Material.objects.filter(id=id).prefetch_related('part_set').get()
     if not material:
         raise HTTPException(status_code=404, detail="Material not found")
-    return material.serialize()
+    return model_serializer(material)
 
 
 @router.patch("/api/materials/{id}")
 def update(id: int, payload: MaterialPayload, user=Depends(get_user('update'))):
-    material = Material.find(id)
+    material = Material.objects.filter(id=id).prefetch_related('part_set').get()
     if not material:
         raise HTTPException(status_code=404, detail="Material not found")
-    material.update(payload.dict(exclude_unset=True))
+
+    for key, value in payload.dict(exclude_unset=True).items():
+        setattr(material, key, value)
+    material.save()
     AuditLog.log(user, "Material updated", resource=material)
-    return material.serialize()
+    return model_serializer(material)
 
 
 @router.delete("/api/materials/{id}")
 def destroy(id: int, user=Depends(get_user('delete'))):
-    material = Material.find(id)
+    material = Material.objects.filter(id=id).prefetch_related('part_set').get()
     if not material:
         raise HTTPException(status_code=404, detail="Material not found")
     material.delete()
     AuditLog.log(user, "Material deleted", resource=material)
-    return material.serialize()
+    return model_serializer(material)

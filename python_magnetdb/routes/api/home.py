@@ -1,19 +1,21 @@
-from fastapi import Depends, APIRouter
+from django.db import models
+from fastapi import APIRouter
 
-from ...dependencies import get_user, get_db
+from ...models import Site, Magnet, User, Record
 
 router = APIRouter()
 
 
 @router.get("/api/home")
-def show(db=Depends(get_db)):
-    sites = db.table('sites').select('status', db.raw('count(*) as count')).group_by('status').get()
-    magnets = db.table('magnets').select('status', db.raw('count(*) as count')).group_by('status').get()
-    users_count = db.table('users').count()
-    records_count = db.table('records').count()
+def show():
+    sites = Site.objects.values('status').annotate(count=models.Count('id')).order_by('status').all()
+    magnets = Magnet.objects.values('status').annotate(count=models.Count('id')).order_by('status').all()
+    users_count = User.objects.count()
+    records_count = Record.objects.count()
+
     return {
-        'sites': sites.serialize(),
-        'magnets': magnets.serialize(),
+        'sites': list(sites),
+        'magnets': list(magnets),
         'users_count': users_count,
         'records_count': records_count,
     }

@@ -1,62 +1,70 @@
-from orator import Model
-from orator.orm import belongs_to, morph_to, has_many
+from django.db import models
+from django.db.models.signals import pre_delete
+from django.dispatch import receiver
+from jsonfield import JSONField
 
 
-class Simulation(Model):
-    __table__ = "simulations"
-    __fillable__ = ['resource_id', 'resource_type', 'method', 'model', 'geometry', 'cooling', 'static', 'non_linear',
-                    'setup_status', 'setup_attachment_id', 'status', 'output_attachment_id', 'setup_state', 'owner_id',
-                    'log_attachment_id']
-    __casts__ = {
-        'setup_state': 'dict'
-    }
+class Simulation(models.Model):
+    class Meta:
+        db_table = 'simulations'
+    id = models.BigAutoField(primary_key=True)
+    status = models.TextField(default='pending', null=True)
+    magnet = models.ForeignKey('Magnet', on_delete=models.CASCADE, null=True)
+    site = models.ForeignKey('Site', on_delete=models.CASCADE, null=True)
+    method = models.TextField(null=True)
+    model = models.TextField(null=True)
+    geometry = models.TextField(null=True)
+    cooling = models.TextField(null=True)
+    output_attachment = models.ForeignKey('StorageAttachment', on_delete=models.SET_NULL, null=True, related_name='simulation_output_attachment')
+    created_at = models.DateTimeField(auto_now_add=True, null=False)
+    updated_at = models.DateTimeField(auto_now=True, null=False)
+    static = models.BooleanField(null=True)
+    non_linear = models.BooleanField(null=True)
+    metadata = models.JSONField(default=dict, null=False)
+    setup_output_attachment = models.ForeignKey('StorageAttachment', on_delete=models.SET_NULL, null=True, related_name='simulation_setup_output_attachment')
+    setup_status = models.TextField(default='pending', null=False)
+    setup_state = JSONField(default=dict)
+    owner = models.ForeignKey('User', on_delete=models.SET_NULL, null=True)
+    log_attachment = models.ForeignKey('StorageAttachment', on_delete=models.SET_NULL, null=True, related_name='simulation_log_attachment')
 
-    @morph_to
+    @property
+    def resource_type(self) -> str | None:
+        if self.magnet_id is not None:
+            return 'magnets'
+        elif self.site_id is not None:
+            return 'sites'
+        return None
+
+    @property
+    def resource_id(self):
+        if self.magnet_id is not None:
+            return self.magnet_id
+        elif self.site_id is not None:
+            return self.site_id
+        return None
+
+    @property
     def resource(self):
-        return
-
-    @has_many
-    def currents(self):
-        from .simulation_current import SimulationCurrent
-        return SimulationCurrent
-
-    @belongs_to('setup_output_attachment_id')
-    def setup_output_attachment(self):
-        from .attachment import Attachment
-        return Attachment
-
-    @belongs_to('output_attachment_id')
-    def output_attachment(self):
-        from .attachment import Attachment
-        return Attachment
-
-    @belongs_to('log_attachment_id')
-    def log_attachment(self):
-        from .attachment import Attachment
-        return Attachment
-
-    @belongs_to('owner_id')
-    def owner(self):
-        from .user import User
-        return User
+        if self.magnet_id is not None:
+            return self.magnet
+        elif self.site_id is not None:
+            return self.site
+        return None
 
 
-class SimulationObserver(object):
-    def deleting(self, simulation):
-        from .attachment import Attachment
+@receiver(pre_delete, sender=Simulation)
+def delete_attachments(sender, instance, **kwargs):
+    from python_magnetdb.models import StorageAttachment
 
-        if simulation.setup_output_attachment_id is not None:
-            setup_output_attachment = Attachment.find(simulation.setup_output_attachment_id)
-            if setup_output_attachment is not None:
-                setup_output_attachment.delete()
-        if simulation.output_attachment_id is not None:
-            output_attachment = Attachment.find(simulation.output_attachment_id)
-            if output_attachment is not None:
-                output_attachment.delete()
-        if simulation.log_attachment_id is not None:
-            log_attachment = Attachment.find(simulation.log_attachment_id)
-            if log_attachment is not None:
-                log_attachment.delete()
+    attachment_fields = [
+        'setup_output_attachment',
+        'output_attachment',
+        'log_attachment'
+    ]
 
-
-Simulation.observe(SimulationObserver())
+    for field in attachment_fields:
+        attachment_id = getattr(instance, f'{field}_id', None)
+        if attachment_id:
+            attachment = StorageAttachment.objects.filter(id=attachment_id).first()
+            if attachment:
+                attachment.delete()

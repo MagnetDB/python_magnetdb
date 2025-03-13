@@ -41,11 +41,18 @@ export function update({ id, ...values }) {
     .then((res) => res.data)
 }
 
-export function addPart({ magnetId, partId }) {
+export function addPart({ magnetId, partId, angle }) {
   const form = new FormData()
+  form.append('magnet_id', magnetId)
   form.append('part_id', partId)
-  return client.post(`/api/magnets/${magnetId}/parts`, form)
-    .then((res) => res.data)
+  if (angle !== undefined) {
+    form.append('angle', angle)
+  }
+  return client.post(`/api/magnet_parts`, form).then((res) => res.data)
+}
+
+export function deletePart({ magnetPartId }) {
+  return client.delete(`/api/magnet_parts/${magnetPartId}`).then((res) => res.data)
 }
 
 export function defunct({ magnetId }) {
