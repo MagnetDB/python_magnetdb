@@ -14,6 +14,7 @@ class Simulation(models.Model):
     model = models.TextField(null=True)
     geometry = models.TextField(null=True)
     cooling = models.TextField(null=True)
+    mesh_attachment = models.ForeignKey('MeshAttachment', on_delete=models.SET_NULL, null=True, related_name='simulation_mesh_attachment')
     output_attachment = models.ForeignKey('StorageAttachment', on_delete=models.SET_NULL, null=True, related_name='simulation_output_attachment')
     created_at = models.DateTimeField(auto_now_add=True, null=False)
     updated_at = models.DateTimeField(auto_now=True, null=False)

@@ -123,7 +123,7 @@ services:
       - 6379:6379
   postgres:
     container_name: magnetdb-postgres
-    image: postgres:13
+    image: postgres:17
     ports:
       - 5432:5432
     # user: "${UUID}:${GID}"

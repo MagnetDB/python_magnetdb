@@ -12,3 +12,4 @@ from .storage_attachment import StorageAttachment
 from .user import User
 from .magnet import Magnet
 from .part import Part
+from .mesh_attachment import MeshAttachment

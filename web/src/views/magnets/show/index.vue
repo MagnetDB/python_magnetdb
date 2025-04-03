@@ -104,6 +104,12 @@
           :resource-id="magnet.id"
           :default-attachments="magnet.cad"
         />
+        <MeshAttachmentEditor
+            label="Meshes"
+            resource-type="magnet"
+            :resource-id="magnet.id"
+            :default-attachments="magnet.meshes"
+        />
         <div class="form-field">
           <label class="form-field-label">Flow params</label>
           <MagnetFlowParamsModal
@@ -259,10 +265,12 @@ import FormMetadataModal from "@/components/FormMetadataModal.vue";
 import MagnetFlowParamsModal from "@/components/MagnetFlowParamsModal.vue";
 import {queue} from "@/mixins/createFormField";
 import {cloneDeep, set} from "lodash";
+import MeshAttachmentEditor from "@/components/MeshAttachmentEditor.vue";
 
 export default {
   name: 'MagnetShow',
   components: {
+    MeshAttachmentEditor,
     MagnetFlowParamsModal,
     FormMetadataModal,
     GeometryModal,

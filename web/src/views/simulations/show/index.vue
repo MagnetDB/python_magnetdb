@@ -119,6 +119,15 @@
             :checked="simulation.non_linear"
         />
         <FormField
+            label="Mesh"
+            name="mesh"
+            :component="FormSelect"
+            :required="true"
+            :options="meshOptions"
+            :clearable="true"
+            :disabled="true"
+        />
+        <FormField
             v-for="(current, index) in simulation.currents"
             :key="current.magnet.id"
             :label="`Current for ${current.magnet.name}`"
@@ -199,6 +208,7 @@ export default {
       modelOptions: ['thelec', 'mag', 'thmag', 'thmagel', 'mag_hcurl', 'thmag_hcurl', 'thmagel_hcurl'],
       geometryOptions: ['Axi', '3D'],
       coolingOptions: ['mean', 'grad', 'meanH', 'gradH', 'gradHZ'],
+      meshOptions: [],
     }
   },
   computed: {
@@ -233,6 +243,15 @@ export default {
           value: this.simulation.resource_id,
         }
       ]
+      if (this.simulation.mesh) {
+        this.meshOptions = [
+          {
+            name: `(${this.simulation.mesh.type.toUpperCase()}) ${this.simulation.mesh.attachment.filename}`,
+            value: this.simulation.mesh.id,
+          }
+        ]
+        this.simulation.mesh = this.meshOptions[0]
+      }
     } catch (error) {
       this.error = error
     }

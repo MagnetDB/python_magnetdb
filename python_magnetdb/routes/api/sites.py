@@ -21,7 +21,7 @@ router = APIRouter()
 def index(user=Depends(get_user('read')), page: int = 1, per_page: int = Query(default=25, lte=100),
           query: str = Query(None), sort_by: str = Query('created_at'), sort_desc: bool = Query(False),
           status: List[str] = Query(default=None, alias="status[]")):
-    db_query = Site.objects.prefetch_related('sitemagnet_set__magnet')
+    db_query = Site.objects.prefetch_related('sitemagnet_set__magnet', 'meshattachment_set__attachment')
     if sort_by is not None:
         order_field = f"-{sort_by}" if sort_desc else sort_by
         db_query = db_query.order_by(order_field)
@@ -61,7 +61,7 @@ def create(user=Depends(get_user('create')), name: str = Form(...), description:
 
 @router.get("/api/sites/{id}")
 def show(id: int, user=Depends(get_user('read'))):
-    site = Site.objects.prefetch_related('sitemagnet_set__magnet', 'record_set', 'config_attachment').get(id=id)
+    site = Site.objects.prefetch_related('sitemagnet_set__magnet', 'record_set', 'config_attachment', 'meshattachment_set__attachment').get(id=id)
     if not site:
         raise HTTPException(status_code=404, detail="Site not found")
     return model_serializer(site)
@@ -84,7 +84,7 @@ def update(
     config: UploadFile = File(None),
     metadata: str = Form(None),
 ):
-    site = Site.objects.prefetch_related('sitemagnet_set__magnet', 'record_set', 'config_attachment').get(id=id)
+    site = Site.objects.prefetch_related('sitemagnet_set__magnet', 'record_set', 'config_attachment', 'meshattachment_set__attachment').get(id=id)
     if not site:
         raise HTTPException(status_code=404, detail="Site not found")
 
@@ -168,7 +168,7 @@ def shutdown(id: int, decommissioned_at: datetime = Form(datetime.now()), user=D
 
 @router.delete("/api/sites/{id}")
 def destroy(id: int, user=Depends(get_user('delete'))):
-    site = Site.objects.prefetch_related('sitemagnet_set__magnet', 'record_set', 'config_attachment').get(id=id)
+    site = Site.objects.prefetch_related('sitemagnet_set__magnet', 'record_set', 'config_attachment', 'meshattachment_set__attachment').get(id=id)
     if not site:
         raise HTTPException(status_code=404, detail="Site not found")
 

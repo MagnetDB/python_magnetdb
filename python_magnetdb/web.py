@@ -21,6 +21,7 @@ from .routes.api.servers import router as api_servers_router
 from .routes.api.user import router as api_user_router
 from .routes.api.visualisations import router as api_visualisations_router
 from .routes.api.cad_attachments import router as api_cad_attachments
+from .routes.api.mesh_attachments import router as api_mesh_attachments
 from .routes.api.admin.config import router as api_admin_config_router
 from .routes.api.admin.audit_logs import router as api_admin_audit_logs_router
 from .routes.api.admin.users import router as api_admin_users_router
@@ -42,6 +43,7 @@ app.include_router(api_sessions_router)
 app.include_router(api_records_router)
 app.include_router(api_servers_router)
 app.include_router(api_cad_attachments)
+app.include_router(api_mesh_attachments)
 app.include_router(api_user_router)
 app.include_router(api_visualisations_router)
 app.include_router(api_admin_config_router)

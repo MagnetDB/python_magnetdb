@@ -21,7 +21,7 @@ router = APIRouter()
 def index(user=Depends(get_user('read')), page: int = 1, per_page: int = Query(default=25, lte=100),
           query: str = Query(None), sort_by: str = Query('created_at'), sort_desc: bool = Query(False),
           status: List[str] = Query(default=None, alias="status[]")):
-    db_query = Magnet.objects.prefetch_related('sitemagnet_set')
+    db_query = Magnet.objects.prefetch_related('sitemagnet_set', 'meshattachment_set__attachment')
     if query is not None and query.strip() != '':
         db_query = db_query.filter(Q(name__icontains=query))
     if status is not None:
@@ -113,7 +113,7 @@ def mdata(id: int, user=Depends(get_user("read"))):
 @router.get("/api/magnets/{id}")
 def show(id: int, user=Depends(get_user("read"))):
     magnet = Magnet.objects\
-        .prefetch_related('magnetpart_set__part', 'sitemagnet_set__site', 'cadattachment_set__attachment')\
+        .prefetch_related('magnetpart_set__part', 'sitemagnet_set__site', 'cadattachment_set__attachment', 'meshattachment_set__attachment')\
         .get(id=id)
     if not magnet:
         raise HTTPException(status_code=404, detail="Magnet not found")
@@ -134,7 +134,7 @@ def update(
     flow_params: str = Form(None),
 ):
     magnet = Magnet.objects \
-        .prefetch_related('magnetpart_set__part', 'sitemagnet_set__site', 'cadattachment_set__attachment') \
+        .prefetch_related('magnetpart_set__part', 'sitemagnet_set__site', 'cadattachment_set__attachment', 'meshattachment_set__attachment') \
         .get(id=id)
     if not magnet:
         raise HTTPException(status_code=404, detail="Magnet not found")
@@ -156,7 +156,7 @@ def update(
 @router.post("/api/magnets/{id}/defunct")
 def defunct(id: int, decommissioned_at: datetime = Form(datetime.now()), user=Depends(get_user('update'))):
     magnet = Magnet.objects \
-        .prefetch_related('magnetpart_set__part', 'sitemagnet_set__site', 'cadattachment_set__attachment') \
+        .prefetch_related('magnetpart_set__part', 'sitemagnet_set__site', 'cadattachment_set__attachment', 'meshattachment_set__attachment') \
         .get(id=id)
     if not magnet:
         raise HTTPException(status_code=404, detail="Magnet not found")
@@ -178,7 +178,7 @@ def defunct(id: int, decommissioned_at: datetime = Form(datetime.now()), user=De
 @router.delete("/api/magnets/{id}")
 def destroy(id: int, user=Depends(get_user("delete"))):
     magnet = Magnet.objects \
-        .prefetch_related('magnetpart_set__part', 'sitemagnet_set__site', 'cadattachment_set__attachment') \
+        .prefetch_related('magnetpart_set__part', 'sitemagnet_set__site', 'cadattachment_set__attachment', 'meshattachment_set__attachment') \
         .get(id=id)
     if not magnet:
         raise HTTPException(status_code=404, detail="Magnet not found")

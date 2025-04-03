@@ -53,6 +53,14 @@
             :component="FormInput"
             type="checkbox"
         />
+        <FormField
+            label="Mesh"
+            name="mesh"
+            :component="FormSelect"
+            :required="true"
+            :options="meshOptions"
+            :clearable="true"
+        />
         <CurrentsField ref="currents" />
         <Button type="submit" class="btn btn-primary">
           Save
@@ -95,6 +103,7 @@ export default {
       coolingOptions: ['mean', 'grad', 'meanH', 'gradH', 'gradHZ'],
       resourceOptions: [],
       availableModels: [],
+      meshOptions: [],
     }
   },
   methods: {
@@ -105,12 +114,33 @@ export default {
             (model.time === (values.static ? 'static' : 'transient'))
           )
           .map((model) => model.model)
+      const selectedResource = values.resource?.value
+      if (selectedResource?.type === 'site') {
+        siteService.find({ id: selectedResource?.id }).then((site) => {
+          this.meshOptions = (site.meshes ?? [])
+              .filter((mesh) => !values.geometry || values.geometry?.toLowerCase() === mesh.type)
+              .map((mesh) => ({
+                name: `(${mesh.type.toUpperCase()}) ${mesh.attachment.filename}`,
+                value: mesh.id,
+              }))
+        })
+      } else if (selectedResource?.type === 'magnet') {
+        magnetService.find({ id: selectedResource?.id }).then((magnet) => {
+          this.meshOptions = (magnet.meshes ?? [])
+              .filter((mesh) => !values.geometry || values.geometry?.toLowerCase() === mesh.type)
+              .map((mesh) => ({
+                name: `(${mesh.type.toUpperCase()}) ${mesh.attachment.filename}`,
+                value: mesh.id,
+              }))
+        })
+      }
     },
     submit(values, {setRootError}) {
       return simulationService.create({
         resource_type: values.resource.value?.type,
         resource_id: values.resource.value?.id,
         method: values.method,
+        mesh_id: values.mesh?.value ?? null,
         geometry: values.geometry,
         cooling: values.cooling,
         static: values.static ?? false,
@@ -128,6 +158,7 @@ export default {
     validate() {
       return Yup.object().shape({
         resource: Yup.mixed().required(),
+        mesh: Yup.mixed().required(),
         method: Yup.string().required(),
         model: Yup.string().oneOf(this.modelOptions).required(),
         geometry: Yup.string().required(),

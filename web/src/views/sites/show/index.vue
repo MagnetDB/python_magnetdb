@@ -78,6 +78,12 @@
           <label class="form-field-label">Geometry</label>
           <GeometryModal :default-value="defaultGeometryValue" />
         </div>
+        <MeshAttachmentEditor
+            label="Meshes"
+            resource-type="site"
+            :resource-id="site.id"
+            :default-attachments="site.meshes"
+        />
         <FormMetadataModal name="metadata" :editable="true" />
         <Button type="submit" class="btn btn-primary">
           Save
@@ -209,10 +215,12 @@ import Popover from "@/components/Popover";
 import GeometryModal from "@/components/GeometryModal.vue";
 import client from "@/services/client";
 import FormMetadataModal from "@/components/FormMetadataModal.vue";
+import MeshAttachmentEditor from "@/components/MeshAttachmentEditor.vue";
 
 export default {
   name: 'SiteShow',
   components: {
+    MeshAttachmentEditor,
     FormMetadataModal,
     GeometryModal,
     Popover,

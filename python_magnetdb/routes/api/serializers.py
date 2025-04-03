@@ -27,6 +27,9 @@ def _site_post_processor(model: Site, res: dict):
     if 'config_attachment' in res:
         res['config'] = res['config_attachment']
         del res['config_attachment']
+    if 'meshattachment_set' in res:
+        res['meshes'] = res['meshattachment_set']
+        del res['meshattachment_set']
     return res
 
 
@@ -76,14 +79,15 @@ def _magnet_post_processor(model: Magnet, res: dict):
     if 'magnetpart_set' in res:
         res['magnet_parts'] = res['magnetpart_set']
         del res['magnetpart_set']
-
     if 'geometry_attachment' in res:
         res['geometry'] = res['geometry_attachment']
         del res['geometry_attachment']
-
     if 'cadattachment_set' in res:
         res['cad'] = res['cadattachment_set']
         del res['cadattachment_set']
+    if 'meshattachment_set' in res:
+        res['meshes'] = res['meshattachment_set']
+        del res['meshattachment_set']
     return res
 
 
@@ -93,6 +97,9 @@ def _simulation_post_processor(model: Simulation, res: dict):
         del res['simulationcurrent_set']
     if 'owner' in res:
         res["owner"] = {"name": res["owner"]["name"]}
+    if 'mesh_attachment' in res:
+        res['mesh'] = res['mesh_attachment']
+        del res['mesh_attachment']
     if model.resource is not None:
         res["resource_type"] = model.resource_type
         res["resource_id"] = model.resource_id

@@ -12,7 +12,7 @@ from ... import worker
 from ...actions.generate_simulation_config import generate_simulation_config
 from ...actions.get_simulation_measures import get_simulation_measures
 from ...dependencies import get_user
-from ...models import Simulation, Magnet, Site, SimulationCurrent, AuditLog
+from ...models import Simulation, Magnet, Site, SimulationCurrent, AuditLog, MeshAttachment
 
 router = APIRouter()
 
@@ -70,6 +70,7 @@ class CreatePayload(BaseModel):
     resource_id: int
     method: str
     model: str
+    mesh_id: Optional[int]
     geometry: str
     cooling: str
     static: bool
@@ -116,6 +117,8 @@ def create(payload: CreatePayload, user=Depends(get_user("create"))):
     else:
         raise HTTPException(status_code=404, detail="Resource not found")
 
+    if payload.mesh_id is not None:
+        simulation.mesh_attachment = MeshAttachment.objects.get(id=payload.mesh_id)
     simulation.owner = user
     simulation.save()
     # TODO add magnet_type to current
@@ -138,6 +141,7 @@ def show(id: int, user=Depends(get_user("read"))):
         "setup_output_attachment",
         "output_attachment",
         "log_attachment",
+        "mesh_attachment__attachment",
         "simulationcurrent_set__magnet",
     ).get(id=id)
     if not simulation:
