@@ -3,6 +3,7 @@ import os
 import shutil
 
 from python_magnetdb.actions.generate_simulation_config import generate_magnet_config
+from python_magnetdb.actions.generate_flow_params import generate_flow_params
 from python_magnetdb.models.magnet import Magnet
 
 
@@ -24,8 +25,10 @@ def generate_magnet_directory(magnet_id, directory):
     mkdir(f"{directory}/data")
     mkdir(f"{directory}/data/geometries")
     mkdir(f"{directory}/data/cad")
-    print(f"generate_magnet_directory: {os.getcwd()}/flow_params.json")
-    shutil.copyfile(f"{os.getcwd()}/flow_params.json", f"{directory}/flow_params.json")
+
+    # add flow_params per magnet
+    generate_flow_params(magnet, directory)
+
     with open(f"{directory}/data/geometries/{magnet.name}.yaml", "w") as f:
         f.write(magnet.geometry_config_to_yaml)
     for magnet_part in magnet.magnetpart_set.all():
