@@ -71,6 +71,13 @@ poetry run python3 manage.py migrate
 
 7. Run seeds:
 
+   Before running seeds, make sur that data directory exists and that it contains required files (aka geometry yaml files).
+In the `magnetdb` main repo, add a symlink to actual directory holding data, for example:
+
+```shell
+ln -s ../python_magnetsetup/data data
+```
+
    To run this step you must have a '/data' directory. Connect to magnetdb-api container, check the directory is mounted, then
    
 ```shell
