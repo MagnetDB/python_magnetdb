@@ -49,10 +49,11 @@ class Magnet(models.Model):
             '__tag__': 'Unknown',
             '__value__': {
                 'name': self.name,
-                'innerbore': self.inner_bore,
-                'outerbore': self.outer_bore,
+                'innerbore': self.inner_bore if self.inner_bore is not None else 0,
+                'outerbore': self.outer_bore if self.outer_bore is not None else 0,
             }
         }
+        
         if self.type == MagnetType.INSERT:
             config['__tag__'] = 'Insert'
             config['__value__']['Helices'] = []
@@ -63,10 +64,10 @@ class Magnet(models.Model):
             for magnet_part in self.magnetpart_set.all():
                 if magnet_part.part.type == PartType.HELIX:
                     config['__value__']['Helices'].append(magnet_part.part.name)
-                    config['__value__']['HAngles'].append(magnet_part.angle)
+                    config['__value__']['HAngles'].append(magnet_part.angle if magnet_part.angle is not None else 0)
                 elif magnet_part.part.type == PartType.RING:
                     config['__value__']['Rings'].append(magnet_part.part.name)
-                    config['__value__']['RAngles'].append(magnet_part.angle)
+                    config['__value__']['RAngles'].append(magnet_part.angle if magnet_part.angle is not None else 0)
                 elif magnet_part.part.type == PartType.LEAD:
                     config['__value__']['CurrentLeads'].append(magnet_part.part.name)
         elif self.type == MagnetType.SUPRAS:
