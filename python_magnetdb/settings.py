@@ -20,6 +20,7 @@ SECRET_KEY = 'django-insecure-rlqo26vtu_ual+%d70%woq68&f)165m!#v)d*lk9-!%dl&3j6v
 DEBUG = True
 
 INSTALLED_APPS = [
+    'django.contrib.postgres',
     'django.contrib.contenttypes',
     'python_magnetdb',
 ]
