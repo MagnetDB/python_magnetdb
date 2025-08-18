@@ -1,9 +1,19 @@
 import json
+import enum
 
 from django.db import models
 
 from python_magnetdb.utils.yaml_json import json_to_yaml
 from django.contrib.postgres.fields import ArrayField
+
+class ProbeType(str, enum.Enum):
+    VOLTAGE = "voltage_taps"
+    TEMPERATURE = "temperature"
+    BFIELD = "magnetic_field"
+
+    @classmethod
+    def choices(cls):
+        return [(item.value, item.name) for item in cls]
 
 class Probe(models.Model):
     class Meta:
@@ -12,6 +22,9 @@ class Probe(models.Model):
     name = models.CharField(max_length=255, unique=True, null=False)
     type =  models.CharField(max_length=255, null=False)
     description = models.TextField(null=True)
+    # add foreignkey for magnet
+    magnet = models.ForeignKey('Magnet', on_delete=models.CASCADE, null=False)
+    part = models.ForeignKey('Part', on_delete=models.CASCADE, null=True)
     index = ArrayField(
         models.CharField(max_length=100),
         size=None,  # No limit on array size
@@ -20,6 +33,7 @@ class Probe(models.Model):
         help_text="List of probes string ids"
     )
     
+    # Passer en json??
     locations = ArrayField(
         ArrayField(
             models.FloatField(),
@@ -39,8 +53,8 @@ class Probe(models.Model):
             '__value__': {
                 'name': self.name,
                 'probe_type': self.type,
-                'index': [],
-                'location': [],
+                'index': self.index,
+                'location': self.locations,
             }
         }
 

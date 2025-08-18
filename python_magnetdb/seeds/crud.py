@@ -18,6 +18,7 @@ from python_magnetdb.models.material import Material
 from python_magnetdb.models.part import Part
 from python_magnetdb.models.record import Record
 from python_magnetdb.models.site import Site
+from python_magnetdb.models.probe import Probe
 
 data_directory = getenv('DATA_DIR')
 
@@ -68,6 +69,7 @@ def create_site(obj):
 def create_magnet(obj):
     """create magnet"""
     site = obj.pop('site', None)
+    # probes = obj.pop('probes', None)
     parts = obj.pop('parts', None)
     geometry = obj.pop('geometry', None)
     cad = obj.pop('cad', None)
@@ -90,6 +92,11 @@ def create_magnet(obj):
             magnet.magnetpart_set.create(commissioned_at=datetime.now(), part=part)
     return magnet
 
+# see create part
+# see seeds.py pour faire test
+def create_probe(obj):
+    """create probe"""
+    return Probe.objects.create(**obj)
 
 def extract_date_from_filename(filename):
     for match in re.finditer(r".+_(\d{4}).(\d{2}).(\d{2})---(\d{2}):(\d{2}):(\d{2}).+", filename):
@@ -149,6 +156,9 @@ def query_material(name: str):
     """search a material object by name"""
     return query_by_name(Material, name)
 
+def query_magnet(name: str):
+    """search a magnet object by name"""
+    return query_by_name(Magnet, name)
 
 def query_site(name: str):
     """search a site object by name"""

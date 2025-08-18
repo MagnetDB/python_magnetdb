@@ -56,20 +56,22 @@ class Magnet(models.Model):
         
         if self.type == MagnetType.INSERT:
             config['__tag__'] = 'Insert'
-            config['__value__']['Helices'] = []
-            config['__value__']['Rings'] = []
-            config['__value__']['CurrentLeads'] = []
-            config['__value__']['HAngles'] = []
-            config['__value__']['RAngles'] = []
+            config['__value__']['helices'] = []
+            config['__value__']['rings'] = []
+            config['__value__']['currentleads'] = []
+            config['__value__']['hangles'] = []
+            config['__value__']['rangles'] = []
+            config['__value__']['probes'] = []
+
             for magnet_part in self.magnetpart_set.all():
                 if magnet_part.part.type == PartType.HELIX:
-                    config['__value__']['Helices'].append(magnet_part.part.name)
-                    config['__value__']['HAngles'].append(magnet_part.angle if magnet_part.angle is not None else 0)
+                    config['__value__']['helices'].append(magnet_part.part.name)
+                    config['__value__']['hangles'].append(magnet_part.angle if magnet_part.angle is not None else 0)
                 elif magnet_part.part.type == PartType.RING:
-                    config['__value__']['Rings'].append(magnet_part.part.name)
-                    config['__value__']['RAngles'].append(magnet_part.angle if magnet_part.angle is not None else 0)
+                    config['__value__']['rings'].append(magnet_part.part.name)
+                    config['__value__']['rangles'].append(magnet_part.angle if magnet_part.angle is not None else 0)
                 elif magnet_part.part.type == PartType.LEAD:
-                    config['__value__']['CurrentLeads'].append(magnet_part.part.name)
+                    config['__value__']['currentleads'].append(magnet_part.part.name)
         elif self.type == MagnetType.SUPRAS:
             config['__tag__'] = 'Supras'
             config['__value__']['magnets'] = []
@@ -77,7 +79,7 @@ class Magnet(models.Model):
                 if magnet_part.part.type == PartType.SUPRA:
                     config['__value__']['magnets'].append(magnet_part.part.name)
                 elif magnet_part.part.type == PartType.LEAD:
-                    config['__value__']['CurrentLeads'].append(magnet_part.part.name)
+                    config['__value__']['currentleads'].append(magnet_part.part.name)
         elif self.type == MagnetType.BITTERS:
             config['__tag__'] = 'Bitters'
             config['__value__']['magnets'] = []
@@ -85,7 +87,11 @@ class Magnet(models.Model):
                 if magnet_part.part.type == PartType.BITTER:
                     config['__value__']['magnets'].append(magnet_part.part.name)
                 elif magnet_part.part.type == PartType.LEAD:
-                    config['__value__']['CurrentLeads'].append(magnet_part.part.name)
+                    config['__value__']['currentleads'].append(magnet_part.part.name)
+
+        # add Probes
+        for probe in self.probe_set.all():
+            config['__value__']['probes'].append(probe.name)  
         return json.dumps(config)
 
     @property
