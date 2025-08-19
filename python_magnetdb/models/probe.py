@@ -20,7 +20,7 @@ class Probe(models.Model):
         db_table = 'probes'
     id = models.BigAutoField(primary_key=True)
     name = models.CharField(max_length=255, unique=True, null=False)
-    type =  models.CharField(max_length=255, null=False)
+    type =  models.CharField(max_length=255, null=False, choices=ProbeType.choices())
     description = models.TextField(null=True)
     # add foreignkey for magnet
     magnet = models.ForeignKey('Magnet', on_delete=models.CASCADE, null=False)
