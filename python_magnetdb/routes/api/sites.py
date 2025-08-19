@@ -1,5 +1,6 @@
 import json
-from datetime import datetime
+#from datetime import datetime
+from django.utils import timezone
 from typing import List
 
 from django.core.paginator import Paginator
@@ -120,7 +121,7 @@ def mdata(id: int, user=Depends(get_user('read'))):
     return {'results': data}
 
 @router.post("/api/sites/{id}/put_in_operation")
-def put_in_operation(id: int, commissioned_at: datetime = Form(datetime.now()), user=Depends(get_user('update'))):
+def put_in_operation(id: int, commissioned_at: timezone = Form(timezone.now()), user=Depends(get_user('update'))):
     site = Site.objects.prefetch_related('sitemagnet_set__magnet__magnetpart_set__part').get(id=id)
     if not site:
         raise HTTPException(status_code=404, detail="Site not found")
@@ -147,7 +148,7 @@ def put_in_operation(id: int, commissioned_at: datetime = Form(datetime.now()), 
 
 
 @router.post("/api/sites/{id}/shutdown")
-def shutdown(id: int, decommissioned_at: datetime = Form(datetime.now()), user=Depends(get_user('update'))):
+def shutdown(id: int, decommissioned_at: timezone = Form(timezone.now()), user=Depends(get_user('update'))):
     site = Site.objects.prefetch_related('sitemagnet_set__magnet').get(id=id)
     if not site:
         raise HTTPException(status_code=404, detail="Site not found")

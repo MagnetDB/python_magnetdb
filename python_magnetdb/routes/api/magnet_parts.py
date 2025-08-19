@@ -1,7 +1,8 @@
 import json
 
 from fastapi import APIRouter, HTTPException, Form, Depends
-from datetime import datetime
+#from datetime import datetime
+from django.utils import timezone
 
 from .serializers import model_serializer
 from ...dependencies import get_user
@@ -36,7 +37,7 @@ def create(
         part=part,
         angle=angle,
         metadata=json.loads(metadata),
-        commissioned_at=datetime.now()
+        commissioned_at=timezone.now()
     )
     magnet_part.save()
 

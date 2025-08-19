@@ -1,5 +1,6 @@
 import json
-from datetime import datetime
+#from datetime import datetime
+from django.utils import timezone
 from typing import List, Dict
 
 from django.core.paginator import Paginator
@@ -154,7 +155,7 @@ def update(
 
 
 @router.post("/api/magnets/{id}/defunct")
-def defunct(id: int, decommissioned_at: datetime = Form(datetime.now()), user=Depends(get_user('update'))):
+def defunct(id: int, decommissioned_at: timezone = Form(timezone.now()), user=Depends(get_user('update'))):
     magnet = Magnet.objects \
         .prefetch_related('magnetpart_set__part', 'sitemagnet_set__site', 'cadattachment_set__attachment', 'meshattachment_set__attachment') \
         .get(id=id)

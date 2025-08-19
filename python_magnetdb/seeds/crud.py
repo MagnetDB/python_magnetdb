@@ -9,7 +9,8 @@ import django
 django.setup()
 
 import re
-from datetime import datetime
+#from datetime import datetime
+from django.utils import timezone
 from os import path, getenv
 
 from python_magnetdb.models import StorageAttachment
@@ -85,23 +86,26 @@ def create_magnet(obj):
             if attachment is not None:
                 magnet.cadattachment_set.create(magnet=magnet, attachment=attachment)
     if site is not None:
-        magnet.sitemagnet_set.create(site=site, commissioned_at=datetime.now())
+        magnet.sitemagnet_set.create(site=site, commissioned_at=timezone.now())
     if parts is not None:
         for part in parts:
             print('part:', part.name)
-            magnet.magnetpart_set.create(commissioned_at=datetime.now(), part=part)
+            magnet.magnetpart_set.create(commissioned_at=timezone.now(), part=part)
     return magnet
 
 # see create part
 # see seeds.py pour faire test
 def create_probe(obj):
-    """create probe"""
+    """create probe""" 
+    print("creating probe {}".format(obj['name']))
     return Probe.objects.create(**obj)
 
 def extract_date_from_filename(filename):
-    for match in re.finditer(r".+_(\d{4}).(\d{2}).(\d{2})---(\d{2}):(\d{2}):(\d{2}).+", filename):
-        return datetime(int(match.group(1)), int(match.group(2)), int(match.group(3)),
-                        int(match.group(4)), int(match.group(5)), int(match.group(6)))
+    for match in re.finditer(r".+_(\d{4}).(\d{2}).(\d{2})---(\d{2}):(\d{2}):(\d{2}).txt", filename):
+        year, month, day, hour, minute, second = match.groups()
+        return timezone.datetime(  # Using timezone.datetime instead of datetime
+            int(year), int(month), int(day), int(hour), int(minute), int(second), tzinfo=timezone.get_current_timezone()
+        )
     return None
 
 
@@ -116,7 +120,7 @@ def create_record(obj):
         created_at = extract_date_from_filename(path.basename(path.join(data_directory, 'mrecords', file)))
         print(f'created_at={created_at}')
         if created_at is None:
-            created_at = datetime.now()
+            created_at = timezone.now()
 
         attachment = upload_attachment(path.join(data_directory, 'mrecords', file))
         if attachment is None:
@@ -151,6 +155,9 @@ def query_part(name: str):
     """search a part object by name"""
     return query_by_name(Part, name)
 
+def query_probes(name: str):
+    """search a probe object by name"""
+    return query_by_name(Probe, name)
 
 def query_material(name: str):
     """search a material object by name"""
