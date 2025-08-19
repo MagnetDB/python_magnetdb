@@ -1,19 +1,19 @@
-# import magnettools.Bmap as bmap
-# import magnettools.magnettools as mt
+import magnettools.Bmap as bmap
+import magnettools.magnettools as mt
 import numpy as np
 
 
 plotmethod = {
-    # 'Bz': (bmap.getBz, '[T]', 'Magnetic Field Bz'),
-    # 'Br': (bmap.getBr, '[T]', 'Magnetic Field Bz'),
-    # 'B': (bmap.getB, '[T]', 'Magnetic Field'),
-    # 'A': (bmap.getA, '[A/m]', 'Magnetic Potential'),
-    # 'dBr/dr': (bmap.getdBrdr, '[T/m]', 'Gradient of Magnetic Field Br'),
-    # 'dBr/dz': (bmap.getdBrdz, '[T/m]', 'Gradient of Magnetic Field Br'),
-    # 'dBz/dr': (bmap.getdBzdr, '[T/m]', 'Gradient of Magnetic Field Bz'),
-    # 'dBz/dz': (bmap.getdBzdz, '[T/m]', 'Gradient of Magnetic Field Bz'),
-    # 'G': (bmap.getGradMagnetoGravPotential, '[%]', 'He Levitation Force Homogeneity')
-    # 'd²Bz/dz²': (bmap.getd2Bzdz2, '[T/m²]', 'Second order Derivative of Magnetic Field Bz'),
+    'Bz': (bmap.getBz, '[T]', 'Magnetic Field Bz'),
+    'Br': (bmap.getBr, '[T]', 'Magnetic Field Bz'),
+    'B': (bmap.getB, '[T]', 'Magnetic Field'),
+    'A': (bmap.getA, '[A/m]', 'Magnetic Potential'),
+    'dBr/dr': (bmap.getdBrdr, '[T/m]', 'Gradient of Magnetic Field Br'),
+    'dBr/dz': (bmap.getdBrdz, '[T/m]', 'Gradient of Magnetic Field Br'),
+    'dBz/dr': (bmap.getdBzdr, '[T/m]', 'Gradient of Magnetic Field Bz'),
+    'dBz/dz': (bmap.getdBzdz, '[T/m]', 'Gradient of Magnetic Field Bz'),
+    'G': (bmap.getGradMagnetoGravPotential, '[%]', 'He Levitation Force Homogeneity'),
+    'd²Bz/dz²': (bmap.getd2Bzdz2, '[T/m²]', 'Second order Derivative of Magnetic Field Bz'),
 }
 
 
@@ -70,6 +70,7 @@ def compute_bmap_chart(data, i_h, i_b, i_s, n, r0, z0, r, z, pkey, command):
 
     def sine():
         # print("panel_bmap: compute b")
+        G0 = -2050.0  # -500 T/m² for liquid Hydrogen
         (Tubes,Helices,OHelices,BMagnets,UMagnets,Shims) = data
         if command == '1D_z':
             x = np.linspace(z[0], z[1], n)

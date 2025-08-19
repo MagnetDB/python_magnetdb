@@ -1,5 +1,5 @@
-# import magnettools.Bmap as bmap
-# import magnettools.magnettools as mt
+import magnettools.Bmap as bmap
+import magnettools.magnettools as mt
 import pandas as pd
 
 

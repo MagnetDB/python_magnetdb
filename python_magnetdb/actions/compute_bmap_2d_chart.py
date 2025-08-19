@@ -1,14 +1,14 @@
-# import magnettools.Bmap as bmap
-# import magnettools.magnettools as mt
+import magnettools.Bmap as bmap
+import magnettools.magnettools as mt
 import numpy as np
 
 
 plotmethod = {
-    # 'Bz': (bmap.getBz, '[T]', 'Magnetic Field Bz'),
-    # 'Br': (bmap.getBr, '[T]', 'Magnetic Field Bz'),
-    # 'B': (bmap.getB, '[T]', 'Magnetic Field'),
-    # 'A': (bmap.getA, '[A/m]', 'Magnetic Potential'),
-    # 'Grav': (bmap.getGradMagnetoGravPotential, '[%]', 'Compensation of gravity'),
+    'Bz': (bmap.getBz, '[T]', 'Magnetic Field Bz'),
+    'Br': (bmap.getBr, '[T]', 'Magnetic Field Bz'),
+    'B': (bmap.getB, '[T]', 'Magnetic Field'),
+    'A': (bmap.getA, '[A/m]', 'Magnetic Potential'),
+    'Grav': (bmap.getGradMagnetoGravPotential, '[%]', 'Compensation of gravity'),
 }
 
 
