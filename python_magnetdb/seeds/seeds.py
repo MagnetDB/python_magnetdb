@@ -8,7 +8,6 @@ from ..models.magnet import MagnetType
 
 data_directory = getenv('DATA_DIR')
 
-
 MA15101601 = create_material({
     'name': 'MA15101601',
     'description': 'H1',
@@ -627,6 +626,7 @@ HLtest = create_magnet({
     'geometry': 'test'
 })
 
+
 # Add tore for test
 mattore = create_material({
     'name': 'mtore',
@@ -804,7 +804,7 @@ M8BI = create_part({
     'name': 'M8Bi',
     'type': 'bitter',
     'design_office_reference': 'BI-03-002-A',
-    'geometry': 'M8Bitters_Bi',
+    'geometry': 'M8_Bi',
     'status': 'in_study',
     'material': CUAG008
 })
@@ -813,7 +813,7 @@ M8BE = create_part({
     'name': 'M8Be',
     'type': 'bitter',
     'design_office_reference': 'BE-03-002-A',
-    'geometry': 'M8Bitters_Be',
+    'geometry': 'M8_Be',
     'status': 'in_study',
     'material': CUAG008
 })
