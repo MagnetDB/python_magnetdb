@@ -4,22 +4,66 @@
       {{label}}
     </div>
     <div class="attachment-list">
-      <input :key="inputKey" type="file" ref="input" @input="onInput" class="hidden" />
-      <div v-for="cadAttachment in attachments" :key="cadAttachment.id" class="attachment">
-        {{cadAttachment.attachment.filename}}
+      <div v-for="cad in attachments" :key="cad.id" class="attachment">
+        <div>
+          <b>({{ cad.type.toUpperCase() }})</b> {{cad.attachment.filename}}
+        </div>
         <div class="attachment-action-list">
-          <button @click="removeAttachment(cadAttachment)" class="attachment-action">
+          <button @click="removeAttachment(cad)" class="attachment-action">
             <TrashIcon class="h5 w-5" />
           </button>
-          <button class="attachment-action" @click="downloadAttachment(cadAttachment)">
+          <button class="attachment-action" @click="downloadAttachment(cad)">
             <DownloadIcon class="h5 w-5" />
           </button>
         </div>
       </div>
-      <Button @click="openUpload" :skip-form="true" :loading="isLoading" class="btn btn-default btn-small">
-        Upload new CAD
+      <Button @click="newCadModalOpen = true" :skip-form="true" class="btn btn-default btn-small">
+        Add new cad
       </Button>
     </div>
+
+    <Modal :visible="newCadModalOpen" @close="newCadModalOpen = false" :closeable="true">
+      <template #header>
+        Add a cad
+      </template>
+      <template>
+        <Form ref="form" @submit="submit" @validate="validate">
+          <FormField
+              label="Type"
+              name="type"
+              :component="FormSelect"
+              :required="true"
+              :options="[
+                {
+                  name: '3D',
+                  value: '3d'
+                },
+                {
+                  name: 'Axi',
+                  value: 'axi'
+                },
+              ]"
+          />
+          <FormField
+            label="File"
+            name="file"
+            type="file"
+            :required="true"
+            :component="FormUpload"
+          />
+        </Form>
+      </template>
+      <template #footer>
+        <div class="flex items-center space-x-2">
+          <Button :skip-form="true" type="button" class="btn btn-primary" @click="$refs.form.submit()">
+            Add cad
+          </Button>
+          <Button class="btn btn-outline-default" @click="newCadModalOpen = false">
+            Cancel
+          </Button>
+        </div>
+      </template>
+    </Modal>
   </div>
 </template>
 
@@ -29,42 +73,51 @@ import * as cadAttachmentService from '@/services/cadAttachmentService'
 import { TrashIcon } from '@vue-hero-icons/outline'
 import { DownloadIcon } from '@vue-hero-icons/outline'
 import Button from "@/components/Button";
+import Modal from "@/components/Modal.vue";
+import FormField from "@/components/FormField.vue";
+import FormSelect from "@/components/FormSelect.vue";
+import FormUpload from "@/components/FormUpload.vue";
+import Form from "@/components/Form.vue";
+import * as Yup from "yup";
 
 export default {
   name: 'CadAttachmentEditor',
   props: ['label', 'resourceType', 'resourceId', 'defaultAttachments'],
   components: {
+    Form,
+    FormField,
+    Modal,
     Button,
     TrashIcon,
     DownloadIcon,
   },
   data() {
     return {
+      FormSelect,
+      FormUpload,
       attachments: this.defaultAttachments ?? [],
-      fileName: false,
-      inputKey: Date.now(),
-      isLoading: false,
+      newCadModalOpen: false,
     }
   },
   methods: {
-    openUpload() {
-      this.inputKey = Date.now()
-      this.$refs.input.click()
-    },
-    onInput(event) {
-      const file = event.target.files?.[0]
-      if (!file) {
-        return
-      }
-
-      this.isLoading = true
-      cadAttachmentService.create({ resource_type: this.resourceType, resource_id: this.resourceId, file })
-          .then((res) => this.attachments.push(res))
-          .catch((err) => {
-            alert(err.message)
-            console.error(err)
+    submit(values, {setRootError}) {
+      return cadAttachmentService.create({
+        file: values.file,
+        type: values.type?.value,
+        resource_type: this.resourceType,
+        resource_id: this.resourceId,
+      })
+          .then((res) => {
+            this.newCadModalOpen = false
+            this.attachments.push(res)
           })
-          .finally(() => this.isLoading = false)
+          .catch(setRootError)
+    },
+    validate() {
+      return Yup.object().shape({
+        type: Yup.mixed().required(),
+        file: Yup.mixed().required(),
+      })
     },
     removeAttachment(cadAttachment) {
       this.isLoading = true
