@@ -79,7 +79,7 @@
             :component="FormInput"
         />
         <FormField
-            label="Inner bore"
+            label="Inner bore [mm]"
             name="inner_bore"
             type="number"
             placeholder="0"
@@ -87,7 +87,7 @@
             :required="true"
         />
         <FormField
-            label="Outer bore"
+            label="Outer bore [mm]"
             name="outer_bore"
             type="number"
             placeholder="0"
@@ -146,7 +146,7 @@
               <th class="whitespace-nowrap">Name</th>
               <th class="whitespace-nowrap">Description</th>
               <th class="whitespace-nowrap">Status</th>
-              <th class="whitespace-nowrap">Angle</th>
+              <th class="whitespace-nowrap">Angle [deg]</th>
               <th class="whitespace-nowrap">Commissioned At</th>
               <th class="whitespace-nowrap">Decommissioned At</th>
               <th class="whitespace-nowrap"></th>
