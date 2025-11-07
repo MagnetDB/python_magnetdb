@@ -16,8 +16,8 @@ else:
     Vprobes = create_probe({
         'name':'HLtest-probes',
         'type': ProbeType.VOLTAGE,
-        'index': ['U1', 'U2', 'U3'],
-        'locations': [[0,0,0], [0,0,1], [0,0,2]],
+        'labels': ['U1', 'U2', 'U3'],
+        'points': [[0,0,0], [0,0,1], [0,0,2]],
         'description': 'voltage probe per Helix with fakes coordinates',
         'magnet': HLtest
     })

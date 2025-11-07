@@ -25,7 +25,7 @@ class Probe(models.Model):
     # add foreignkey for magnet
     magnet = models.ForeignKey('Magnet', on_delete=models.CASCADE, null=False)
     part = models.ForeignKey('Part', on_delete=models.CASCADE, null=True)
-    index = ArrayField(
+    labels = ArrayField(
         models.CharField(max_length=100),
         size=None,  # No limit on array size
         default=list,
@@ -34,7 +34,7 @@ class Probe(models.Model):
     )
     
     # Passer en json??
-    locations = ArrayField(
+    points = ArrayField(
         ArrayField(
             models.FloatField(),
             size=3,  # Each coordinate has exactly 3 values
@@ -52,9 +52,9 @@ class Probe(models.Model):
             '__tag__': 'Probe',
             '__value__': {
                 'name': self.name,
-                'probe_type': self.type,
-                'index': self.index,
-                'location': self.locations,
+                'type': self.type,
+                'labels': self.labels,
+                'points': self.points,
             }
         }
 

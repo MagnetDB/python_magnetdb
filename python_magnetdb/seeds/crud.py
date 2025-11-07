@@ -51,7 +51,7 @@ def create_part(obj):
         for file in [f"{cad}.xao", f"{cad}.brep"]:
             attachment = upload_attachment(path.join(data_directory, 'cad', file))
             if attachment is not None:
-                part.cadattachment_set.create(part=part, attachment=attachment)
+                part.cadattachment_set.create(part=part, attachment=attachment) # type=)
     return part
 
 

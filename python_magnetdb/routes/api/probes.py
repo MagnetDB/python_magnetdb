@@ -48,15 +48,15 @@ def create(
     name: str = Form(...), 
     description: str = Form(None),
     type: ProbeType = Form(...), 
-    index: list = Form(...),
-    locations: list = Form(...),
+    labels: list = Form(...),
+    points: list = Form(...),
     magnet_id: str = Form(...),
     part_id: str = Form(None),  
     metadata: str = Form('{}')
 ):
-    locations = None
-    if not locations:
-        raise HTTPException(status_code=404, detail="Locations not found")
+    points = None
+    if not points:
+        raise HTTPException(status_code=404, detail="Points not found")
 
     magnet = Magnet.objects.filter(id=magnet_id).get()
     if not magnet:
@@ -70,10 +70,10 @@ def create(
         name=name,
         description=description,
         type=type,
-        index=index,
+        labels=labels,
         magnet=magnet,
         part=part,
-        locations=locations,
+        points=points,
         metadata=json.loads(metadata),
     )
     try:
@@ -103,8 +103,8 @@ def update(
     name: str = Form(...), 
     description: str = Form(None),
     type: ProbeType = Form(...),  
-    index: list = Form(...),
-    locations: list = Form(...),
+    labels: list = Form(...),
+    points: list = Form(...),
     magnet_id: str = Form(...),
     part_id: str = Form(None),  
     metadata: str = Form(None),
@@ -116,9 +116,9 @@ def update(
     if not probe:
         raise HTTPException(status_code=404, detail="probe not found")
 
-    locations = None
-    if not locations:
-        raise HTTPException(status_code=404, detail="Material not found")
+    points = None
+    if not points:
+        raise HTTPException(status_code=404, detail="Points not found")
 
     magnet = Magnet.objects.filter(id=magnet_id).get()
     part = Part.objects.filter(id=part_id).get() if part_id else None
@@ -128,10 +128,10 @@ def update(
     probe.type = type
     probe.magnet = magnet
     probe.part = part
-    if index is not None:
-        probe.index = index
-    if locations is not None:
-        probe.locations = locations
+    if labels is not None:
+        probe.labels = labels
+    if points is not None:
+        probe.points = points
     if metadata is not None:
         probe.metadata = json.loads(metadata)
     probe.save()

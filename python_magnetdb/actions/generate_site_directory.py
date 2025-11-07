@@ -46,11 +46,20 @@ def generate_site_directory(site_id, directory):
             #     continue
             with open(f"{directory}/data/geometries/{magnet_part.part.name}.yaml", "w") as f:
                 f.write(magnet_part.part.geometry_config_to_yaml)
+            if magnet_part.part.shape_attachment:
+                magnet_part.part.shape_attachment.download(
+                    f"{directory}/data/cad/{magnet_part.part.shape_attachment.attachment.filename}"
+                )   
             if magnet_part.part.cadattachment_set.all():
                 for cad in magnet_part.part.cadattachment_set.all():
                     cad.attachment.download(
                         f"{directory}/data/cad/{cad.attachment.filename}"
                     )
+            
+        for probe in magnet.probe_set.all():
+            with open(f"{directory}/data/geometries/{probe.name}.yaml", "w") as f:
+                f.write(probe.geometry_config_to_yaml)
+
         with open(f"{directory}/{magnet.name}-data.json", "w+") as file:
             magnet_config = generate_magnet_config(magnet.id)
             file.write(json.dumps(magnet_config))
