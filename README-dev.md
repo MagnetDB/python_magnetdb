@@ -1,4 +1,4 @@
-# MagnetDB
+# `MagnetDB`
 
 Tools for creating and manipulating a database designed for Magnet simulations.
 Data may be partly retreived from **Lncmi control and monitoring website**.
@@ -85,6 +85,7 @@ export DATA_DIR=/data
 poetry run python3 -m python_magnetdb.seeds.seeds
 poetry run python3 -m python_magnetdb.seeds.seed-again
 poetry run python3 -m python_magnetdb.seeds.seed-records
+poetry run python3 -m python_magnetdb.seeds.seed-probes
 ```
 
 8. PgAdmin setup

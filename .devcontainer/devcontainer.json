@@ -18,7 +18,10 @@
 			"extensions": [
 				"ms-python.python",
 				"ms-python.vscode-pylance",
-				"ms-python.black-formatter"
+				"ms-python.black-formatter",
+				"DavidAnson.vscode-markdownlint",
+				"adamvoss.vscode-languagetool",
+				"adamvoss.vscode-languagetool-en"
 			]
 		}
 	},

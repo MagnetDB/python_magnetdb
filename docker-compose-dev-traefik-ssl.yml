@@ -9,23 +9,29 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./traefik-dev:/etc/traefik/:ro
-      - ./certs:/etc/ssl/traefik/:ro
+      - ../magnetdb-data/certs:/etc/ssl/traefik/:ro
   web-api:
     container_name: magnetdb-api
+    user: "${UUID:-1000}:${GID:-1000}"
     build:
       context: .
       dockerfile: Dockerfile-dev
+      args:
+        USER_UID: "${UUID:-1000}"
+        USER_GID: "${GID:-1000}"
     command:
       - /bin/bash
       - -c
       - |
+        ls -alrth /home/feelpp/
+        ls -alrth /home/feelpp/.cache
         poetry update
         poetry lock
         poetry run uvicorn python_magnetdb.web:app --reload --host 0.0.0.0
     working_dir: /home/feelpp/test
     volumes:
       - .:/home/feelpp/test
-      - ../magnetdb-data/poetry-cache:/home/feelpp/.cache/pypoetry
+      - ../magnetdb-data/django/poetry-cache:/home/feelpp/.cache/pypoetry
       - ./data/:/data:ro
       - ./images:/images:ro
     links:
@@ -46,21 +52,26 @@ services:
       FRONT_SECURITY_AUTHORIZATION_HOST_SERVER: auth.lemon.magnetdb-dev.local
   web-worker:
     container_name: magnetdb-worker
+    user: "${UUID:-1000}:${GID:-1000}"
     build:
       context: .
       dockerfile: Dockerfile-dev
+      args:
+        USER_UID: "${UUID:-1000}"
+        USER_GID: "${GID:-1000}"
     privileged: true
     command:
       - /bin/bash
       - -c
       - |
+        whoami
         poetry update
         poetry lock
-        poetry run python manage.py celery_worker
+        poetry run celery -A python_magnetdb.worker worker --loglevel=info
     working_dir: /home/feelpp/test
     volumes:
       - .:/home/feelpp/test
-      - ../magnetdb-data/poetry-cache:/home/feelpp/.cache/pypoetry
+      - ../magnetdb-data/django/poetry-cache:/home/feelpp/.cache/pypoetry
       - ./data/:/data
       - ./images:/images
     links:
@@ -75,23 +86,23 @@ services:
       REDIS_ADDR: redis://redis:6379/0
       DATABASE_HOST: postgres
       IMAGES_DIR: /images
-#  web-app:
-#    container_name: magnetdb-webapp
-#    build:
-#      context: web
-#      dockerfile: Dockerfile-dev
-#      args:
-#        NODE_ENV: development
-#        API_ENDPOINT: "https://api.magnetdb-dev.local"
-#    volumes:
-#      - ./web:/app
-#    command:
-#      - /bin/bash
-#      - -c
-#      - |
-#        npm install --legacy-peer-deps
-#        npm run serve
-#    working_dir: /app
+  web-app:
+    container_name: magnetdb-webapp
+    build:
+      context: web
+      dockerfile: Dockerfile-dev
+      args:
+        NODE_ENV: development
+        API_ENDPOINT: "https://api.magnetdb-dev.local"
+    volumes:
+      - ./web:/app
+    command:
+      - /bin/bash
+      - -c
+      - |
+        npm install --legacy-peer-deps
+        npm run serve
+    working_dir: /app
   lemonldap:
     container_name: magnetdb-lemonldap
     image: tiredofit/lemonldap:2.0.24
@@ -133,7 +144,7 @@ services:
       TZ: 'Europe/Paris'
       PGTZ: 'Europe/Paris'
     volumes:
-      - ../magnetdb-data/postgres-data:/var/lib/postgresql/data
+      - ../magnetdb-data/django/postgres-data:/var/lib/postgresql/data
   minio:
     container_name: magnetdb-minio
     image: minio/minio
@@ -146,7 +157,7 @@ services:
       - 9000:9000
       - 9080:9080
     volumes:
-      - ../magnetdb-data/minio-data:/data
+      - ../magnetdb-data/django/minio-data:/data
   pgadmin:
     container_name: magnetdb-pgadmin
     image: dpage/pgadmin4:7
@@ -155,7 +166,7 @@ services:
       PGADMIN_DEFAULT_PASSWORD: admin
       # PGADMIN_CONFIG_SERVER_MODE: 'False'
     volumes:
-      - ../magnetdb-data/pgadmin-data:/var/lib/pgadmin
+      - ../magnetdb-data/django/pgadmin-data:/var/lib/pgadmin
     links:
       - postgres
 volumes:

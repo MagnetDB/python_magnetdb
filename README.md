@@ -16,6 +16,7 @@ git submodule update --init --recursive
 0. Pre-requisites
 
 On your server:
+
 ```shell
 echo "127.0.0.1 handler.sso.lncmig.local api.manager.sso.lncmig.local manager.sso.lncmig.local sso.lncmig.local test.sso.lncmig.local" | sudo tee -a /etc/hosts
 echo "127.0.0.1 magnetdb.lncmig.local" | sudo tee -a /etc/hosts
