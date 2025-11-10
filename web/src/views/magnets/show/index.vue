@@ -125,6 +125,71 @@
       </Form>
     </Card>
 
+<Card class="mb-6">
+  <template #header>
+    <div class="flex items-center justify-between">
+      <div>Probes</div>
+      <Button 
+        v-if="['in_study', 'in_stock'].includes(magnet.status)"
+        class="btn btn-primary btn-small"
+        @click="addProbeModalVisible = true"
+      >
+        Add probe
+      </Button>
+    </div>
+  </template>
+
+  <div v-if="magnet.probes && magnet.probes.length > 0" class="table-responsive">
+    <table>
+      <thead class="bg-white">
+        <tr>
+          <th class="whitespace-nowrap">Name</th>
+          <th class="whitespace-nowrap">Type</th>
+          <th class="whitespace-nowrap">Description</th>
+          <th class="whitespace-nowrap">Index</th>
+          <th class="whitespace-nowrap">Part</th>
+          <th class="whitespace-nowrap"></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-for="probe in magnet.probes" :key="probe.id">
+          <td class="whitespace-nowrap">{{ probe.name }}</td>
+          <td class="whitespace-nowrap">
+            <span class="badge badge-info">{{ probe.type | capitalize }}</span>
+          </td>
+          <td class="whitespace-nowrap">
+            <template v-if="probe.description">{{ probe.description }}</template>
+            <span v-else class="text-gray-500 italic">Not available</span>
+          </td>
+          <td class="whitespace-nowrap">
+            <code>{{ probe.index.join(', ') }}</code>
+          </td>
+          <td class="whitespace-nowrap">
+            <template v-if="probe.part">
+              <router-link :to="{ name: 'part', params: { id: probe.part.id } }" class="link">
+                {{ probe.part.name }}
+              </router-link>
+            </template>
+            <span v-else class="text-gray-500 italic">Not assigned</span>
+          </td>
+          <td class="whitespace-nowrap">
+            <Button
+              v-if="['in_study', 'in_stock'].includes(magnet.status)"
+              class="btn btn-danger btn-small"
+              @click="removeProbe(probe)"
+            >
+              Remove
+            </Button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <div v-else class="text-gray-500 italic">
+    No probes attached to this magnet
+  </div>
+</Card>
+
     <Card class="mb-6">
       <template #header>
         <div class="flex items-center justify-between">
@@ -234,6 +299,12 @@
       </div>
     </Card>
 
+    <AddProbeToMagnetModal
+        :magnet-id="magnet.id"
+        :visible="addProbeModalVisible"
+        @close="addProbeModalVisible = false; fetch()"
+    />
+    
     <AddPartToMagnetModal
         :magnet-id="magnet.id"
         :visible="addPartModalVisible"
@@ -247,6 +318,7 @@
 <script>
 import * as Yup from 'yup'
 import * as magnetService from '@/services/magnetService'
+import * as probeService from '@/services/probeService'
 import Card from '@/components/Card'
 import Form from "@/components/Form";
 import FormField from "@/components/FormField";
@@ -266,6 +338,7 @@ import MagnetFlowParamsModal from "@/components/MagnetFlowParamsModal.vue";
 import {queue} from "@/mixins/createFormField";
 import {cloneDeep, set} from "lodash";
 import MeshAttachmentEditor from "@/components/MeshAttachmentEditor.vue";
+import AddProbeToMagnetModal from "@/views/magnets/show/AddProbeToMagnetModal";
 
 export default {
   name: 'MagnetShow',
@@ -278,6 +351,7 @@ export default {
     CadAttachmentEditor,
     StatusBadge,
     AddPartToMagnetModal,
+    AddProbeToMagnetModal,
     Alert,
     Button,
     FormField,
@@ -292,6 +366,7 @@ export default {
       error: null,
       magnet: null,
       addPartModalVisible: false,
+      addProbeModalVisible: false,
       initialValues: null,
       defaultGeometryValue: '',
       defaultFlowParamsValue: '',
@@ -368,9 +443,17 @@ export default {
             this.error = error
           })
     },
+    removeProbe(probe) {
+      return probeService.destroy({ probeId: probe.id })
+          .then(this.fetch)
+          .catch((error) => {
+          this.error = error
+      })
+    },
   },
   async mounted() {
     await this.fetch()
   },
 }
 </script>
+
