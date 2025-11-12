@@ -51,7 +51,6 @@ def create(
     labels: list = Form(...),
     points: list = Form(...),
     magnet_id: str = Form(...),
-    part_id: str = Form(None),  
     metadata: str = Form('{}')
 ):
     points = None
@@ -61,20 +60,15 @@ def create(
     magnet = Magnet.objects.filter(id=magnet_id).get()
     if not magnet:
         raise HTTPException(status_code=404, detail="Magnet not found")
-    
-    part = Part.objects.filter(id=part_id).get() if part_id else None
-    if part_id and not part:
-        raise HTTPException(status_code=404, detail="Part not found")
-    
+        
     probe = probe(
         name=name,
         description=description,
         type=type,
         labels=labels,
         magnet=magnet,
-        part=part,
         points=points,
-        metadata=json.loads(metadata),
+        metadata=json.loads(metadata)
     )
     try:
         probe.save()
@@ -106,7 +100,6 @@ def update(
     labels: list = Form(...),
     points: list = Form(...),
     magnet_id: str = Form(...),
-    part_id: str = Form(None),  
     metadata: str = Form(None),
 ):
     # TODO: correct 
@@ -121,19 +114,17 @@ def update(
         raise HTTPException(status_code=404, detail="Points not found")
 
     magnet = Magnet.objects.filter(id=magnet_id).get()
-    part = Part.objects.filter(id=part_id).get() if part_id else None
 
     probe.name = name
     probe.description = description
     probe.type = type
     probe.magnet = magnet
-    probe.part = part
+    if metadata is not None:
+        probe.metadata = json.loads(metadata)
     if labels is not None:
         probe.labels = labels
     if points is not None:
         probe.points = points
-    if metadata is not None:
-        probe.metadata = json.loads(metadata)
     probe.save()
     AuditLog.log(user, "probe updated", resource=probe)
     return model_serializer(probe)

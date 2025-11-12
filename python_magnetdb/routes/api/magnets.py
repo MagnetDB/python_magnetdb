@@ -100,6 +100,17 @@ def records(id: int, user=Depends(get_user("read"))):
             result.append(model_serializer(record))
     return {"records": result}
 
+@router.get("/api/magnets/{id}/probes")
+def probes(id: int, user=Depends(get_user("read"))):
+    magnet = Magnet.objects.prefetch_related('probe_set').get(id=id)
+    if not magnet:
+        raise HTTPException(status_code=404, detail="Magnet not found")
+
+    result = []
+    for probe in magnet.probe_set.all():
+        result.append(model_serializer(probe))
+    return {"probes": result}
+
 
 @router.get("/api/magnets/{id}/mdata")
 def mdata(id: int, user=Depends(get_user("read"))):
@@ -114,7 +125,7 @@ def mdata(id: int, user=Depends(get_user("read"))):
 @router.get("/api/magnets/{id}")
 def show(id: int, user=Depends(get_user("read"))):
     magnet = Magnet.objects\
-        .prefetch_related('magnetpart_set__part', 'sitemagnet_set__site', 'cadattachment_set__attachment', 'meshattachment_set__attachment')\
+        .prefetch_related('magnetpart_set__part', 'probe_set', 'sitemagnet_set__site', 'cadattachment_set__attachment', 'meshattachment_set__attachment')\
         .get(id=id)
     if not magnet:
         raise HTTPException(status_code=404, detail="Magnet not found")
@@ -135,7 +146,7 @@ def update(
     flow_params: str = Form(None),
 ):
     magnet = Magnet.objects \
-        .prefetch_related('magnetpart_set__part', 'sitemagnet_set__site', 'cadattachment_set__attachment', 'meshattachment_set__attachment') \
+        .prefetch_related('magnetpart_set__part', 'probe_set', 'sitemagnet_set__site', 'cadattachment_set__attachment', 'meshattachment_set__attachment') \
         .get(id=id)
     if not magnet:
         raise HTTPException(status_code=404, detail="Magnet not found")
@@ -179,7 +190,7 @@ def defunct(id: int, decommissioned_at=Form(default_factory=timezone.now), user=
 @router.delete("/api/magnets/{id}")
 def destroy(id: int, user=Depends(get_user("delete"))):
     magnet = Magnet.objects \
-        .prefetch_related('magnetpart_set__part', 'sitemagnet_set__site', 'cadattachment_set__attachment', 'meshattachment_set__attachment') \
+        .prefetch_related('magnetpart_set__part', 'probe_set', 'sitemagnet_set__site', 'cadattachment_set__attachment', 'meshattachment_set__attachment') \
         .get(id=id)
     if not magnet:
         raise HTTPException(status_code=404, detail="Magnet not found")

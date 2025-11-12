@@ -23,6 +23,7 @@ const router = new VueRouter({
     { name: 'records', path: '/records', component: () => import('./views/records/list') },
     { name: 'new_record', path: '/records/new', component: () => import('./views/records/new') },
     { name: 'record', path: '/records/:id', component: () => import('./views/records/show') },
+    { name: 'probe', path: '/probes/:id', component: () => import('./views/probes/show/index.vue') },
     { name: 'admin_config', path: '/admin/config', component: () => import('./views/admin/config') },
     { name: 'admin_audit_logs', path: '/admin/audit_logs', component: () => import('./views/admin/audit-logs') },
     { name: 'admin_users', path: '/admin/users', component: () => import('./views/admin/users/list') },
