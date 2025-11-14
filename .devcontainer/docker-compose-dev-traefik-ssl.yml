@@ -31,9 +31,13 @@ services:
       - |
         whoami
         pwd
+        ls -alrth
         ls -alrth /home/feelpp/
         ls -alrth /home/feelpp/.cache
+        poetry --version
+        cat pyproject.toml
         poetry update
+        poetry show
         poetry lock
         poetry run uvicorn python_magnetdb.web:app --reload --host 0.0.0.0
     working_dir: /home/feelpp/test
@@ -79,8 +83,9 @@ services:
       - -c
       - |
         whoami
-        poetry update
         poetry lock
+        poetry install
+        poetry show
         poetry run python manage.py celery_worker
     working_dir: /home/feelpp/test
     volumes:
@@ -197,7 +202,7 @@ services:
       - "traefik.http.services.minio.loadbalancer.server.port=9080"
   pgadmin:
     container_name: magnetdb-pgadmin
-    image: dpage/pgadmin4:7
+    image: dpage/pgadmin4:8
     environment:
       PGADMIN_DEFAULT_EMAIL: christophe.trophime@lncmi.cnrs.fr
       PGADMIN_DEFAULT_PASSWORD: admin

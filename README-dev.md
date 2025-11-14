@@ -96,3 +96,9 @@ add a server for magnetdb
 magnetdb ip DB server shall be: `magnetdb-postgres`
 
 
+
+# API calls
+
+```bash
+curl -s -H "Authorization: YOUR_TOKEN" "https://api.magnetdb-dev.local/api/magnets/1" | jq
+```
