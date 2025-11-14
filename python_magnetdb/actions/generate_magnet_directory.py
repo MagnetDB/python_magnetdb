@@ -16,6 +16,7 @@ def mkdir(dir):
 # TODO: 
 # add param for Axi/3D if Axi do not load cad files for parts
 def generate_magnet_directory(magnet_id, directory):
+    import subprocess
     magnet = Magnet.objects.prefetch_related(
         "magnetpart_set__part",
         "magnetpart_set__part__cadattachment_set__attachment",
@@ -32,11 +33,17 @@ def generate_magnet_directory(magnet_id, directory):
 
     with open(f"{directory}/data/geometries/{magnet.name}.yaml", "w") as f:
         f.write(magnet.geometry_config_to_yaml)
+    print(f"viewing yaml files in {directory}/data/geometries/{magnet.name}.yaml ...", flush=True)
+    done = subprocess.run([f"cat {directory}/data/geometries/{magnet.name}.yaml"], shell=True)
+    
     for magnet_part in magnet.magnetpart_set.all():
         # if not magnet_part.active:
         #     continue
         with open(f"{directory}/data/geometries/{magnet_part.part.name}.yaml", "w") as f:
             f.write(magnet_part.part.geometry_config_to_yaml)
+        print(f"viewing yaml files in {directory}/data/geometries/{magnet_part.part.name}.yaml ...", flush=True)
+        done = subprocess.run([f"cat {directory}/data/geometries/{magnet_part.part.name}.yaml"], shell=True)
+    
         if magnet_part.part.shape_attachment:
             magnet_part.part.shape_attachment.download(
                 f"{directory}/data/cad/{magnet_part.part.shape_attachment.attachment.filename}"

@@ -17,9 +17,11 @@ def generate_flow_params(magnet: Magnet, directory: str, flow_prefix: str=None):
 
     if magnet.flow_params:
         print(f"get magnet.flow_params: flow_params={magnet.flow_params}, type={type(magnet.flow_params)}")
-        print(f"save to: {os.getcwd()}/{flow_name}.json")
+        print(f"save to: {directory}/{flow_name}.json")
+        with open(f"{directory}/{flow_name}.json", "w") as f:
+            f.write(json.dumps(magnet.flow_params))
     else:
-        print(f"generate_site_directory: {os.getcwd()}/{flow_name}.json")
-        shutil.copyfile(f"{os.getcwd()}/flow_params.json", f"{directory}/{flow_name}.json")
+        print(f"!!!WARNING!!! get magnet.flow_params: no such field defined !!!")
+        print(f"!!!WARNING!!!you would need to create a {flow_name}.json to setup and run simulation !!!")
 
     pass

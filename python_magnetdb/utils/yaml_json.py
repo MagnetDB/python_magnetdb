@@ -68,6 +68,8 @@ def json_to_yaml(json_str: str) -> str:
 def yaml_to_json(yaml_str: str) -> str:
     # Load YAML with custom tags
     data = yaml.load(yaml_str, Loader=yaml.FullLoader)
-
+    if hasattr(data, 'update'):
+        data.update()
+        
     # Convert to JSON with tag preservation
     return json.dumps(data, cls=CustomEncoder, indent=4)

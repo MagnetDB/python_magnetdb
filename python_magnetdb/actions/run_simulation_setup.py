@@ -11,7 +11,7 @@ from python_magnetsetup.config import appenv
 from python_magnetdb.actions.generate_magnet_directory import generate_magnet_directory
 from python_magnetdb.actions.generate_site_directory import generate_site_directory
 from python_magnetdb.models import Simulation, StorageAttachment
-from python_magnetsetup.setup import setup
+from python_magnetsetup.setup import setup as msetup
 
 
 def prepare_directory(simulation: Simulation, directory):
@@ -44,6 +44,20 @@ def run_simulation_setup(simulation: Simulation):
         done = subprocess.run([f"ls -lR {tempdir}"], shell=True)
         print("generating config done")
 
+        # just for debug
+        if simulation.magnet:
+            print("type:", type(simulation.magnet), flush=True)
+            print(f"viewing yaml files in {tempdir}/data/geometries/{simulation.magnet.name}.yaml ...")
+            done = subprocess.run([f"cat {tempdir}/data/geometries/{simulation.magnet.name}.yaml"], shell=True)
+            for magnet_part in simulation.magnet.magnetpart_set.all():
+                print("part: type=", type(magnet_part), flush=True)
+                print(f"viewing yaml files in {tempdir}/data/geometries/{magnet_part.part.name}.yaml ...", flush=True)
+                done = subprocess.run([f"cat {tempdir}/data/geometries/{magnet_part.part.name}.yaml"], shell=True)
+            for probe in simulation.magnet.probe_set.all():
+                print(f"viewing yaml files in {tempdir}/data/geometries/{probe.name}.yaml ...", flush=True)
+                done = subprocess.run([f"cat {tempdir}/data/geometries/{probe.name}.yaml"], shell=True)
+            print("generating config done")
+
         print(
             f"running setup... non_linear={simulation.non_linear} type={type(simulation.non_linear)}"
         )
@@ -61,7 +75,7 @@ def run_simulation_setup(simulation: Simulation):
             nonlinear=simulation.non_linear,
             cooling=simulation.cooling,
             flow_params=f"{tempdir}/flow_params.json",
-            debug=False,
+            debug=True,
             verbose=False,
             skip_archive=True,
         )
@@ -80,7 +94,7 @@ def run_simulation_setup(simulation: Simulation):
             with open(f"{tempdir}/config.json", "r") as config_file:
                 config = json.load(config_file)
                 print(f"run_simulation_setup: config={config}")
-                (yamlfile, cfgfile, jsonfile, xaofile, meshfile, csvfiles) = setup(
+                (yamlfile, cfgfile, jsonfile, xaofile, meshfile, csvfiles) = msetup(
                     env, args, config, f"{tempdir}/{simulation.resource.name}", currents
                 )
                 simulation.setup_state = {

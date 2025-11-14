@@ -10,9 +10,14 @@ from python_magnetdb.models import Site
 
 
 def get_magnet_data(magnet_id):
+    import  os
     with tempfile.TemporaryDirectory() as tempdir:
         config_data = generate_magnet_directory(magnet_id, tempdir)
         data_dir = f"{tempdir}/data"
+        print(f"config_data={config_data}")
+        print(f"data_dir={data_dir}")
+        print(f"pwd={os.getcwd()}")
+
         env = appenv(
             envfile=None,
             url_api=data_dir,
@@ -23,7 +28,7 @@ def get_magnet_data(magnet_id):
             mrecord_repo=data_dir,
             optim_repo=data_dir,
         )
-        return magnet_setup(env, config_data, False)  # True means debug
+        return magnet_setup(env, config_data, True)  # True means debug
 
 
 def get_site_data(site_id):
