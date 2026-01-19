@@ -8,12 +8,14 @@ See `python_magnetrun` for more details
 
 0. Pre-requisites
 
-* Certificates
+* Hosts settings
 
 On your host, set /etc/hosts:
 ```shell
 echo "127.0.0.1 magnetdb-dev.local api.magnetdb-dev.local lemon.magnetdb-dev.local manager.lemon.magnetdb-dev.local auth.lemon.magnetdb-dev.local pgadmin.magnetdb-dev.local minio.magnetdb-dev.local traefik.magnetdb-dev.local" | sudo tee -a /etc/hosts
 ```
+
+* Certificates
 
 Create a self signed certificate for the magnetdb server:
    
@@ -21,16 +23,9 @@ Create a self signed certificate for the magnetdb server:
 mkdir -p certs
 cd certs
 mkcert -CAROOT
-mkcert 'magnetdb-dev.local'
-mkcert '*.magnetdb-dev.local'
+mkcert 'magnetdb-dev.local' '*.magnetdb-dev.local'  '*.lemon.magnetdb-dev.local'
 mkcert -install
 chmod 600 certs/*.key
-```
-
-* Create and Fix the permissions for pgadmin-data
-
-```shell
-sudo chown -R 5050:0 pgadmin-data 
 ```
 
 1. Start dependencies with docker:
@@ -39,9 +34,11 @@ sudo chown -R 5050:0 pgadmin-data
 docker-compose -f docker-compose-dev-traefik-ssl.yml up
 ```
 
-Note: if you see error messages about pgadmin, try to fix permissions on pgadmin-data directory by running `sudo chown -R 5050:5050 pgadmin-data`
+> Note
+> if you see error messages about pgadmin, try to fix permissions on pgadmin-data directory by running `sudo chown -R 5050:5050 pgadmin-data`
+> relaunch docker-compose
 
-5. Configure LemonLDAP (https://github.com/LemonLDAPNG/lemonldap-ng-docker):
+2. Configure LemonLDAP (https://github.com/LemonLDAPNG/lemonldap-ng-docker):
    1. Sign in to https://auth.lemon.magnetdb-dev.local/ with dwho/dwho
    2. Enable OpenID Connect in Administration > WebSSO Manager > General Parameters > Issuer modules > OpenID Connect
    3. Create OpenID relying party in Administration > WebSSO Manager > OpenID Connect Relying Parties > Add OpenID Relying Party
@@ -69,7 +66,7 @@ poetry run python3 manage.py migrate
 ```
 
 
-7. Run seeds:
+5. Run seeds:
 
    Before running seeds, make sur that data directory exists and that it contains required files (aka geometry yaml files).
 In the `magnetdb` main repo, add a symlink to actual directory holding data, for example:
@@ -88,7 +85,7 @@ poetry run python3 -m python_magnetdb.seeds.seed-records
 poetry run python3 -m python_magnetdb.seeds.seed-probes
 ```
 
-8. PgAdmin setup
+6. PgAdmin setup
 
 Load `https://pgadmin.magnetdb-dev.local/` in your web browser
 add a server for magnetdb
@@ -98,6 +95,14 @@ magnetdb ip DB server shall be: `magnetdb-postgres`
 
 
 # API calls
+
+## How to get YOUR_TOKEN
+
+* login to magnetdb-dev.local
+* check your settings
+* copy YOUR_TOKEN
+
+## Examples
 
 ```bash
 curl -s -H "Authorization: YOUR_TOKEN" "https://api.magnetdb-dev.local/api/magnets/1" | jq
