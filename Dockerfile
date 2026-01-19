@@ -1,19 +1,40 @@
-FROM trophime/magnettools:bookworm-poetry
-# FROM trophime/magnettools:bullseye-poetry
+FROM trophime/magnettools:bookworm-poetry-2.2.1
+
+ARG USERNAME=feelpp
+ARG USER_UID=1000
+ARG USER_GID=$USER_UID
 
 ENV LANG=C.UTF-8 LC_ALL=C.UTF-8 DEBIAN_FRONTEND=noninteractive
 RUN echo 'debconf debconf/frontend select Noninteractive' | sudo debconf-set-selections
 
 USER root
 RUN apt-get update \
-    && apt-get install -y iputils-ping vim-nox \
+    && apt-get install -y iputils-ping vim-nox emacs-nox \
     && apt-get install -y wait-for-it \
     && apt-get install -y debconf-utils \
-    && apt-get install -y libxft2 libglu1 wget build-essential libseccomp-dev pkg-config squashfs-tools cryptsetup runc \
-    && apt-get install -y python3-watchdog
-# RUN wget -q https://github.com/sylabs/singularity/releases/download/v3.10.0/singularity-ce_3.10.0-focal_amd64.deb \
-#     && dpkg -i singularity-ce_3.10.0-focal_amd64.deb \
-#     && rm -f singularity-ce_3.10.0-focal_amd64.deb
-    
-USER feelpp
+    && apt-get install -y libpq-dev
+
+RUN echo "*** install prerequisites for MagnetTools ***" \
+    && apt-get install -y magnettools libmagnettools-dev
+
+RUN echo "create local user $USERNAME (uid=${USER_UID}, gid=${USER_GID})" \
+    && echo "create local user $USERNAME (uid=${USER_UID}, gid=${USER_GID})" \
+    && echo "getent group ${USER_GID}: $(getent group ${USER_GID})" \
+    && echo "getent passwd ${USER_UID}: $(getent passwd ${USER_UID})" \
+    && echo "id ${USERNAME}: $(id ${USERNAME})" \
+    # Create a non-root user to use if preferred - see https://aka.ms/vscode-remote/containers/non-root-user.\
+    # modify the user id and group id to match the host user id and group id\
+    && if [ ! $(getent group ${USER_GID}) ]; then groupmod -g "${USER_GID}" "${USERNAME}"; fi \
+    && if [ ! $(getent passwd ${USER_UID}) ]; then usermod -u "${USER_UID}" -g "${USER_GID}" "${USERNAME}"; fi \
+    && echo $USERNAME ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/$USERNAME \
+    && chmod 0440 /etc/sudoers.d/$USERNAME \
+    && echo "local user $(getent group $USER_GID)" \
+    && echo "local user $(getent passwd $USER_UID)" \
+    && mkdir -p /home/${USERNAME}/.ssh/ \
+    # add github ssh key\
+    && ssh-keyscan github.com >> /home/${USERNAME}/.ssh/known_hosts \
+    && chown -R $USER_GID:$USER_UID /home/${USERNAME}/.ssh
+
+ENV LD_LIBRARY_PATH="/usr/lib/x86_64-linux-gnu/MagnetTools/:$LD_LIBRARY_PATH"
+USER $USERNAME
 

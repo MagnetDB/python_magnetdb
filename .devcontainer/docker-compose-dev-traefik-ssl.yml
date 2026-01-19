@@ -9,7 +9,7 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ../traefik-dev:/etc/traefik/:ro
-      - ../../magnetdb-data/ncerts:/etc/ssl/traefik/:ro
+      - ../../magnetdb-data/certs:/etc/ssl/traefik/:ro
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.dashboard.rule=Host(`traefik.magnetdb-dev.local`)"

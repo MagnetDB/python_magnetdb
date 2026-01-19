@@ -82,3 +82,5 @@ minio-data
 postgres-data
 lemonldap-ng-data
 *.orig
+
+tmp/*
