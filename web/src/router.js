@@ -14,6 +14,7 @@ const router = new VueRouter({
     { name: 'magnets', path: '/magnets', component: () => import('./views/magnets/list') },
     { name: 'new_magnet', path: '/magnets/new', component: () => import('./views/magnets/new') },
     { name: 'magnet', path: '/magnets/:id', component: () => import('./views/magnets/show') },
+    { name: 'probe', path: '/probes/:id', component: () => import('./views/probes/show') },
     { name: 'materials', path: '/materials', component: () => import('./views/materials/list') },
     { name: 'new_material', path: '/materials/new', component: () => import('./views/materials/new') },
     { name: 'material', path: '/materials/:id', component: () => import('./views/materials/show') },
