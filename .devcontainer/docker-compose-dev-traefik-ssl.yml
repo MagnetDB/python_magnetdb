@@ -1,8 +1,7 @@
 services:
   proxy:
-    image: traefik:v2.9
+    image: traefik:3.3
     container_name: magnetdb-traefik
-    command: --api.insecure=true --providers.docker --providers.docker.exposedbydefault=false --entrypoints.web.address=:80
     ports:
       - "80:80"
       - "443:443"
@@ -10,12 +9,14 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ../traefik-dev:/etc/traefik/:ro
-      - ../../magnetdb-data/certs:/etc/ssl/traefik/:ro
+      - ../../magnetdb-data/ncerts:/etc/ssl/traefik/:ro
     labels:
+      - "traefik.enable=true"
       - "traefik.http.routers.dashboard.rule=Host(`traefik.magnetdb-dev.local`)"
+      - "traefik.http.routers.dashboard.service=api@internal"
       - "traefik.http.routers.dashboard.entrypoints=https"
-      - "traefik.http.routers.dashborad.tls=true"
-      - "traefik.http.services.dashboard.loadbalancer.server.port=8080"
+      - "traefik.http.routers.dashboard.tls=true"
+      # - "traefik.http.services.dashboard.loadbalancer.server.port=8080"
   web-api:
     container_name: magnetdb-api
     user: "${UUID:-1000}:${GID:-1000}"
@@ -29,16 +30,14 @@ services:
       - /bin/bash
       - -c
       - |
-        whoami
-        pwd
-        ls -alrth
+        echo "Starting MagnetDB API..."
         ls -alrth /home/feelpp/
         ls -alrth /home/feelpp/.cache
-        poetry --version
-        cat pyproject.toml
-        poetry update
-        poetry show
-        poetry lock
+        
+        # Install dependencies from lock file (fast!)
+        poetry install --no-root
+        
+        # Start API server
         poetry run uvicorn python_magnetdb.web:app --reload --host 0.0.0.0
     working_dir: /home/feelpp/test
     volumes:
@@ -53,10 +52,17 @@ services:
       - lemonldap
     labels:
       - "traefik.enable=true"
+      # Main API router
       - "traefik.http.routers.webapi.rule=Host(`api.magnetdb-dev.local`)"
       - "traefik.http.routers.webapi.entrypoints=https"
       - "traefik.http.routers.webapi.tls=true"
       - "traefik.http.services.webapi.loadbalancer.server.port=8000"
+      
+      # Swagger/OpenAPI UI router (same backend, different domain)
+      - "traefik.http.routers.swagger.rule=Host(`swagger.magnetdb-dev.local`)"
+      - "traefik.http.routers.swagger.entrypoints=https"
+      - "traefik.http.routers.swagger.tls=true"
+      - "traefik.http.routers.swagger.service=webapi"
     environment:
       S3_ENDPOINT: minio:9000
       S3_ACCESS_KEY: minio
@@ -82,10 +88,13 @@ services:
       - /bin/bash
       - -c
       - |
+        echo "Starting MagnetDB Worker..."
         whoami
-        poetry lock
-        poetry install
-        poetry show
+        
+        # Install dependencies from lock file (fast!)
+        poetry install --no-root
+        
+        # Start Celery worker
         poetry run python manage.py celery_worker
     working_dir: /home/feelpp/test
     volumes:
