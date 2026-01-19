@@ -35,7 +35,9 @@ mkcert -install
 chmod 600 certs/*.key
 ```
 
-NB: eventually remove poetry-cache data before starting the services
+> Note
+> * by default, mkcert creates certificates with a validity of 825 days
+> * eventually remove poetry-cache data before starting the services
 
 
 1. Start the services
