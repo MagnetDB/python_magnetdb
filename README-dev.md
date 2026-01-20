@@ -28,6 +28,30 @@ mkcert -install
 chmod 600 certs/*.key
 ```
 
+* Bashrc
+
+Add these lines to your `.bashrc`:
+
+```shell
+# UID exists by default
+export UUID=$UID
+export GID=$(id -g)
+```
+
+Start a new shell to load the new bashrc or `source ~/.bashrc`
+
+> NOTE
+> * For zsh:
+>
+> ```shell
+> # Exporting UUID and GID
+> export UUID=$UID
+> export GID=$(id -g)
+> ```
+> and then `source ~/.zhrc`
+>
+> * For other shell see the shell docs.
+
 1. Start dependencies with docker:
 
 ```shell

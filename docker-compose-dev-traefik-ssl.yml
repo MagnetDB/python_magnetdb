@@ -31,6 +31,8 @@ services:
       - /bin/bash
       - -c
       - |
+        echo "User feelpp..."
+        id feelpp
         echo "Starting MagnetDB API..."
         ls -alrth /home/feelpp/
         ls -alrth /home/feelpp/.cache

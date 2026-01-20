@@ -29,8 +29,7 @@ RUN apt-get update \
 WORKDIR /app
 COPY package.json .
 COPY package-lock.json .
-RUN npm ci --legacy-peer-deps \
-    && npx browserslist@latest --update-db
+RUN npm ci --legacy-peer-deps
 
 ARG NODE_ENV
 ARG API_ENDPOINT
