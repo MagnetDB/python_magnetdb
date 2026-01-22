@@ -14,8 +14,8 @@ RUN apt-get update \
     && apt-get install -y debconf-utils \
     && apt-get install -y libpq-dev
 
-RUN echo "*** install prerequisites for MagnetTools ***" \
-    && apt-get install -y magnettools libmagnettools-dev
+# RUN echo "*** install prerequisites for MagnetTools ***" \
+#     && apt-get install -y magnettools libmagnettools-dev
 
 RUN echo "create local user $USERNAME (uid=${USER_UID}, gid=${USER_GID})" \
     && echo "create local user $USERNAME (uid=${USER_UID}, gid=${USER_GID})" \
