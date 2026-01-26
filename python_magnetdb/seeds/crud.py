@@ -23,6 +23,17 @@ from python_magnetdb.models.site import Site
 from python_magnetdb.models.probe import Probe
 
 data_directory = getenv("DATA_DIR")
+project_directory = None
+
+# Validate data_directory
+if not data_directory:
+    raise ValueError("DATA_DIR environment variable is not set")
+if not path.exists(data_directory):
+    raise FileNotFoundError(f"DATA_DIR directory does not exist: {data_directory}")
+if not path.isdir(data_directory):
+    raise NotADirectoryError(f"DATA_DIR is not a directory: {data_directory}")
+
+print(f"Using DATA_DIR={data_directory}")
 
 
 def upload_attachment(file: str) -> StorageAttachment:
@@ -53,6 +64,10 @@ def create_part(obj):
     geometry = obj.pop("geometry", None)
     cad = obj.pop("cad", None)
     part = Part(**obj)
+    if project_directory is not None:
+        geometry = path.join(project_directory, geometry)
+    print(f"geometry={geometry}.yaml")
+    print(f"data_directory={data_directory}")
     if geometry is not None:
         with open(path.join(data_directory, "geometries", f"{geometry}.yaml")) as file:
             part.geometry_config = json.loads(yaml_to_json(file.read()))
@@ -92,6 +107,8 @@ def create_magnet(obj):
     # probes = obj.pop('probes', None)
     parts = obj.pop("parts", None)
     geometry = obj.pop("geometry", None)
+    if project_directory is not None:
+        geometry = path.join(project_directory, geometry)
     cad = obj.pop("cad", None)
     magnet = Magnet(**obj)
     if geometry is not None:

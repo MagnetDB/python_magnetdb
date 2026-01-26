@@ -2,11 +2,21 @@
 Create a basic magnetdb
 """
 
-from os import getenv
+import os
+from os import getenv, path
 
+from . import crud
 from .crud import create_material, create_part
 
 data_directory = getenv("DATA_DIR")
+project_directory = "HL-37"
+
+# Override crud module's project_directory
+crud.project_directory = project_directory
+
+print(f"DATA_DIR={data_directory}")
+print(f"PROJECT_DIR={project_directory}")
+
 
 MA24032701 = create_material(
     {
