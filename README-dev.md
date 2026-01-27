@@ -111,6 +111,21 @@ docker exec -it magnetdb-api bash
 poetry run python3 manage.py migrate
 ```
 
+> **Database Management Scripts**
+>
+> Several shell scripts are available for database operations:
+>
+> - `db-dump.sh` - Backup the PostgreSQL database
+> - `db-load.sh` - Restore database from a backup
+> - `db-remove.sh` - Remove/clean the database
+> - `db-fix-collation.sh` - Fix collation version mismatch warnings
+>
+> Run these scripts from the repository root:
+> ```shell
+> ./db-dump.sh
+> ./db-fix-collation.sh
+> ```
+
 > **Important: Modifying Django Models**
 >
 > When you modify files in `python_magnetdb/models/`, you **must** create and apply migrations:
