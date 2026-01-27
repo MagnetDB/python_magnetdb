@@ -15,19 +15,6 @@ On your host, set /etc/hosts:
 echo "127.0.0.1 magnetdb-dev.local api.magnetdb-dev.local lemon.magnetdb-dev.local manager.lemon.magnetdb-dev.local auth.lemon.magnetdb-dev.local pgadmin.magnetdb-dev.local minio.magnetdb-dev.local traefik.magnetdb-dev.local" | sudo tee -a /etc/hosts
 ```
 
-* Certificates
-
-Create a self signed certificate for the magnetdb server:
-   
-```shell
-mkdir -p certs
-cd certs
-mkcert -CAROOT
-mkcert 'magnetdb-dev.local' '*.magnetdb-dev.local'  '*.lemon.magnetdb-dev.local'
-mkcert -install
-chmod 600 certs/*.key
-```
-
 * magetdb-data directory
 
 Create a `magnetdb-data` directory in the main repo directory:
@@ -49,6 +36,23 @@ chmod 775 ../magnetdb-data/django/poetry-cache
 chown -R 5050:5050 ../magnetdb-data/pgadmin-data
 chown -R $(id -u):$(id -g) ../magnetdb-data/django/poetry-cache
 ```
+* Certificates
+
+Create a self signed certificate for the magnetdb server:
+   
+```shell
+mkdir -p ../magnetdb-data/certs
+cd ../magnetdb-data/certs
+mkcert -CAROOT
+mkcert 'magnetdb-dev.local' '*.magnetdb-dev.local'  '*.lemon.magnetdb-dev.local'
+mkcert -install
+chmod 600 certs/*.key
+```
+
+> **Note:** The `mkcert -install` command automatically installs the CA certificate for most browsers.
+> 
+> For detailed browser-specific installation instructions, troubleshooting, and verification steps, see [certificates.md](certificates.md).
+
 
 * Bashrc
 
