@@ -28,13 +28,35 @@ mkcert -install
 chmod 600 certs/*.key
 ```
 
+* magetdb-data directory
+
+Create a `magnetdb-data` directory in the main repo directory:
+
+```shell
+mkdir ../magnetdb-data
+mkdir -p ../magnetdb-data/pgadmin-data
+mkdir -p ../magnetdb-data/django/poetry-cache
+```
+
+Set appropriate ownership/permissions if needed.
+
+```shell
+chmod 775 ../magnetdb-data
+chmod 775 ../magnetdb-data/pgadmin-data
+chmod 775 ../magnetdb-data/django
+chmod 775 ../magnetdb-data/django/poetry-cache
+
+chown -R 5050:5050 ../magnetdb-data/pgadmin-data
+chown -R $(id -u):$(id -g) ../magnetdb-data/django/poetry-cache
+```
+
 * Bashrc
 
 Add these lines to your `.bashrc`:
 
 ```shell
 # UID exists by default
-export UUID=$UID
+export UUID=$(id -u)
 export GID=$(id -g)
 ```
 
@@ -45,7 +67,7 @@ Start a new shell to load the new bashrc or `source ~/.bashrc`
 >
 > ```shell
 > # Exporting UUID and GID
-> export UUID=$UID
+> export UUID=$(id -u)
 > export GID=$(id -g)
 > ```
 > and then `source ~/.zhrc`
@@ -88,6 +110,24 @@ docker exec -it magnetdb-api bash
 ```shell
 poetry run python3 manage.py migrate
 ```
+
+> **Important: Modifying Django Models**
+>
+> When you modify files in `python_magnetdb/models/`, you **must** create and apply migrations:
+>
+> 1. After modifying any model files, create a migration:
+>    ```shell
+>    poetry run python manage.py makemigrations
+>    ```
+>
+> 2. Review the generated migration file in `python_magnetdb/migrations/`
+>
+> 3. Apply the migration:
+>    ```shell
+>    poetry run python manage.py migrate
+>    ```
+>
+> For detailed migration documentation and history, see [migrations.md](migrations.md).
 
 
 5. Run seeds:
