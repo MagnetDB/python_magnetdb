@@ -93,6 +93,14 @@
             @input="editGeometryShape"
           />
         </div>
+        <div v-if="part.allow_modelaxi_file" class="form-field">
+          <label class="form-field-label">Geometry modelaxi</label>
+          <GeometryModelaxiModal
+            :default-value="defaultGeometryModelaxiValue"
+            :editable="true"
+            @input="editGeometryModelaxi"
+          />
+        </div>
         <FormMetadataModal name="metadata" :editable="true" />
         <Button type="submit" class="btn btn-primary">
           Save
@@ -158,12 +166,14 @@ import {cloneDeep, set} from "lodash";
 import {queue} from "@/mixins/createFormField";
 import GeometryStructureModal from "@/components/GeometryStructureModal.vue";
 import GeometryShapeModal from "@/components/GeometryShapeModal.vue";
+import GeometryModelaxiModal from "@/components/GeometryModelaxiModal.vue";
 import FormMetadataModal from "@/components/FormMetadataModal.vue";
 
 export default {
   name: 'PartShow',
   components: {
     FormMetadataModal,
+    GeometryModelaxiModal,
     GeometryShapeModal,
     GeometryStructureModal,
     GeometryModal,
@@ -187,6 +197,7 @@ export default {
       defaultGeometryValue: '',
       defaultGeometryStructureValue: '',
       defaultGeometryShapeValue: '',
+      defaultGeometryModelaxiValue: '',
       typeOptions: [
         {
           name: 'Helix',
@@ -252,6 +263,9 @@ export default {
         if (values.geometry_shape instanceof File) {
           payload.geometry_shape = values.geometry_shape
         }
+        if (values.geometry_modelaxi instanceof File) {
+          payload.geometry_modelaxi = values.geometry_modelaxi
+        }
 
         await partService.update(payload)
         await this.fetch()
@@ -280,6 +294,13 @@ export default {
         this.$refs.form.setValues(values)
       })
     },
+    editGeometryModelaxi(value) {
+      queue.run(() => {
+        const values = cloneDeep(this.$refs.form.values)
+        set(values, 'geometry_modelaxi', new File([value], 'modelaxi.csv', { type: 'text/csv' }))
+        this.$refs.form.setValues(values)
+      })
+    },
     validate() {
       return Yup.object().shape({
         name: Yup.string().required(),
@@ -304,6 +325,11 @@ export default {
             if (part.shape?.id) {
               client.get(`/api/attachments/${part.shape.id}/download`, { responseType: 'text' }).then((res) => {
                 this.defaultGeometryShapeValue = res.data
+              })
+            }
+            if (part.modelaxi?.id) {
+              client.get(`/api/attachments/${part.modelaxi.id}/download`, { responseType: 'text' }).then((res) => {
+                this.defaultGeometryModelaxiValue = res.data
               })
             }
           })

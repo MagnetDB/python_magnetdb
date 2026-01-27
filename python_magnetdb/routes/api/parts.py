@@ -103,7 +103,7 @@ def records(id: int, user=Depends(get_user('read'))):
 @router.get("/api/parts/{id}")
 def show(id: int, user=Depends(get_user('read'))):
     part = Part.objects\
-        .select_related('material', 'hts_attachment', 'shape_attachment')\
+        .select_related('material', 'hts_attachment', 'shape_attachment', 'modelaxi_attachment')\
         .prefetch_related('cadattachment_set__attachment', 'magnetpart_set__magnet')\
         .get(id=id)
     if not part:
@@ -117,10 +117,11 @@ def update(
     id: int, user=Depends(get_user('update')), name: str = Form(...), description: str = Form(None),
     type: PartType = Form(...), material_id: str = Form(...), design_office_reference: str = Form(None),
     geometry_yaml_config: str = Form(None), geometry_hts: UploadFile = File(None),
-    geometry_shape: UploadFile = File(None), metadata: str = Form(None),
+    geometry_shape: UploadFile = File(None), geometry_modelaxi: UploadFile = File(None), 
+    metadata: str = Form(None),
 ):
     part = Part.objects \
-        .select_related('material', 'hts_attachment', 'shape_attachment') \
+        .select_related('material', 'hts_attachment', 'shape_attachment', 'modelaxi_attachment') \
         .prefetch_related('cadattachment_set__attachment', 'magnetpart_set__magnet') \
         .get(id=id)
     if not part:
@@ -141,6 +142,8 @@ def update(
         part.hts_attachment = StorageAttachment.upload(geometry_hts)
     if geometry_shape is not None and part.allow_shape_file:
         part.shape_attachment = StorageAttachment.upload(geometry_shape)
+    if geometry_modelaxi is not None and part.allow_modelaxi_file:
+        part.modelaxi_attachment = StorageAttachment.upload(geometry_modelaxi)
     if metadata is not None:
         part.metadata = json.loads(metadata)
     part.save()
