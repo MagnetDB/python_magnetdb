@@ -63,6 +63,8 @@ def create_part(obj):
     print(f"creating part {obj['name']}")
     geometry = obj.pop("geometry", None)
     cad = obj.pop("cad", None)
+    shape = obj.pop("shape", None)
+    modelaxi = obj.pop("modelaxi", None)
     part = Part(**obj)
     if project_directory is not None:
         geometry = path.join(project_directory, geometry)
@@ -77,6 +79,16 @@ def create_part(obj):
             attachment = upload_attachment(path.join(data_directory, "cad", file))
             if attachment is not None:
                 part.cadattachment_set.create(part=part, attachment=attachment)  # type=)
+    if shape is not None:
+        attachment = upload_attachment(path.join(data_directory, "shape", f"{shape}"))
+        if attachment is not None:
+            part.shape_attachment = attachment
+            part.save()
+    if modelaxi is not None:
+        attachment = upload_attachment(path.join(data_directory, "modelaxi", f"{modelaxi}"))
+        if attachment is not None:
+            part.modelaxi_attachment = attachment
+            part.save()
     return part
 
 
