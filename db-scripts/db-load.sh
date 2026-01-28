@@ -3,9 +3,11 @@
 # Load PostgreSQL database from dump
 #
 
-# Load environment variables if settings.env exists
-if [ -f "settings.env" ]; then
-    source settings.env
+# Load environment variables from .envrc if it exists (direnv)
+if [ -f ".envrc" ]; then
+    set -a  # automatically export all variables
+    source .envrc
+    set +a
 fi
 
 # Database configuration with defaults

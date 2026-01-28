@@ -15,6 +15,58 @@ On your host, set /etc/hosts:
 echo "127.0.0.1 magnetdb-dev.local api.magnetdb-dev.local lemon.magnetdb-dev.local manager.lemon.magnetdb-dev.local auth.lemon.magnetdb-dev.local pgadmin.magnetdb-dev.local minio.magnetdb-dev.local traefik.magnetdb-dev.local" | sudo tee -a /etc/hosts
 ```
 
+* Environment Variables & Secret Management with direnv
+
+Install direnv for automatic environment variable loading:
+
+**Install direnv:**
+```shell
+# On Debian/Ubuntu
+sudo apt-get install direnv
+```
+
+**Configure your shell:**
+
+Add the following to your shell configuration file:
+
+For bash (~/.bashrc):
+```shell
+eval "$(direnv hook bash)"
+```
+
+For zsh (~/.zshrc):
+```shell
+eval "$(direnv hook zsh)"
+```
+
+For fish (~/.config/fish/config.fish):
+```shell
+direnv hook fish | source
+```
+
+Restart your shell or run `source ~/.bashrc` (or equivalent).
+
+**Setup environment variables:**
+
+```shell
+# Copy the example file
+cp .envrc.example .envrc
+
+# Edit .envrc to customize any values (optional - defaults should work)
+# nano .envrc  # or your preferred editor
+
+# Allow direnv to load the file
+direnv allow
+```
+
+The `.envrc` file will automatically load environment variables when you `cd` into the project directory. This provides:
+- Secure secret management (`.envrc` is gitignored)
+- Automatic environment setup
+- Easy customization for local development
+- UUID/GID automatically set for Docker permissions
+
+> **Note:** The `.envrc.example` file contains all default values used by docker-compose. You can use it as-is or customize for your needs.
+
 * magetdb-data directory
 
 Create a `magnetdb-data` directory in the main repo directory:
@@ -54,9 +106,11 @@ chmod 600 certs/*.key
 > For detailed browser-specific installation instructions, troubleshooting, and verification steps, see [certificates.md](certificates.md).
 
 
-* Bashrc
+* Legacy Bashrc Setup (Optional - direnv is preferred)
 
-Add these lines to your `.bashrc`:
+> **Recommended:** Use direnv (see above) for automatic environment variable management.
+
+If you prefer not to use direnv, manually add these lines to your `.bashrc`:
 
 ```shell
 # UID exists by default
@@ -74,9 +128,10 @@ Start a new shell to load the new bashrc or `source ~/.bashrc`
 > export UUID=$(id -u)
 > export GID=$(id -g)
 > ```
-> and then `source ~/.zhrc`
+> and then `source ~/.zshrc`
 >
 > * For other shell see the shell docs.
+> * **direnv handles this automatically** - see the Environment Variables section above.
 
 1. Start dependencies with docker:
 
@@ -117,18 +172,7 @@ poetry run python3 manage.py migrate
 
 > **Database Management Scripts**
 >
-> Several shell scripts are available for database operations:
->
-> - `db-dump.sh` - Backup the PostgreSQL database
-> - `db-load.sh` - Restore database from a backup
-> - `db-remove.sh` - Remove/clean the database
-> - `db-fix-collation.sh` - Fix collation version mismatch warnings
->
-> Run these scripts from the repository root:
-> ```shell
-> ./db-dump.sh
-> ./db-fix-collation.sh
-> ```
+> For database backup, restore, and maintenance operations, see [db-scripts/README.md](db-scripts/README.md).
 
 > **Important: Modifying Django Models**
 >
