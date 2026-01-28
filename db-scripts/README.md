@@ -1,12 +1,22 @@
 # Database Management Scripts
 
-Several shell scripts are available for database operations:
+Several shell scripts are available for database and storage operations:
+
+## PostgreSQL Database Scripts
 
 - `db-dump.sh` - Backup the PostgreSQL database
 - `db-load.sh` - Restore database from a backup
 - `db-remove.sh` - Remove/clean the database
 - `db-fix-collation.sh` - Fix collation version mismatch warnings
 - `db-change-user-role.sh` - Change the role of a user in the database
+
+## MinIO Storage Scripts
+
+- `minio-backup.sh` - Backup MinIO bucket to local storage
+- `minio-restore.sh` - Restore MinIO bucket from backup
+- `minio-manage.sh` - Manage MinIO buckets (list, create, delete, stats, policies)
+
+For detailed MinIO backup and management documentation, see [README-minio.md](README-minio.md)
 
 ## Usage
 
