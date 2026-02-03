@@ -22,12 +22,19 @@ if [ -f ".envrc" ]; then
     set +a
 fi
 
+# Use the existing magnetdb-minio container
+mc='docker exec magnetdb-minio mc'
+$mc --version
+
+
 # MinIO configuration with defaults
 MINIO_ENDPOINT="${S3_ENDPOINT:-localhost:9000}"
 MINIO_ACCESS_KEY="${S3_ACCESS_KEY:-minio}"
 MINIO_SECRET_KEY="${S3_SECRET_KEY:-minio123}"
 MINIO_BUCKET="${S3_BUCKET:-magnetdb}"
 MINIO_SECURE="${S3_SECURE:-false}"
+echo "MINIO_ENDPOINT=${MINIO_ENDPOINT}"
+echo "MINIO_SECURE=${MINIO_SECURE}"
 
 # Backup configuration
 BACKUP_DIR="${MINIO_BACKUP_DIR:-./backups/minio}"
@@ -57,20 +64,9 @@ echo ""
 mkdir -p "${BACKUP_DIR}"
 
 # Check if mc (MinIO client) is installed
-if ! command -v mc &> /dev/null; then
+if ! command -v $mc &> /dev/null; then
     echo -e "${RED}✗ Error: MinIO client (mc) is not installed.${NC}"
     echo ""
-    echo "Install it using one of these methods:"
-    echo "  # Linux (x86_64)"
-    echo "  wget https://dl.min.io/client/mc/release/linux-amd64/mc"
-    echo "  chmod +x mc"
-    echo "  sudo mv mc /usr/local/bin/"
-    echo ""
-    echo "  # Using Docker"
-    echo "  alias mc='docker run --rm -it --entrypoint=/bin/sh minio/mc'"
-    echo ""
-    echo "  # macOS"
-    echo "  brew install minio/stable/mc"
     exit 1
 fi
 
@@ -80,11 +76,10 @@ PROTOCOL="http"
 if [ "${MINIO_SECURE}" = "true" ]; then
     PROTOCOL="https"
 fi
-
-mc alias set magnetdb-backup "${PROTOCOL}://${MINIO_ENDPOINT}" "${MINIO_ACCESS_KEY}" "${MINIO_SECRET_KEY}" --api S3v4 > /dev/null 2>&1
+$mc alias set magnetdb-backup "${PROTOCOL}://${MINIO_ENDPOINT}" "${MINIO_ACCESS_KEY}" "${MINIO_SECRET_KEY}"
 
 # Verify connection
-if ! mc ls "magnetdb-backup/${MINIO_BUCKET}" > /dev/null 2>&1; then
+if ! $mc ls "magnetdb-backup/${MINIO_BUCKET}" > /dev/null 2>&1; then
     echo -e "${RED}✗ Error: Cannot connect to MinIO or bucket does not exist.${NC}"
     echo "Please check your configuration."
     exit 1
@@ -95,8 +90,8 @@ echo ""
 
 # Get bucket statistics
 echo "Analyzing bucket..."
-OBJECT_COUNT=$(mc ls --recursive "magnetdb-backup/${MINIO_BUCKET}" 2>/dev/null | wc -l || echo "0")
-BUCKET_SIZE=$(mc du "magnetdb-backup/${MINIO_BUCKET}" 2>/dev/null | awk '{print $1, $2}' || echo "0 B")
+OBJECT_COUNT=$($mc ls --recursive "magnetdb-backup/${MINIO_BUCKET}" 2>/dev/null | wc -l || echo "0")
+BUCKET_SIZE=$($mc du "magnetdb-backup/${MINIO_BUCKET}" 2>/dev/null | awk '{print $1, $2}' || echo "0 B")
 
 echo "  Objects: ${OBJECT_COUNT}"
 echo "  Total size: ${BUCKET_SIZE}"
@@ -109,7 +104,7 @@ mkdir -p "${BACKUP_PATH}"
 if [ "${BACKUP_TYPE}" = "incremental" ] && [ -d "${BACKUP_DIR}/latest" ]; then
     echo "  Mode: Incremental (only changed files)"
     # Use mirror with --newer-than for incremental
-    if mc mirror --preserve --overwrite "magnetdb-backup/${MINIO_BUCKET}/" "${BACKUP_PATH}/"; then
+    if $mc mirror --preserve --overwrite "magnetdb-backup/${MINIO_BUCKET}/" "${BACKUP_PATH}/"; then
         echo -e "${GREEN}✓ Incremental backup completed${NC}"
     else
         echo -e "${RED}✗ Backup failed${NC}"
@@ -118,7 +113,7 @@ if [ "${BACKUP_TYPE}" = "incremental" ] && [ -d "${BACKUP_DIR}/latest" ]; then
 else
     echo "  Mode: Full backup"
     # Full mirror of the bucket
-    if mc mirror --preserve --overwrite "magnetdb-backup/${MINIO_BUCKET}/" "${BACKUP_PATH}/"; then
+    if $mc mirror --preserve --overwrite "magnetdb-backup/${MINIO_BUCKET}/" "${BACKUP_PATH}/"; then
         echo -e "${GREEN}✓ Full backup completed${NC}"
     else
         echo -e "${RED}✗ Backup failed${NC}"

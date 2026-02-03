@@ -18,6 +18,7 @@ Several shell scripts are available for database and storage operations:
 
 For detailed MinIO backup and management documentation, see [README-minio.md](README-minio.md)
 
+
 ## Usage
 
 > **Important:** Currently, the repository is not mounted in the `magnetdb-postgres` container
