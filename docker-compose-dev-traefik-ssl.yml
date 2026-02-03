@@ -213,7 +213,6 @@ services:
       - 9080:9080
     volumes:
       - ../magnetdb-data/django/minio-data:/data
-      - ../magnetdb-data/django/minio-backups:/backups
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.minio.rule=Host(`minio.magnetdb-dev.local`)"

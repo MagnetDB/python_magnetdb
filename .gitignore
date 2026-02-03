@@ -84,3 +84,13 @@ lemonldap-ng-data
 *.orig
 
 tmp/*
+
+# direnv
+.envrc
+.direnv/
+
+# archives/backupd
+*.tgz
+*.zip
+*.sql.gz
+

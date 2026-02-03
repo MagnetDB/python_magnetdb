@@ -33,7 +33,8 @@ RETENTION_DAYS=60 ./db-scripts/minio-backup.sh
 ```
 
 > NOTE
-> if using a custom MINIO_BACKUP_DIR please make sure that the path exists in the container
+> backups are stored outside the container in `./backups/`
+> if using a custom MINIO_BACKUP_DIR please make sure that the path exists and is writable.
 
 **Environment Variables:**
 - `S3_ENDPOINT` - MinIO endpoint (default: localhost:9000)

@@ -36,6 +36,8 @@ Run the scripts from the repository root:
 
 The scripts will automatically detect and use the Docker container when available.
 
+> NOTE: backups are stored outside the container in `./backups/`
+
 ## PostgreSQL Database Scheme
 
 The database uses PostgreSQL with the following configuration:
