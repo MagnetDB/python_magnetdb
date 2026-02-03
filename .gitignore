@@ -93,4 +93,5 @@ tmp/*
 *.tgz
 *.zip
 *.sql.gz
+*.tar.gz
 
