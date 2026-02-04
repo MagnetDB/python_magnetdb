@@ -2,8 +2,7 @@
 Create a basic magnetdb
 """
 
-import os
-from os import getenv, path
+from os import getenv
 
 from . import crud
 from .crud import create_material, create_part
@@ -58,7 +57,7 @@ MA24032501 = create_material(
         "volumic_mass": 9e3,
         "specific_heat": 380,
         "alpha": 3.6e-3,
-        "electrical_conductivity": 52.9e6,
+        "electrical_conductivity": 52.56,
         "thermal_conductivity": 380,
         "magnet_permeability": 1,
         "young": 127e9,

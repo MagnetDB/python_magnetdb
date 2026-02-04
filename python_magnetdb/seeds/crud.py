@@ -3,7 +3,11 @@ import os
 import re
 from os import path, getenv
 
-from python_magnetdb.utils.yaml_json import yaml_to_json
+# Use lazy loading pattern for python_magnetgeo
+import python_magnetgeo as pmg
+
+# Register YAML constructors for lazy loading
+pmg.verify_class_registration()
 
 # Configure Django before importing models
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "python_magnetdb.settings")
@@ -14,13 +18,14 @@ django.setup()
 
 # Now safe to import Django models
 from django.utils import timezone
+
 from python_magnetdb.models import StorageAttachment
 from python_magnetdb.models.magnet import Magnet
 from python_magnetdb.models.material import Material
 from python_magnetdb.models.part import Part
+from python_magnetdb.models.probe import Probe
 from python_magnetdb.models.record import Record
 from python_magnetdb.models.site import Site
-from python_magnetdb.models.probe import Probe
 
 data_directory = getenv("DATA_DIR")
 project_directory = None
@@ -71,8 +76,20 @@ def create_part(obj):
     print(f"geometry={geometry}.yaml")
     print(f"data_directory={data_directory}")
     if geometry is not None:
-        with open(path.join(data_directory, "geometries", f"{geometry}.yaml")) as file:
-            part.geometry_config = json.loads(yaml_to_json(file.read()))
+        geometry_dir = path.join(data_directory, "geometries")
+        geometry_file = path.join(geometry_dir, f"{geometry}.yaml")
+
+        # Load as python_magnetgeo object (with validation), then serialize to JSON
+        # This ensures proper object deserialization and uses the object's to_json() method
+        try:
+            geometry_obj = pmg.load(geometry_file)
+            part.geometry_config = json.loads(geometry_obj.to_json())
+        except pmg.ObjectLoadError as e:
+            print(f"Failed to load geometry from {geometry_file}: {e}")
+            raise
+        except pmg.UnsupportedTypeError as e:
+            print(f"Invalid geometry type in {geometry_file}: {e}")
+            raise
     part.save()
     if cad is not None:
         for file in [f"{cad}.xao", f"{cad}.brep"]:

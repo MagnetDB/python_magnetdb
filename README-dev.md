@@ -206,20 +206,54 @@ ln -s ../python_magnetsetup/data data
    
 ```shell
 export DATA_DIR=/data
-poetry run python3 -m python_magnetdb.seeds.seeds
-poetry run python3 -m python_magnetdb.seeds.seed-again
-poetry run python3 -m python_magnetdb.seeds.seed-records
+
+# version test
+poetry run python3 -m python_magnetdb.seeds.seeds # test only
 poetry run python3 -m python_magnetdb.seeds.seed-probes
+
+# version advanced test
+poetry run python3 -m python_magnetdb.seeds.seeds-Bitters # bitters only
+poetry run python3 -m python_magnetdb.seeds.seed-M18110501
+poetry run python3 -m python_magnetdb.seeds.seed-M19020601
+poetry run python3 -m python_magnetdb.seeds.seed-M19061901
+poetry run python3 -m python_magnetdb.seeds.seed-M19071101
+poetry run python3 -m python_magnetdb.seeds.seed-M20022001
+poetry run python3 -m python_magnetdb.seeds.seed-M22011801 
+poetry run python3 -m python_magnetdb.seeds.seed-HL37 # HL-37 magnet
+poetry run python3 -m python_magnetdb.seeds.seed-Hybrid # Hybrid magnet
+poetry run python3 -m python_magnetdb.seeds.seed-records
 ```
+
+> **For a production version**, use `python_magnetapi` instead of seeds.
+>
+> * retreive data from LNCMI control and monitoring website using ``python_magnetrun
+> 
+> ```shell
+> poetry run python3 -m python_magnetrun.requests.cli --user email --datadir srvdata
+> ```
+>
+> You need to have a LNCMI email account for that
+> This will dump data files in `srvdata` directory, 
+> 
+> * use `python_magnetapi` to import data into magnetdb.
+> ```shell
+> poetry run python3 -m python_magnetapi.importer.cli --datadir srvdata ...
+> ```
 
 6. PgAdmin setup
 
 Load `https://pgadmin.magnetdb-dev.local/` in your web browser
-add a server for magnetdb
+add a server for `magnetdb`
    
-magnetdb ip DB server shall be: `magnetdb-postgres`
+`magnetdb` ip DB server shall be: `magnetdb-postgres`
 
+7. Access MagnetDB web app
 
+Load `https://magnetdb-dev.local/` in your web browser
+Login with your lemonldap credentials (dwho/dwho)
+
+Next, load `https://pgadmin.magnetdb-dev.local/` in your web browser
+Change dwho role to "Admin"
 
 # API calls
 
