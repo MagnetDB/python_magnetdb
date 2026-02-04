@@ -4,8 +4,6 @@ import json
 
 from django.db import models
 
-from python_magnetdb.utils.yaml_json import json_to_yaml
-
 
 class PartType(str, enum.Enum):
     SUPRA = "supra"
@@ -59,18 +57,53 @@ class Part(models.Model):
 
     @property
     def geometry_config_to_json(self):
+        """
+        Convert geometry_config to JSON string.
+
+        Creates a python_magnetgeo object from geometry_config, updates the name,
+        and returns the JSON representation using the object's to_json() method.
+
+        Returns:
+            str: JSON string or None if geometry_config is empty
+        """
         if self.geometry_config is None or self.geometry_config == {}:
             return None
 
-        config = copy.deepcopy(self.geometry_config)
-        config["__value__"]["name"] = self.name
+        # Create python_magnetgeo object from geometry_config
+        from python_magnetgeo.deserialize import unserialize_object
 
-        # for screen part, add probes like in magnet
-        return json.dumps(config)
+        config = copy.deepcopy(self.geometry_config)
+        config["name"] = self.name
+
+        # Deserialize to get a magnetgeo object
+        obj = unserialize_object(config)
+
+        # Use object's native to_json() method
+        return obj.to_json()
 
     @property
     def geometry_config_to_yaml(self):
-        json_config = self.geometry_config_to_json
-        if json_config is None:
+        """
+        Convert geometry_config to YAML string.
+
+        Creates a python_magnetgeo object from geometry_config, updates the name,
+        and returns the YAML representation using yaml.dump().
+
+        Returns:
+            str: YAML string or None if geometry_config is empty
+        """
+        if self.geometry_config is None or self.geometry_config == {}:
             return None
-        return json_to_yaml(json_config)
+
+        # Create python_magnetgeo object from geometry_config
+        from python_magnetgeo.deserialize import unserialize_object
+        import yaml
+
+        config = copy.deepcopy(self.geometry_config)
+        config["name"] = self.name
+
+        # Deserialize to get a magnetgeo object
+        obj = unserialize_object(config)
+
+        # Use yaml.dump() for YAML serialization
+        return yaml.dump(obj, sort_keys=False)
