@@ -157,6 +157,10 @@ docker-compose -f docker-compose-dev-traefik-ssl.yml up
    1. Sign in to https://minio.magnetdb-dev.local/ with minio/minio123
    2. Create bucket on https://minio.magnetdb-dev.local/add-bucket
 
+> **Minio** basic setup
+> basic setup is done automatically (for more details see [storage.md](storage.md))
+> So you can skip this step if you want to use the automatic bucket creation feature.
+
 4. Run migrations:
 
  Connect to magnetdb-api container
