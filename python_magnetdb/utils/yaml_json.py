@@ -6,37 +6,14 @@ from typing import Any, Dict
 # This is required for yaml.load() to recognize custom tags like !<Ring>, !<Helix>, etc.
 _MAGNETGEO_AVAILABLE = False
 try:
-    # Import python_magnetgeo to access its class list
-    import python_magnetgeo
+    # Use lazy loading pattern for python_magnetgeo
+    import python_magnetgeo as pmg
 
-    # Get the list of geometry classes from python_magnetgeo's __all__
-    # Filter to only include actual geometry classes (exclude utilities and base classes)
-    excluded_names = {
-        "load",
-        "loadObject",
-        "list_registered_classes",
-        "verify_class_registration",
-        "YAMLObjectBase",
-        "SerializableMixin",
-        "ValidationError",
-        "ValidationWarning",
-        "GeometryValidator",
-    }
+    # Register all YAML constructors using lazy loading
+    # This triggers import and registration of all geometry classes
+    pmg.verify_class_registration()
 
-    geometry_classes = [name for name in python_magnetgeo.__all__ if name not in excluded_names]
-
-    # Import each geometry class to trigger YAML constructor registration
-    _imported_classes = []
-    for class_name in geometry_classes:
-        try:
-            exec(f"from python_magnetgeo import {class_name}")
-            _imported_classes.append(class_name)
-        except (ImportError, AttributeError):
-            # Class not available in this version, skip it
-            pass
-
-    # Consider magnetgeo available if we successfully imported at least some core classes
-    _MAGNETGEO_AVAILABLE = len(_imported_classes) > 0
+    _MAGNETGEO_AVAILABLE = True
 
 except ImportError as e:
     # python_magnetgeo not available at all
@@ -122,7 +99,7 @@ def json_to_yaml(json_str: str) -> str:
     return yaml.dump(decoded_data, sort_keys=False).replace("%3C", "<").replace("%3E", ">")
 
 
-def yaml_to_json(yaml_str: str) -> str:
+def yaml_to_json(yaml_str: str, base_dir: str = None) -> str:
     """
     Convert YAML string to JSON string, preserving custom tags.
 
@@ -130,8 +107,17 @@ def yaml_to_json(yaml_str: str) -> str:
     custom tags like !<Ring>, !<Helix>, etc.) and converts it to JSON format
     while preserving type information via __tag__ and __value__ fields.
 
+    IMPORTANT: When loading YAML files that contain string references to other
+    YAML files (e.g., modelaxi: "file_name"), those files will be loaded from
+    the base_dir. If base_dir is not provided, uses current working directory.
+
     Args:
         yaml_str: YAML string to convert
+        base_dir: Base directory for resolving file references in YAML.
+                  If None, uses current working directory. This is critical
+                  for loading YAML files with references like:
+                  modelaxi: "modelaxi_file"  # loads modelaxi_file.yaml
+                  shape: "shape_file"        # loads shape_file.yaml
 
     Returns:
         JSON string representation with tag preservation
@@ -139,16 +125,29 @@ def yaml_to_json(yaml_str: str) -> str:
     Raises:
         yaml.YAMLError: If YAML parsing fails
         TypeError: If object cannot be JSON-serialized
+        FileNotFoundError: If referenced YAML files cannot be found
     """
+    import os
+
     # Load YAML with custom tags
     # Note: This requires python_magnetgeo classes to be imported first
     # so their YAML constructors are registered
-    data = yaml.load(yaml_str, Loader=yaml.FullLoader)
 
-    # Note: The old code called data.update() if it existed, but this method
-    # is no longer present in the latest python_magnetgeo refactored classes.
-    # The objects are now fully initialized during construction via from_dict()
-    # so no post-load update is needed.
+    # Change to base_dir if provided to resolve file references correctly
+    original_dir = os.getcwd()
+    try:
+        if base_dir:
+            os.chdir(base_dir)
 
-    # Convert to JSON with tag preservation
-    return json.dumps(data, cls=CustomEncoder, indent=4)
+        data = yaml.load(yaml_str, Loader=yaml.FullLoader)
+
+        # Note: The old code called data.update() if it existed, but this method
+        # is no longer present in the latest python_magnetgeo refactored classes.
+        # The objects are now fully initialized during construction via from_dict()
+        # so no post-load update is needed.
+
+        # Convert to JSON with tag preservation
+        return json.dumps(data, cls=CustomEncoder, indent=4)
+    finally:
+        # Always restore original directory
+        os.chdir(original_dir)
