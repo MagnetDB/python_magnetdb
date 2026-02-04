@@ -104,7 +104,8 @@ HLtest = create_magnet(
         "site": MTEST,
         "parts": [HLTESTH1, HLTESTH2, HLTESTR1],
         "type": MagnetType.INSERT,
-        "geometry": "test",
+        "inner_bore": 18.8,  # mm
+        "outer_bore": 31.2,  # mm
     }
 )
 
@@ -137,6 +138,25 @@ Tore = create_part(
         "material": mattore,
     }
 )
+Tore1 = create_part(
+    {
+        "name": "tore1",
+        "type": "bitter",
+        "geometry": "tore",
+        "status": "in_study",
+        "material": mattore,
+    }
+)
+Tore2 = create_part(
+    {
+        "name": "tore2",
+        "type": "bitter",
+        "geometry": "tore",
+        "status": "in_study",
+        "material": mattore,
+    }
+)
+
 m_MTore = create_site({"name": "MTore", "status": "in_study"})
 MTore = create_magnet(
     {
@@ -147,4 +167,3 @@ MTore = create_magnet(
         "site": m_MTore,
     }
 )
-

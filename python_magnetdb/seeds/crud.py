@@ -83,6 +83,9 @@ def create_part(obj):
         # This ensures proper object deserialization and uses the object's to_json() method
         try:
             geometry_obj = pmg.load(geometry_file)
+            print(f"Loaded geometry object: {geometry_obj}")
+            print("json:\n", geometry_obj.to_json())
+            print("part.geometry:\n", json.loads(geometry_obj.to_json()))
             part.geometry_config = json.loads(geometry_obj.to_json())
         except pmg.ObjectLoadError as e:
             print(f"Failed to load geometry from {geometry_file}: {e}")
@@ -133,14 +136,47 @@ def create_magnet(obj):
         print(f"magnet {obj['name']} already exists")
         return res
     site = obj.pop("site", None)
-    # probes = obj.pop('probes', None)
     parts = obj.pop("parts", None)
     geometry = obj.pop("geometry", None)
+    inner_bore = obj.pop("inner_bore", None)
+    outer_bore = obj.pop("outer_bore", None)
+
     if project_directory is not None:
         geometry = path.join(project_directory, geometry)
     cad = obj.pop("cad", None)
-    magnet = Magnet(**obj)
+
+    # Load geometry if provided
     if geometry is not None:
+        geometry_file = path.join(data_directory, "geometries", f"{geometry}.yaml")
+
+        # Load as python_magnetgeo object (with validation)
+        try:
+            geometry_obj = pmg.load(geometry_file)
+            print(f"Loaded geometry object: {geometry_obj}")
+
+            # Get innerbore and outerbore from geometry if not provided
+            if inner_bore is None and hasattr(geometry_obj, "innerbore"):
+                inner_bore = geometry_obj.innerbore
+                print(f"Using innerbore from geometry: {inner_bore}")
+            if outer_bore is None and hasattr(geometry_obj, "outerbore"):
+                outer_bore = geometry_obj.outerbore
+                print(f"Using outerbore from geometry: {outer_bore}")
+        except pmg.ObjectLoadError as e:
+            print(f"Failed to load geometry from {geometry_file}: {e}")
+            raise
+        except pmg.UnsupportedTypeError as e:
+            print(f"Invalid geometry type in {geometry_file}: {e}")
+            raise
+
+    # Create magnet with extracted or provided bore values
+    magnet = Magnet(**obj)
+    if inner_bore is not None:
+        magnet.inner_bore = inner_bore
+    if outer_bore is not None:
+        magnet.outer_bore = outer_bore
+
+    if geometry is not None:
+        # Upload geometry attachment
         attachment = upload_attachment(path.join(data_directory, "geometries", f"{geometry}.yaml"))
         if attachment is not None:
             magnet.geometry_attachment = attachment
