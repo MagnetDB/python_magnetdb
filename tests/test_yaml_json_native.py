@@ -1,14 +1,21 @@
 #!/usr/bin/env python3
 """
-Test script for yaml_json conversion utilities.
+Test script for YAML/JSON round-trip conversion using python_magnetgeo's native methods.
 
-Tests the conversion of python_magnetgeo YAML files to JSON and back,
-ensuring that custom tags and object structure are preserved.
+This test validates that geometry objects can be:
+1. Loaded from YAML files
+2. Serialized to JSON using .to_json()
+3. Deserialized from JSON back to objects
+4. Serialized to YAML using yaml.dump()
+
+This replaces the yaml_json.py utilities with python_magnetgeo's built-in functionality.
 """
 
 import sys
 import os
-import json as json_module
+import json
+import yaml
+import tempfile
 from pathlib import Path
 
 # Add python_magnetdb to path
@@ -16,12 +23,15 @@ repo_root = Path(__file__).parent.parent
 sys.path.insert(0, str(repo_root))
 sys.path.insert(0, str(repo_root / "python_magnetgeo"))
 
-from python_magnetdb.utils.yaml_json import yaml_to_json, json_to_yaml
+import python_magnetgeo as pmg
+
+# Register all YAML constructors for lazy loading
+pmg.verify_class_registration()
 
 
 def test_yaml_file(yaml_file: Path, class_name: str, show_full: bool = False) -> bool:
     """
-    Generic test function for any YAML file.
+    Generic test function for any YAML file using native python_magnetgeo methods.
 
     Args:
         yaml_file: Path to YAML file
@@ -29,7 +39,7 @@ def test_yaml_file(yaml_file: Path, class_name: str, show_full: bool = False) ->
         show_full: If True, show full output; otherwise truncate
 
     Returns:
-        True if test passed, False otherwise
+        True if test passed, False otherwise, None if skipped
     """
     print("\n" + "=" * 70)
     print(f"Test: {class_name} - {yaml_file.name}")
@@ -40,54 +50,82 @@ def test_yaml_file(yaml_file: Path, class_name: str, show_full: bool = False) ->
         return None  # None means skipped, not failed
 
     try:
-        with open(yaml_file, "r") as f:
-            yaml_str = f.read()
-
-        if not yaml_str.strip():
-            print("⊘ SKIPPED: Empty file")
-            return None
-
-        # Show original YAML
-        lines = yaml_str.split("\n")
-        max_lines = len(lines) if show_full else 20
-        print("\n1. Original YAML:")
+        # Step 1: Load YAML file into object
+        print("\n1. Loading YAML file...")
         print("-" * 70)
-        print("\n".join(lines[:max_lines]))
-        if len(lines) > max_lines:
-            print(f"... ({len(lines) - max_lines} more lines)")
+        obj = pmg.load(str(yaml_file))
+        
+        # Verify class type
+        actual_class = type(obj).__name__
+        if actual_class != class_name:
+            print(f"✗ Class mismatch: expected {class_name}, got {actual_class}")
+            return False
+        
+        print(f"✓ Loaded {actual_class} object: {obj.name if hasattr(obj, 'name') else 'N/A'}")
 
-        # Convert YAML to JSON
-        # Pass the yaml file's directory as base_dir so file references can be resolved
-        json_result = yaml_to_json(yaml_str, base_dir=str(yaml_file.parent))
-
-        # Show JSON
-        json_lines = json_result.split("\n")
+        # Step 2: Convert object to JSON
+        print("\n2. Converting to JSON using .to_json()...")
+        print("-" * 70)
+        json_str = obj.to_json()
+        
+        # Parse and verify JSON structure
+        json_data = json.loads(json_str)
+        if "__classname__" not in json_data:
+            print("✗ Missing __classname__ in JSON")
+            return False
+        
+        if json_data["__classname__"] != class_name:
+            print(f"✗ Wrong __classname__: {json_data['__classname__']} != {class_name}")
+            return False
+        
+        # Show JSON (truncated)
+        json_lines = json_str.split("\n")
         max_json_lines = len(json_lines) if show_full else 30
-        print("\n2. Converted to JSON:")
-        print("-" * 70)
         print("\n".join(json_lines[:max_json_lines]))
         if len(json_lines) > max_json_lines:
             print(f"... ({len(json_lines) - max_json_lines} more lines)")
+        
+        print(f"\n✓ JSON has correct __classname__: {json_data['__classname__']}")
 
-        # Convert JSON back to YAML
-        yaml_result = json_to_yaml(json_result)
-
-        # Show converted YAML
-        result_lines = yaml_result.split("\n")
-        max_result_lines = len(result_lines) if show_full else 20
-        print("\n3. Converted back to YAML:")
+        # Step 3: Load JSON back to object using temp file
+        print("\n3. Loading JSON back to object...")
         print("-" * 70)
-        print("\n".join(result_lines[:max_result_lines]))
-        if len(result_lines) > max_result_lines:
-            print(f"... ({len(result_lines) - max_result_lines} more lines)")
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as tmp:
+            tmp.write(json_str)
+            tmp_path = tmp.name
+        
+        try:
+            # Use pmg.load() which can handle JSON files
+            obj_from_json = pmg.load(tmp_path)
+            
+            # Verify class type
+            restored_class = type(obj_from_json).__name__
+            if restored_class != class_name:
+                print(f"✗ Restored class mismatch: expected {class_name}, got {restored_class}")
+                return False
+            
+            print(f"✓ Restored {restored_class} object from JSON")
+            
+        finally:
+            os.unlink(tmp_path)
 
-        # Verify tag is correct
-        json_data = json_module.loads(json_result)
-        assert "__tag__" in json_data, "Missing __tag__ in JSON"
-        expected_tag = f"!<{class_name}>"
-        assert (
-            json_data["__tag__"] == expected_tag
-        ), f"Wrong tag: {json_data['__tag__']} != {expected_tag}"
+        # Step 4: Convert restored object to YAML
+        print("\n4. Converting restored object to YAML...")
+        print("-" * 70)
+        yaml_str = yaml.dump(obj_from_json, default_flow_style=False)
+        
+        # Show YAML (truncated)
+        yaml_lines = yaml_str.split("\n")
+        max_yaml_lines = len(yaml_lines) if show_full else 20
+        print("\n".join(yaml_lines[:max_yaml_lines]))
+        if len(yaml_lines) > max_yaml_lines:
+            print(f"... ({len(yaml_lines) - max_yaml_lines} more lines)")
+        
+        # Verify YAML has correct tag
+        if f"!<{class_name}>" not in yaml_str:
+            print(f"⚠ Warning: YAML tag !<{class_name}> not found in output")
+        else:
+            print(f"\n✓ YAML has correct tag: !<{class_name}>")
 
         print("\n✓ SUCCESS: Round-trip conversion works!")
         return True
@@ -95,16 +133,16 @@ def test_yaml_file(yaml_file: Path, class_name: str, show_full: bool = False) ->
     except Exception as e:
         print(f"\n✗ FAILED: {type(e).__name__}: {e}")
         import traceback
-
         traceback.print_exc()
         return False
 
 
 def main():
     """Run all tests."""
-    print("YAML-JSON Conversion Test Suite")
+    print("YAML-JSON Round-Trip Test Suite (Native python_magnetgeo)")
+    print("Using pmg.load(), .to_json(), and yaml.dump()")
 
-    tests_dir = repo_root / "python_magnetgeo" / "tests.old"
+    tests_dir = repo_root / "python_magnetgeo" / "tests.cfg"
 
     # Define test cases: (filename, expected_class_name)
     test_cases = [
