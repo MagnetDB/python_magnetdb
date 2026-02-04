@@ -38,6 +38,18 @@ The scripts will automatically detect and use the Docker container when availabl
 
 > NOTE: backups are stored outside the container in `./backups/`
 
+> NOTE: removing the database requires that magnet-webapp, magnet-worker and magnet-postgres containers are stopped.
+> It is recommended to look for reamining sessions using: 
+> 
+> ```shell
+> docker exec magnetdb-postgres psql -U "${DATABASE_USER:-magnetdb}" -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '${DATABASE_NAME:-magnetdb}' AND pid <> pg_backend_pid();"
+> ```
+>
+> You may also consider removing minio bucket data using:
+> ```shell
+> ./db-scripts/minio-manage.sh delete-bucket
+> ```
+
 ## PostgreSQL Database Scheme
 
 The database uses PostgreSQL with the following configuration:
