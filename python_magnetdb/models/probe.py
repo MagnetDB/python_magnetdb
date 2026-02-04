@@ -49,28 +49,22 @@ class Probe(models.Model):
     @property
     def geometry_config_to_json(self):
         """
-        Convert probe configuration to JSON string.
+        Convert probe configuration to JSON-serializable dictionary.
 
-        Creates a python_magnetgeo Probe object from the probe data,
-        and returns the JSON representation using the object's to_json() method.
+        Returns a dictionary representation of the probe configuration
+        that can be used with python_magnetgeo's unserialize_object.
 
         Returns:
-            str: JSON string representation of the Probe
+            dict: Dictionary representation of the Probe configuration
         """
-        from python_magnetgeo.deserialize import unserialize_object
-
-        # Build config dictionary with Probe structure
-        config = {
+        # Return config dictionary with Probe structure
+        return {
             "__classname__": "Probe",
             "name": self.name,
             "type": self.type,
             "labels": self.labels,
             "points": self.points,
         }
-
-        # Create Probe object and use its to_json() method
-        obj = unserialize_object(config)
-        return obj.to_json()
 
     @property
     def geometry_config_to_yaml(self):
@@ -86,15 +80,14 @@ class Probe(models.Model):
         from python_magnetgeo.deserialize import unserialize_object
         import yaml
 
-        # Build config dictionary with Probe structure
-        config = {
-            "__classname__": "Probe",
-            "name": self.name,
-            "type": self.type,
-            "labels": self.labels,
-            "points": self.points,
-        }
+        config = copy.deepcopy(self.geometry_config)
+        config["name"] = self.name
 
-        # Create Probe object and use yaml.dump()
+        # Deserialize to get a magnetgeo object
         obj = unserialize_object(config)
-        return yaml.dump(obj, sort_keys=False)
+
+        # Use object's to_yaml() method for proper YAML serialization
+        print(f"geometry_config_to_yaml[{obj.name}]:", config)
+        print("object:\n", obj)
+        print("yaml:\n", obj.to_yaml())
+        return obj.to_yaml()

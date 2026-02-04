@@ -1,5 +1,6 @@
 import json
-#from datetime import datetime
+
+# from datetime import datetime
 from django.utils import timezone
 from typing import List
 
@@ -19,14 +20,22 @@ router = APIRouter()
 
 
 @router.get("/api/sites")
-def index(user=Depends(get_user('read')), page: int = 1, per_page: int = Query(default=25, lte=100),
-          query: str = Query(None), sort_by: str = Query('created_at'), sort_desc: bool = Query(False),
-          status: List[str] = Query(default=None, alias="status[]")):
-    db_query = Site.objects.prefetch_related('sitemagnet_set__magnet', 'meshattachment_set__attachment')
+def index(
+    user=Depends(get_user("read")),
+    page: int = 1,
+    per_page: int = Query(default=25, lte=100),
+    query: str = Query(None),
+    sort_by: str = Query("created_at"),
+    sort_desc: bool = Query(False),
+    status: List[str] = Query(default=None, alias="status[]"),
+):
+    db_query = Site.objects.prefetch_related(
+        "sitemagnet_set__magnet", "meshattachment_set__attachment"
+    )
     if sort_by is not None:
         order_field = f"-{sort_by}" if sort_desc else sort_by
         db_query = db_query.order_by(order_field)
-    if query is not None and query.strip() != '':
+    if query is not None and query.strip() != "":
         db_query = db_query.filter(name__icontains=query)
     if status is not None:
         db_query = db_query.filter(status__in=status)
@@ -42,8 +51,13 @@ def index(user=Depends(get_user('read')), page: int = 1, per_page: int = Query(d
 
 
 @router.post("/api/sites")
-def create(user=Depends(get_user('create')), name: str = Form(...), description: str = Form(None),
-           config: UploadFile = File(None), metadata: str = Form('{}')):
+def create(
+    user=Depends(get_user("create")),
+    name: str = Form(...),
+    description: str = Form(None),
+    config: UploadFile = File(None),
+    metadata: str = Form("{}"),
+):
     site = Site(
         name=name,
         description=description,
@@ -55,22 +69,33 @@ def create(user=Depends(get_user('create')), name: str = Form(...), description:
     try:
         site.save()
     except IntegrityError as e:
-        raise HTTPException(status_code=422, detail="Name already taken.") if 'sites_name_unique' in str(e) else e
+        raise (
+            HTTPException(status_code=422, detail="Name already taken.")
+            if "sites_name_unique" in str(e)
+            else e
+        )
     AuditLog.log(user, "Site created", resource=site)
     return model_serializer(site)
 
 
 @router.get("/api/sites/{id}")
-def show(id: int, user=Depends(get_user('read'))):
-    site = Site.objects.prefetch_related('sitemagnet_set__magnet', 'record_set', 'config_attachment', 'meshattachment_set__attachment').get(id=id)
+def show(id: int, user=Depends(get_user("read"))):
+    site = Site.objects.prefetch_related(
+        "sitemagnet_set__magnet",
+        "record_set",
+        "config_attachment",
+        "meshattachment_set__attachment",
+    ).get(id=id)
     if not site:
         raise HTTPException(status_code=404, detail="Site not found")
     return model_serializer(site)
 
 
 @router.get("/api/sites/{id}/geometry.yaml")
-def geometry(id: int, user=Depends(get_user('read'))):
-    site = Site.objects.get(id=id)
+def geometry(id: int, user=Depends(get_user("read"))):
+    site = Site.objects.prefetch_related(
+        "sitemagnet_set__magnet__magnetpart_set__part", "sitemagnet_set__magnet__probe_set"
+    ).get(id=id)
     if not site:
         raise HTTPException(status_code=404, detail="Site not found")
 
@@ -79,13 +104,19 @@ def geometry(id: int, user=Depends(get_user('read'))):
 
 @router.patch("/api/sites/{id}")
 def update(
-    id: int, user=Depends(get_user('update')),
+    id: int,
+    user=Depends(get_user("update")),
     name: str = Form(...),
     description: str = Form(None),
     config: UploadFile = File(None),
     metadata: str = Form(None),
 ):
-    site = Site.objects.prefetch_related('sitemagnet_set__magnet', 'record_set', 'config_attachment', 'meshattachment_set__attachment').get(id=id)
+    site = Site.objects.prefetch_related(
+        "sitemagnet_set__magnet",
+        "record_set",
+        "config_attachment",
+        "meshattachment_set__attachment",
+    ).get(id=id)
     if not site:
         raise HTTPException(status_code=404, detail="Site not found")
 
@@ -99,30 +130,35 @@ def update(
     AuditLog.log(user, "Site updated", resource=site)
     return model_serializer(site)
 
+
 @router.get("/api/sites/{id}/records")
-def records(id: int, user=Depends(get_user('read'))):
-    site = Site.objects.prefetch_related('record_set').get(id=id)
+def records(id: int, user=Depends(get_user("read"))):
+    site = Site.objects.prefetch_related("record_set").get(id=id)
     if not site:
         raise HTTPException(status_code=404, detail="Site not found")
 
     result = []
     for record in site.record_set.all():
         result.append(model_serializer(record))
-    return {'records': result}
+    return {"records": result}
+
 
 @router.get("/api/sites/{id}/mdata")
-def mdata(id: int, user=Depends(get_user('read'))):
+def mdata(id: int, user=Depends(get_user("read"))):
     site = Site.objects.get(id=id)
     if not site:
         raise HTTPException(status_code=404, detail="Site not found")
 
     data = generate_site_config(id)
-    print(f'/api/sites/{id}/mdata: {data}')
-    return {'results': data}
+    print(f"/api/sites/{id}/mdata: {data}")
+    return {"results": data}
+
 
 @router.post("/api/sites/{id}/put_in_operation")
-def put_in_operation(id: int, commissioned_at= Form(default_factory=timezone.now), user=Depends(get_user('update'))):
-    site = Site.objects.prefetch_related('sitemagnet_set__magnet__magnetpart_set__part').get(id=id)
+def put_in_operation(
+    id: int, commissioned_at=Form(default_factory=timezone.now), user=Depends(get_user("update"))
+):
+    site = Site.objects.prefetch_related("sitemagnet_set__magnet__magnetpart_set__part").get(id=id)
     if not site:
         raise HTTPException(status_code=404, detail="Site not found")
 
@@ -148,8 +184,10 @@ def put_in_operation(id: int, commissioned_at= Form(default_factory=timezone.now
 
 
 @router.post("/api/sites/{id}/shutdown")
-def shutdown(id: int, decommissioned_at=Form(default_factory=timezone.now), user=Depends(get_user('update'))):
-    site = Site.objects.prefetch_related('sitemagnet_set__magnet').get(id=id)
+def shutdown(
+    id: int, decommissioned_at=Form(default_factory=timezone.now), user=Depends(get_user("update"))
+):
+    site = Site.objects.prefetch_related("sitemagnet_set__magnet").get(id=id)
     if not site:
         raise HTTPException(status_code=404, detail="Site not found")
 
@@ -168,8 +206,13 @@ def shutdown(id: int, decommissioned_at=Form(default_factory=timezone.now), user
 
 
 @router.delete("/api/sites/{id}")
-def destroy(id: int, user=Depends(get_user('delete'))):
-    site = Site.objects.prefetch_related('sitemagnet_set__magnet', 'record_set', 'config_attachment', 'meshattachment_set__attachment').get(id=id)
+def destroy(id: int, user=Depends(get_user("delete"))):
+    site = Site.objects.prefetch_related(
+        "sitemagnet_set__magnet",
+        "record_set",
+        "config_attachment",
+        "meshattachment_set__attachment",
+    ).get(id=id)
     if not site:
         raise HTTPException(status_code=404, detail="Site not found")
 

@@ -1,5 +1,8 @@
 from django.db import models
 
+# Import MSite from python_magnetgeo
+from python_magnetgeo.MSite import MSite
+
 
 class Site(models.Model):
     class Meta:
@@ -28,29 +31,32 @@ class Site(models.Model):
         from python_magnetgeo.deserialize import unserialize_object
         import json
 
-        # Build config dictionary with MSite structure
-        config = {
-            "__classname__": "MSite",
-            "name": self.name,
-            "magnets": [],
-            "screens": None,
-            "z_offset": [],
-            "r_offset": [],
-            "paralax": [],
-        }
+        magnets = []
+        screens = []
+        z_offset = []
+        r_offset = []
+        paralax = []
 
         # Populate from related sitemagnet objects
         for site_magnet in self.sitemagnet_set.all():
             # Get the magnet's geometry as JSON, then deserialize to object
-            magnet_json = site_magnet.magnet.geometry_config_to_json()
+            magnet_json = site_magnet.magnet.geometry_config_to_json
+            print("magnet_json:", magnet_json)
             magnet_obj = unserialize_object(json.loads(magnet_json))
-            config["magnets"].append(magnet_obj)
-            config["z_offset"].append(site_magnet.z_offset)
-            config["r_offset"].append(site_magnet.r_offset)
-            config["paralax"].append(site_magnet.parallax)
+            magnets.append(magnet_obj)
+            z_offset.append(site_magnet.z_offset)
+            r_offset.append(site_magnet.r_offset)
+            paralax.append(site_magnet.parallax)
 
         # Create MSite object and use its to_json() method
-        obj = unserialize_object(config)
+        obj = MSite(
+            name=self.name,
+            magnets=magnets,
+            screens=screens,
+            z_offset=z_offset,
+            r_offset=r_offset,
+            paralax=paralax,
+        )
         return obj.to_json()
 
     @property
@@ -65,30 +71,32 @@ class Site(models.Model):
             str: YAML string representation of the MSite
         """
         from python_magnetgeo.deserialize import unserialize_object
-        import yaml
         import json
 
-        # Build config dictionary with MSite structure
-        config = {
-            "__classname__": "MSite",
-            "name": self.name,
-            "magnets": [],
-            "screens": None,
-            "z_offset": [],
-            "r_offset": [],
-            "paralax": [],
-        }
+        magnets = []
+        screens = []
+        z_offset = []
+        r_offset = []
+        paralax = []
 
         # Populate from related sitemagnet objects
         for site_magnet in self.sitemagnet_set.all():
             # Get the magnet's geometry as JSON, then deserialize to object
-            magnet_json = site_magnet.magnet.geometry_config_to_json()
+            magnet_json = site_magnet.magnet.geometry_config_to_json
+            print("magnet_json:", magnet_json)
             magnet_obj = unserialize_object(json.loads(magnet_json))
-            config["magnets"].append(magnet_obj)
-            config["z_offset"].append(site_magnet.z_offset)
-            config["r_offset"].append(site_magnet.r_offset)
-            config["paralax"].append(site_magnet.parallax)
+            magnets.append(magnet_obj)
+            z_offset.append(site_magnet.z_offset)
+            r_offset.append(site_magnet.r_offset)
+            paralax.append(site_magnet.parallax)
 
-        # Create MSite object and use yaml.dump()
-        obj = unserialize_object(config)
-        return yaml.dump(obj, sort_keys=False)
+        # Create MSite object and use its to_json() method
+        obj = MSite(
+            name=self.name,
+            magnets=magnets,
+            screens=screens,
+            z_offset=z_offset,
+            r_offset=r_offset,
+            paralax=paralax,
+        )
+        return obj.to_yaml()

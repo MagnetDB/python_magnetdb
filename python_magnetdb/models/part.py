@@ -79,6 +79,7 @@ class Part(models.Model):
         obj = unserialize_object(config)
 
         # Use object's native to_json() method
+        print(f"geometry_config_to_json[{obj.name}]:", obj.to_json())
         return obj.to_json()
 
     @property
@@ -105,5 +106,8 @@ class Part(models.Model):
         # Deserialize to get a magnetgeo object
         obj = unserialize_object(config)
 
-        # Use yaml.dump() for YAML serialization
-        return yaml.dump(obj, sort_keys=False)
+        # Use object's to_yaml() method for proper YAML serialization
+        print(f"geometry_config_to_yaml[{obj.name}]:", config)
+        print("object:\n", obj)
+        print("yaml:\n", obj.to_yaml())
+        return obj.to_yaml()
