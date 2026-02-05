@@ -10,6 +10,10 @@ Several shell scripts are available for database and storage operations:
 - `db-fix-collation.sh` - Fix collation version mismatch warnings
 - `db-change-user-role.sh` - Change the role of a user in the database
 
+## pgAdmin Configuration
+
+- `setup-pgadmin.sh` - Auto-configure pgAdmin server connections using environment variables
+
 ## MinIO Storage Scripts
 
 - `minio-backup.sh` - Backup MinIO bucket to local storage
@@ -49,6 +53,126 @@ The scripts will automatically detect and use the Docker container when availabl
 > ```shell
 > ./db-scripts/minio-manage.sh delete-bucket
 > ```
+
+## pgAdmin Auto-Configuration
+
+The pgAdmin service can be automatically configured with database server connections using environment variables from the docker-compose file. The script supports managing multiple servers.
+
+### Quick Start
+
+Generate initial configuration with default server:
+
+```shell
+docker exec magnetdb-pgadmin python3 /setup_pgadmin.py
+```
+
+### Commands
+
+The script supports the following commands:
+
+```shell
+# Generate initial configuration (overwrites existing)
+docker exec magnetdb-pgadmin python3 /setup_pgadmin.py generate
+
+# Add a server from environment variables
+docker exec magnetdb-pgadmin python3 /setup_pgadmin.py add
+
+# Add a server with custom parameters
+docker exec magnetdb-pgadmin python3 /setup_pgadmin.py add \
+  --name production \
+  --host db.example.com \
+  --port 5433 \
+  --database postgres \
+  --user admin \
+  --password secret
+
+# List all configured servers
+docker exec magnetdb-pgadmin python3 /setup_pgadmin.py list
+
+# Remove a server by name
+docker exec magnetdb-pgadmin python3 /setup_pgadmin.py remove myserver
+
+# Remove a server by ID
+docker exec magnetdb-pgadmin python3 /setup_pgadmin.py remove --id 2
+```
+
+### Environment Variables
+
+The following environment variables from [docker-compose-dev-traefik-ssl.yml](../.devcontainer/docker-compose-dev-traefik-ssl.yml#L220) are used as defaults when adding servers:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `POSTGRES_HOST` | `postgres` | PostgreSQL server hostname |
+| `POSTGRES_PORT` | `5432` | PostgreSQL server port |
+| `POSTGRES_DB` | `postgres` | Maintenance database name |
+| `POSTGRES_USER` | `magnetdb` | Database username |
+| `POSTGRES_PASSWORD` | `magnetdb` | Database password |
+| `PGADMIN_SERVER_NAME` | `magnetdb` | Display name in pgAdmin |
+| `PGADMIN_CONFIG_OUTPUT` | `/var/lib/pgadmin/servers.json` | Output path for configuration |
+
+### Examples
+
+#### Add multiple servers
+
+```shell
+# Add local development server (from env vars)
+docker exec magnetdb-pgadmin python3 /setup_pgadmin.py add
+
+# Add production server
+docker exec magnetdb-pgadmin python3 /setup_pgadmin.py add \
+  --name "Production DB" \
+  --host prod-db.example.com \
+  --port 5432 \
+  --user readonly \
+  --password readpass
+
+# Add staging server
+docker exec magnetdb-pgadmin python3 /setup_pgadmin.py add \
+  --name "Staging DB" \
+  --host staging-db.example.com \
+  --port 5432
+
+# List all servers
+docker exec magnetdb-pgadmin python3 /setup_pgadmin.py list
+```
+
+#### Manage servers
+
+```shell
+# View current configuration
+docker exec magnetdb-pgadmin python3 /setup_pgadmin.py list
+
+# Remove a server
+docker exec magnetdb-pgadmin python3 /setup_pgadmin.py remove "Staging DB"
+
+# Reset to default configuration
+docker exec magnetdb-pgadmin python3 /setup_pgadmin.py generate
+```
+
+### Manual Configuration
+
+If you prefer manual configuration or need to customize settings, you can:
+
+1. Access pgAdmin at `https://pgadmin.magnetdb-dev.local/`
+2. Login with credentials:
+   - Email: `christophe.trophime@lncmi.cnrs.fr`
+   - Password: `admin`
+3. Right-click "Servers" → "Register" → "Server"
+4. Configure:
+   - **Name**: `magnetdb`
+   - **Host**: `postgres` (or `magnetdb-postgres`)
+   - **Port**: `5432`
+   - **Username**: `magnetdb`
+   - **Password**: `magnetdb`
+
+### Python API Implementation
+
+The auto-configuration is implemented in [setup_pgadmin.py](../python_magnetdb/management/commands/setup_pgadmin.py) which:
+- Reads environment variables from the docker-compose configuration
+- Generates a `servers.json` file with server connection details
+- Creates the configuration in the pgAdmin data directory
+
+This eliminates manual server registration after pgAdmin deployment.
 
 ## PostgreSQL Database Scheme
 
