@@ -84,10 +84,27 @@ line_length = 100
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "python_magnetdb.settings"
 python_files = ["tests.py", "test_*.py", "*_tests.py"]
-addopts = "--cov=python_magnetdb --cov-report=html"
+# Coverage is optional - add --cov manually if needed
+# These geometry tests don't import python_magnetdb, so coverage warnings are expected
+addopts = ""
+# To enable coverage, run: pytest --cov=python_magnetdb --cov=python_magnetgeo --cov-report=html
 
 [tool.mypy]
 python_version = "3.11"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = false
+[tool.coverage.run]
+source = ["python_magnetdb", "python_magnetgeo"]
+omit = [
+    "*/tests/*",
+    "*/migrations/*",
+    "*/__pycache__/*",
+]
+
+[tool.coverage.report]
+# Ignore warnings about modules not being imported
+disable_warnings = ["module-not-imported"]
+precision = 2
+show_missing = true
+skip_covered = false
