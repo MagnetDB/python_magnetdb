@@ -171,6 +171,9 @@ def create_magnet(obj):
 
     # Infer inner_bore and outer_bore from parts if still not set
     if (inner_bore is None or outer_bore is None) and parts is not None and len(parts) > 0:
+        # Epsilon in mm - clearance for bore calculations
+        eps = 0.9
+        
         # Determine which part types to use based on magnet type
         magnet_type = obj.get("type")
         if magnet_type == MagnetType.INSERT.value:
@@ -187,20 +190,21 @@ def create_magnet(obj):
 
         if len(relevant_parts) > 0:
             # Get r values from first and last relevant parts
+            # Units are in mm (from geometry YAML config files)
             if inner_bore is None:
                 first_part = relevant_parts[0]
                 if first_part.geometry_config and "r" in first_part.geometry_config:
-                    inner_bore = first_part.geometry_config["r"][0]
+                    inner_bore = first_part.geometry_config["r"][0] - eps
                     print(
-                        f"Inferred inner_bore from first {first_part.type} part '{first_part.name}': {inner_bore}"
+                        f"Inferred inner_bore from first {first_part.type} part '{first_part.name}': {inner_bore} mm"
                     )
 
             if outer_bore is None:
                 last_part = relevant_parts[-1]
                 if last_part.geometry_config and "r" in last_part.geometry_config:
-                    outer_bore = last_part.geometry_config["r"][1]
+                    outer_bore = last_part.geometry_config["r"][1] + eps
                     print(
-                        f"Inferred outer_bore from last {last_part.type} part '{last_part.name}': {outer_bore}"
+                        f"Inferred outer_bore from last {last_part.type} part '{last_part.name}': {outer_bore} mm"
                     )
 
     # Create magnet with extracted or provided bore values
