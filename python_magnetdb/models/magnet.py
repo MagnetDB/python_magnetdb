@@ -209,6 +209,10 @@ class Magnet(models.Model):
         import copy
         import yaml
 
+        print(
+            f"Generating geometry_config_to_yaml for magnet {self.name} of type {self.type} ...",
+            flush=True,
+        )
         # Collect probe names
         probes = []
         for probe in self.probe_set.all():
@@ -218,6 +222,10 @@ class Magnet(models.Model):
             probes.append(probe_obj)
 
         if self.type == MagnetType.INSERT:
+            print(
+                f"Processing INSERT magnet {self.name} with {len(self.magnetpart_set.all())} parts ...",
+                flush=True,
+            )
             # Collect helices, rings, and current leads as objects
             helices = []
             hangles = []
@@ -274,6 +282,10 @@ class Magnet(models.Model):
             return insert.to_yaml()
 
         elif self.type == MagnetType.SUPRAS:
+            print(
+                f"Processing SUPRAS magnet {self.name} with {len(self.magnetpart_set.all())} parts ...",
+                flush=True,
+            )
             # Collect supra magnets and current leads as objects
             magnets = []
             currentleads = []
@@ -295,24 +307,32 @@ class Magnet(models.Model):
                     currentleads.append(lead_obj)
 
             # Create Supras object with validation
+            # Handle empty magnets list (e.g., fresh database with no parts)
+            if not magnets:
+                innerbore_val = self.inner_bore if self.inner_bore is not None else 0
+                outerbore_val = self.outer_bore if self.outer_bore is not None else 0
+            else:
+                innerbore_val = (
+                    self.inner_bore if self.inner_bore is not None else magnets[0].r[0] - eps
+                )
+                outerbore_val = (
+                    self.outer_bore if self.outer_bore is not None else magnets[-1].r[1] + eps
+                )
+
             supras = Supras(
                 name=self.name,
                 magnets=magnets,
-                innerbore=(
-                    self.inner_bore
-                    if self.inner_bore is not None or self.inner_bore == 0
-                    else magnets[0].r[0] - eps
-                ),
-                outerbore=(
-                    self.outer_bore
-                    if self.outer_bore is not None or self.outer_bore == 0
-                    else magnets[-1].r[1] + eps
-                ),
+                innerbore=innerbore_val,
+                outerbore=outerbore_val,
                 probes=probes,
             )
             return supras.to_yaml()
 
         elif self.type == MagnetType.BITTERS:
+            print(
+                f"Processing BITTERS magnet {self.name} with {len(self.magnetpart_set.all())} parts ...",
+                flush=True,
+            )
             # Collect bitter magnets and current leads as objects
             magnets = []
             currentleads = []
@@ -335,19 +355,23 @@ class Magnet(models.Model):
                     currentleads.append(lead_obj)
 
             # Create Bitters object with validation
+            # Handle empty magnets list (e.g., fresh database with no parts)
+            if not magnets:
+                innerbore_val = self.inner_bore if self.inner_bore is not None else 0
+                outerbore_val = self.outer_bore if self.outer_bore is not None else 0
+            else:
+                innerbore_val = (
+                    self.inner_bore if self.inner_bore is not None else magnets[0].r[0] - eps
+                )
+                outerbore_val = (
+                    self.outer_bore if self.outer_bore is not None else magnets[-1].r[1] + eps
+                )
+
             bitters = Bitters(
                 name=self.name,
                 magnets=magnets,
-                innerbore=(
-                    self.inner_bore
-                    if self.inner_bore is not None or self.inner_bore == 0
-                    else magnets[0].r[0] - eps
-                ),
-                outerbore=(
-                    self.outer_bore
-                    if self.outer_bore is not None or self.outer_bore == 0
-                    else magnets[-1].r[1] + eps
-                ),
+                innerbore=innerbore_val,
+                outerbore=outerbore_val,
                 probes=probes,
             )
             return bitters.to_yaml()

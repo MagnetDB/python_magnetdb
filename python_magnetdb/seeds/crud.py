@@ -20,9 +20,9 @@ django.setup()
 from django.utils import timezone
 
 from python_magnetdb.models import StorageAttachment
-from python_magnetdb.models.magnet import Magnet
+from python_magnetdb.models.magnet import Magnet, MagnetType
 from python_magnetdb.models.material import Material
-from python_magnetdb.models.part import Part
+from python_magnetdb.models.part import Part, PartType
 from python_magnetdb.models.probe import Probe
 from python_magnetdb.models.record import Record
 from python_magnetdb.models.site import Site
@@ -168,6 +168,40 @@ def create_magnet(obj):
         except pmg.UnsupportedTypeError as e:
             print(f"Invalid geometry type in {geometry_file}: {e}")
             raise
+
+    # Infer inner_bore and outer_bore from parts if still not set
+    if (inner_bore is None or outer_bore is None) and parts is not None and len(parts) > 0:
+        # Determine which part types to use based on magnet type
+        magnet_type = obj.get("type")
+        if magnet_type == MagnetType.INSERT.value:
+            relevant_types = [PartType.HELIX, PartType.RING]
+        elif magnet_type == MagnetType.BITTERS.value:
+            relevant_types = [PartType.BITTER]
+        elif magnet_type == MagnetType.SUPRAS.value:
+            relevant_types = [PartType.SUPRA]
+        else:
+            relevant_types = []
+
+        # Filter parts by relevant types
+        relevant_parts = [p for p in parts if p.type in [t.value for t in relevant_types]]
+
+        if len(relevant_parts) > 0:
+            # Get r values from first and last relevant parts
+            if inner_bore is None:
+                first_part = relevant_parts[0]
+                if first_part.geometry_config and "r" in first_part.geometry_config:
+                    inner_bore = first_part.geometry_config["r"][0]
+                    print(
+                        f"Inferred inner_bore from first {first_part.type} part '{first_part.name}': {inner_bore}"
+                    )
+
+            if outer_bore is None:
+                last_part = relevant_parts[-1]
+                if last_part.geometry_config and "r" in last_part.geometry_config:
+                    outer_bore = last_part.geometry_config["r"][1]
+                    print(
+                        f"Inferred outer_bore from last {last_part.type} part '{last_part.name}': {outer_bore}"
+                    )
 
     # Create magnet with extracted or provided bore values
     magnet = Magnet(**obj)
