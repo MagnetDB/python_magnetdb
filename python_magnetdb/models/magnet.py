@@ -39,8 +39,8 @@ class Magnet(models.Model):
     type = models.CharField(max_length=255, null=False, choices=MagnetType.choices())
     name = models.CharField(max_length=255, unique=True, null=False)
     description = models.TextField(null=True)
-    inner_bore = models.FloatField(null=True)
-    outer_bore = models.FloatField(null=True)
+    inner_bore = models.FloatField(null=True, help_text="Inner bore radius in mm")
+    outer_bore = models.FloatField(null=True, help_text="Outer bore radius in mm")
     status = models.CharField(max_length=255, null=False)
     created_at = models.DateTimeField(auto_now_add=True, null=False)
     updated_at = models.DateTimeField(auto_now=True, null=False)
@@ -259,7 +259,8 @@ class Magnet(models.Model):
                     currentleads.append(lead_obj)
 
             # Create Insert object with validation
-            eps = 0.5
+            # Epsilon in mm - clearance for bore calculations
+            eps = 0.9
             insert = Insert(
                 name=self.name,
                 helices=helices,
