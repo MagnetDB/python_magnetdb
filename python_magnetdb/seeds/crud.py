@@ -55,6 +55,7 @@ def create_material(obj):
     if res is not None:
         print(f"material {obj['name']} already exists")
         return res
+    print(f"material {obj['name']} does not exist, creating new one")
     return Material.objects.create(**obj)
 
 

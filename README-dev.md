@@ -212,6 +212,7 @@ ln -s ../python_magnetsetup/data data
 export DATA_DIR=/data
 
 # version test
+poetry run python3 -m python_magnetdb.seeds.seed-insulator # add MAT_ISOLANT -- **MANDATORY** for vizualisation and simulation
 poetry run python3 -m python_magnetdb.seeds.seeds # test only
 poetry run python3 -m python_magnetdb.seeds.seed-probes
 
