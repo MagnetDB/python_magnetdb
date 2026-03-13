@@ -8,21 +8,36 @@ Fixes / Features:
   - [x] validate visualisation
   - [ ] make view for records attached to site a list that can be expanded (accordeon), and same for other similar stuff
 - [ ] magnetdb: 
+  - [ ] for site name use housing_YYMMDD with YYMMDD the date of misen en service
   - [ ] add site_screen.py like site_magnet.py to deal with screens in msite
   - [ ] add list of screens in site view
+  - [ ] id innerbore and outer bore really needed in site model? can it be retreived from site geometry yaml config file? if not, add them to site model and update seeds
+  - [ ] add housing to site model
+  - [ ] add probes to site model
+  - [ ] display geometry information for part: helix, bitter and supra in addition to view yaml config file
+  - [ ] same for site: display geometry information for site in addition to view yaml config file
+  - [ ] same for magnet: display geometry information for magnet in addition to view yaml config file
+  - [ ] add also a figure for the magnet geometry in magnet/site view
+  - [ ] add a loggin system to magnetdb to log all operations (create, update, delete) on the database with user and timestamp
+    - [ ] change to make less verbose and more usefull
+    - [ ] add support for rotated logs (logs for each branch of the magnetrun)
+    - [ ] make sure to use the same log system for all modules (magnetdb, magnettools, magnetrun, magnetsetup, magnetworkflows)
+  - [ ] use magnetrun  module to view "raw" data for a site (pupitre, pigbrother) in magnetdb webapp
+  - [ ] select Js library to make plots (plotly, bokeh, etc) and use it to make plots in magnetdb webapp
 
 For students:
 - [x] seed inserts, bitters and at least an existing site
   - [x] add Bitters (seeds-Bitters)
   - [x] add inserts (seed-M19061901, seed-M19071101)
   - [x] add at least one existing site (seed-M19061901, seed-M19071101)
-- [ ] magnetapi
-  - [ ] show ring to get an example for ring.json
-  - [ ] do the same for Bitters
+- [ ] Magnetapi
+  - [x] show ring to get an example for ring.json
+  - [x] do the same for Bitters
+  - ( ] use hifimagnet.projects for yaml geometry config to fill missing infos in srvdata -- aka the CAD ref, see etat.csv + my notes for rings
   - [ ] Test mass import
 - [ ] Prepare dataset for students
   - [ ] add more records to the dataset (see seed-records)
-  - [ ] get pupitre, pigbrother data for existing sites -- use magnetrun analysis in fry mode to get names of files to store
+  - [ ] get pupitre, pigbrother data for existing sites -- use magnetrun analysis in try mode to get names of files to store
   - [ ] get config for existing sites
   - [ ] need for yaml files for geometry??
   - [ ] for ETL need probes or at least keys () dicts for magnetrun branch XX
@@ -30,12 +45,14 @@ For students:
   - [ ] test
 - [ ] Magnetsetup
   - [ ] test
-- [ ] magnetworkflows
+- [ ] Magnetworkflows
   - [ ] Validate testsuite with separate cooling models
-- [ ] dev environment
+- [ ] Dev environment
   - [ ] setup a jupyterlab docker (see python_magnetrun)
+    - [ ] fix magnettools with pybind11: install separately the python package with pip/cmake like in magnettools.poetry, use uv instead? 
   - [ ] setup a marimo docker
   - [ ] check [2026 feelpp projects](https://feelpp.github.io/course-project/csmi/2026/m1-s2/topics)
+- [ ] Share google slide on data
 
 Roadmap:
 - [ ] magnetdb:
