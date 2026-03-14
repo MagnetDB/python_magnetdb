@@ -35,6 +35,7 @@ For students:
   - [x] do the same for Bitters
   - ( ] use hifimagnet.projects for yaml geometry config to fill missing infos in srvdata -- aka the CAD ref, see etat.csv + my notes for rings
   - [ ] Test mass import
+  - [ ] rework example for hoopstress history: !!compute and store B and Bext for (r) with unit currents!!
 - [ ] Prepare dataset for students
   - [ ] add more records to the dataset (see seed-records)
   - [ ] get pupitre, pigbrother data for existing sites -- use magnetrun analysis in try mode to get names of files to store
