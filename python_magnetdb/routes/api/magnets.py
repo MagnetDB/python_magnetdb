@@ -81,7 +81,10 @@ def sites(id: int, user=Depends(get_user("read"))):
 
 @router.get("/api/magnets/{id}/geometry.yaml")
 def geometry(id: int, user=Depends(get_user('read'))):
-    magnet = Magnet.objects.get(id=id)
+    magnet = Magnet.objects.prefetch_related(
+        'magnetpart_set__part',
+        'probe_set'
+    ).get(id=id)
     if not magnet:
         raise HTTPException(status_code=404, detail="Magnet not found")
 

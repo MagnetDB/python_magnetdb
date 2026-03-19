@@ -2,8 +2,7 @@
 Create a basic magnetdb
 """
 
-import os
-from os import getenv, path
+from os import getenv
 
 from . import crud
 from .crud import create_material, create_part
@@ -17,6 +16,24 @@ crud.project_directory = project_directory
 print(f"DATA_DIR={data_directory}")
 print(f"PROJECT_DIR={project_directory}")
 
+MAT_ISOLANT = create_material(
+    {
+        "name": "MAT_ISOLANT",
+        "description": "Glue",
+        "nuance": "unknow",
+        "t_ref": 20,
+        "volumic_mass": 2e3,
+        "specific_heat": 380,
+        "alpha": 0,
+        "electrical_conductivity": 0,
+        "thermal_conductivity": 1.2,
+        "magnet_permeability": 1,
+        "young": 2.1e9,
+        "poisson": 0.21,
+        "expansion_coefficient": 9e-6,
+        "rpe": 0,
+    }
+)
 
 MA24032701 = create_material(
     {
@@ -58,7 +75,7 @@ MA24032501 = create_material(
         "volumic_mass": 9e3,
         "specific_heat": 380,
         "alpha": 3.6e-3,
-        "electrical_conductivity": 52.9e6,
+        "electrical_conductivity": 52.56,
         "thermal_conductivity": 380,
         "magnet_permeability": 1,
         "young": 127e9,

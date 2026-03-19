@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
 """
-Test script for yaml_json conversion utilities.
+Test script for YAML to JSON to YAML conversion.
 
 Tests the conversion of python_magnetgeo YAML files to JSON and back,
 ensuring that custom tags and object structure are preserved.
+Uses native python_magnetgeo methods instead of yaml_json utilities.
 """
 
 import sys
 import os
 import json as json_module
+import yaml
+import pytest
 from pathlib import Path
 
 # Add python_magnetdb to path
@@ -16,10 +19,10 @@ repo_root = Path(__file__).parent.parent
 sys.path.insert(0, str(repo_root))
 sys.path.insert(0, str(repo_root / "python_magnetgeo"))
 
-from python_magnetdb.utils.yaml_json import yaml_to_json, json_to_yaml
+from python_magnetgeo import deserialize
 
 
-def test_yaml_file(yaml_file: Path, class_name: str, show_full: bool = False) -> bool:
+def run_yaml_file_test(yaml_file: Path, class_name: str, show_full: bool = False) -> bool:
     """
     Generic test function for any YAML file.
 
@@ -39,7 +42,14 @@ def test_yaml_file(yaml_file: Path, class_name: str, show_full: bool = False) ->
         print(f"⊘ SKIPPED: File not found: {yaml_file}")
         return None  # None means skipped, not failed
 
+    # Save current directory and change to yaml_file directory
+    # This allows referenced YAML files to be found
+    original_cwd = os.getcwd()
+    yaml_dir = yaml_file.parent
+
     try:
+        os.chdir(yaml_dir)
+
         with open(yaml_file, "r") as f:
             yaml_str = f.read()
 
@@ -56,14 +66,17 @@ def test_yaml_file(yaml_file: Path, class_name: str, show_full: bool = False) ->
         if len(lines) > max_lines:
             print(f"... ({len(lines) - max_lines} more lines)")
 
-        # Convert YAML to JSON
-        # Change to the yaml file's directory so file references can be resolved
-        original_cwd = os.getcwd()
-        try:
-            os.chdir(yaml_file.parent)
-            json_result = yaml_to_json(yaml_str)
-        finally:
-            os.chdir(original_cwd)
+        # Load YAML into object
+        obj = yaml.load(yaml_str, Loader=yaml.FullLoader)
+
+        # Verify class type
+        actual_class = type(obj).__name__
+        if actual_class != class_name:
+            print(f"✗ Class mismatch: expected {class_name}, got {actual_class}")
+            return False
+
+        # Convert object to JSON using to_json()
+        json_result = obj.to_json()
 
         # Show JSON
         json_lines = json_result.split("\n")
@@ -74,8 +87,27 @@ def test_yaml_file(yaml_file: Path, class_name: str, show_full: bool = False) ->
         if len(json_lines) > max_json_lines:
             print(f"... ({len(json_lines) - max_json_lines} more lines)")
 
-        # Convert JSON back to YAML
-        yaml_result = json_to_yaml(json_result)
+        # Verify JSON structure
+        json_data = json_module.loads(json_result)
+        if "__classname__" not in json_data:
+            print("✗ Missing __classname__ in JSON")
+            return False
+
+        if json_data["__classname__"] != class_name:
+            print(f"✗ Wrong __classname__: {json_data['__classname__']} != {class_name}")
+            return False
+
+        # Convert JSON back to object
+        obj_from_json = json_module.loads(json_result, object_hook=deserialize.unserialize_object)
+
+        # Verify restored object class type
+        restored_class = type(obj_from_json).__name__
+        if restored_class != class_name:
+            print(f"✗ Restored class mismatch: expected {class_name}, got {restored_class}")
+            return False
+
+        # Convert restored object to YAML using to_yaml()
+        yaml_result = obj_from_json.to_yaml()
 
         # Show converted YAML
         result_lines = yaml_result.split("\n")
@@ -86,13 +118,11 @@ def test_yaml_file(yaml_file: Path, class_name: str, show_full: bool = False) ->
         if len(result_lines) > max_result_lines:
             print(f"... ({len(result_lines) - max_result_lines} more lines)")
 
-        # Verify tag is correct
-        json_data = json_module.loads(json_result)
-        assert "__tag__" in json_data, "Missing __tag__ in JSON"
+        # Verify YAML tag is correct
         expected_tag = f"!<{class_name}>"
-        assert (
-            json_data["__tag__"] == expected_tag
-        ), f"Wrong tag: {json_data['__tag__']} != {expected_tag}"
+        if expected_tag not in yaml_result:
+            print(f"✗ Missing YAML tag {expected_tag}")
+            return False
 
         print("\n✓ SUCCESS: Round-trip conversion works!")
         return True
@@ -103,66 +133,92 @@ def test_yaml_file(yaml_file: Path, class_name: str, show_full: bool = False) ->
 
         traceback.print_exc()
         return False
+    finally:
+        # Restore original directory
+        os.chdir(original_cwd)
+
+
+# Define test cases: (filename, expected_class_name)
+TEST_CASES = [
+    # Ring tests
+    ("ring1.yaml", "Ring"),
+    ("ring2.yaml", "Ring"),
+    # Helix tests (complex with nested objects)
+    ("helix1.yaml", "Helix"),
+    ("helix2.yaml", "Helix"),
+    ("helix3.yaml", "Helix"),
+    # InnerCurrentLead tests
+    ("inner_lead.yaml", "InnerCurrentLead"),
+    ("inner.yaml", "InnerCurrentLead"),
+    ("lead1.yaml", "InnerCurrentLead"),
+    # Probe tests
+    ("probe_ref1.yaml", "Probe"),
+    ("probe_ref2.yaml", "Probe"),
+    # Insert tests (references helices, rings, currentleads)
+    ("insert1.yaml", "Insert"),
+    # MSite tests (references inserts)
+    ("msite1.yaml", "MSite"),
+    # Bitter tests
+    ("bitter1.yaml", "Bitter"),
+    # Bitters tests
+    ("bitters1.yaml", "Bitters"),
+    # Supra tests
+    ("supra1.yaml", "Supra"),
+    # Supras tests
+    ("supras1.yaml", "Supras"),
+    # ModelAxi tests
+    ("modelaxi1.yaml", "ModelAxi"),
+    # Model3D tests
+    ("model3d1.yaml", "Model3D"),
+    # Shape tests
+    ("shape1.yaml", "Shape"),
+    # Contour2D tests
+    ("contour2d1.yaml", "Contour2D"),
+    # CoolingSlit tests (with nested Contour2D)
+    ("coolingslit1.yaml", "CoolingSlit"),
+    # Tierod tests (with nested Contour2D)
+    ("tierod1.yaml", "Tierod"),
+    # Chamfer tests
+    ("chamfer1.yaml", "Chamfer"),
+    # Groove tests
+    ("groove1.yaml", "Groove"),
+]
+
+
+@pytest.mark.parametrize("filename,class_name", TEST_CASES)
+def test_yaml_file(filename: str, class_name: str):
+    """Test YAML to JSON to YAML conversion for geometry files."""
+    tests_dir = repo_root / "python_magnetgeo" / "tests.cfg"
+    yaml_file = tests_dir / filename
+
+    # Skip if file doesn't exist
+    if not yaml_file.exists():
+        pytest.skip(f"File not found: {yaml_file}")
+
+    # Run the test
+    result = run_yaml_file_test(yaml_file, class_name, show_full=False)
+
+    # Handle skipped tests (empty files)
+    if result is None:
+        pytest.skip("Empty file")
+
+    # Assert test passed
+    assert result, f"Test failed for {filename}"
 
 
 def main():
-    """Run all tests."""
+    """Run all tests (for standalone script execution)."""
     print("YAML-JSON Conversion Test Suite")
+    print("Using native python_magnetgeo methods: yaml.load(), to_json(), to_yaml()")
 
-    tests_dir = repo_root / "python_magnetgeo" / "tests.old"
-
-    # Define test cases: (filename, expected_class_name)
-    test_cases = [
-        # Ring tests
-        ("ring1.yaml", "Ring"),
-        ("ring2.yaml", "Ring"),
-        # Helix tests (complex with nested objects)
-        ("helix1.yaml", "Helix"),
-        ("helix2.yaml", "Helix"),
-        ("helix3.yaml", "Helix"),
-        # InnerCurrentLead tests
-        ("inner_lead.yaml", "InnerCurrentLead"),
-        ("inner.yaml", "InnerCurrentLead"),
-        ("lead1.yaml", "InnerCurrentLead"),
-        # Probe tests
-        ("probe_ref1.yaml", "Probe"),
-        ("probe_ref2.yaml", "Probe"),
-        # Insert tests (references helices, rings, currentleads)
-        ("insert1.yaml", "Insert"),
-        # MSite tests (references inserts)
-        ("msite1.yaml", "MSite"),
-        # Bitter tests
-        ("bitter1.yaml", "Bitter"),
-        # Bitters tests
-        ("bitters1.yaml", "Bitters"),
-        # Supra tests
-        ("supra1.yaml", "Supra"),
-        # Supras tests
-        ("supras1.yaml", "Supras"),
-        # ModelAxi tests
-        ("modelaxi1.yaml", "ModelAxi"),
-        # Model3D tests
-        ("model3d1.yaml", "Model3D"),
-        # Shape tests
-        ("shape1.yaml", "Shape"),
-        # Contour2D tests
-        ("contour2d1.yaml", "Contour2D"),
-        # CoolingSlit tests (with nested Contour2D)
-        ("coolingslit1.yaml", "CoolingSlit"),
-        # Tierod tests (with nested Contour2D)
-        ("tierod1.yaml", "Tierod"),
-        # Chamfer tests
-        ("chamfer1.yaml", "Chamfer"),
-        # Groove tests
-        ("groove1.yaml", "Groove"),
-    ]
+    tests_dir = repo_root / "python_magnetgeo" / "tests.cfg"
 
     results = []
 
     # Run tests
-    for filename, class_name in test_cases:
+    for filename, class_name in TEST_CASES:
         yaml_file = tests_dir / filename
-        result = test_yaml_file(yaml_file, class_name, show_full=False)
+        result = run_yaml_file_test(yaml_file, class_name, show_full=False)
         if result is not None:  # None means skipped
             results.append((f"{class_name}: {filename}", result))
 

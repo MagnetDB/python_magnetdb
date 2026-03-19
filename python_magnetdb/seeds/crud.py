@@ -3,7 +3,11 @@ import os
 import re
 from os import path, getenv
 
-from python_magnetdb.utils.yaml_json import yaml_to_json
+# Use lazy loading pattern for python_magnetgeo
+import python_magnetgeo as pmg
+
+# Register YAML constructors for lazy loading
+pmg.verify_class_registration()
 
 # Configure Django before importing models
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "python_magnetdb.settings")
@@ -14,13 +18,14 @@ django.setup()
 
 # Now safe to import Django models
 from django.utils import timezone
+
 from python_magnetdb.models import StorageAttachment
-from python_magnetdb.models.magnet import Magnet
+from python_magnetdb.models.magnet import Magnet, MagnetType
 from python_magnetdb.models.material import Material
-from python_magnetdb.models.part import Part
+from python_magnetdb.models.part import Part, PartType
+from python_magnetdb.models.probe import Probe
 from python_magnetdb.models.record import Record
 from python_magnetdb.models.site import Site
-from python_magnetdb.models.probe import Probe
 
 data_directory = getenv("DATA_DIR")
 project_directory = None
@@ -50,6 +55,7 @@ def create_material(obj):
     if res is not None:
         print(f"material {obj['name']} already exists")
         return res
+    print(f"material {obj['name']} does not exist, creating new one")
     return Material.objects.create(**obj)
 
 
@@ -71,8 +77,23 @@ def create_part(obj):
     print(f"geometry={geometry}.yaml")
     print(f"data_directory={data_directory}")
     if geometry is not None:
-        with open(path.join(data_directory, "geometries", f"{geometry}.yaml")) as file:
-            part.geometry_config = json.loads(yaml_to_json(file.read()))
+        geometry_dir = path.join(data_directory, "geometries")
+        geometry_file = path.join(geometry_dir, f"{geometry}.yaml")
+
+        # Load as python_magnetgeo object (with validation), then serialize to JSON
+        # This ensures proper object deserialization and uses the object's to_json() method
+        try:
+            geometry_obj = pmg.load(geometry_file)
+            print(f"Loaded geometry object: {geometry_obj}")
+            print("json:\n", geometry_obj.to_json())
+            print("part.geometry:\n", json.loads(geometry_obj.to_json()))
+            part.geometry_config = json.loads(geometry_obj.to_json())
+        except pmg.ObjectLoadError as e:
+            print(f"Failed to load geometry from {geometry_file}: {e}")
+            raise
+        except pmg.UnsupportedTypeError as e:
+            print(f"Invalid geometry type in {geometry_file}: {e}")
+            raise
     part.save()
     if cad is not None:
         for file in [f"{cad}.xao", f"{cad}.brep"]:
@@ -116,14 +137,85 @@ def create_magnet(obj):
         print(f"magnet {obj['name']} already exists")
         return res
     site = obj.pop("site", None)
-    # probes = obj.pop('probes', None)
     parts = obj.pop("parts", None)
     geometry = obj.pop("geometry", None)
+    inner_bore = obj.pop("inner_bore", None)
+    outer_bore = obj.pop("outer_bore", None)
+
     if project_directory is not None:
         geometry = path.join(project_directory, geometry)
     cad = obj.pop("cad", None)
-    magnet = Magnet(**obj)
+
+    # Load geometry if provided
     if geometry is not None:
+        geometry_file = path.join(data_directory, "geometries", f"{geometry}.yaml")
+
+        # Load as python_magnetgeo object (with validation)
+        try:
+            geometry_obj = pmg.load(geometry_file)
+            print(f"Loaded geometry object: {geometry_obj}")
+
+            # Get innerbore and outerbore from geometry if not provided
+            if inner_bore is None and hasattr(geometry_obj, "innerbore"):
+                inner_bore = geometry_obj.innerbore
+                print(f"Using innerbore from geometry: {inner_bore}")
+            if outer_bore is None and hasattr(geometry_obj, "outerbore"):
+                outer_bore = geometry_obj.outerbore
+                print(f"Using outerbore from geometry: {outer_bore}")
+        except pmg.ObjectLoadError as e:
+            print(f"Failed to load geometry from {geometry_file}: {e}")
+            raise
+        except pmg.UnsupportedTypeError as e:
+            print(f"Invalid geometry type in {geometry_file}: {e}")
+            raise
+
+    # Infer inner_bore and outer_bore from parts if still not set
+    if (inner_bore is None or outer_bore is None) and parts is not None and len(parts) > 0:
+        # Epsilon in mm - clearance for bore calculations
+        eps = 0.9
+        
+        # Determine which part types to use based on magnet type
+        magnet_type = obj.get("type")
+        if magnet_type == MagnetType.INSERT.value:
+            relevant_types = [PartType.HELIX, PartType.RING]
+        elif magnet_type == MagnetType.BITTERS.value:
+            relevant_types = [PartType.BITTER]
+        elif magnet_type == MagnetType.SUPRAS.value:
+            relevant_types = [PartType.SUPRA]
+        else:
+            relevant_types = []
+
+        # Filter parts by relevant types
+        relevant_parts = [p for p in parts if p.type in [t.value for t in relevant_types]]
+
+        if len(relevant_parts) > 0:
+            # Get r values from first and last relevant parts
+            # Units are in mm (from geometry YAML config files)
+            if inner_bore is None:
+                first_part = relevant_parts[0]
+                if first_part.geometry_config and "r" in first_part.geometry_config:
+                    inner_bore = first_part.geometry_config["r"][0] - eps
+                    print(
+                        f"Inferred inner_bore from first {first_part.type} part '{first_part.name}': {inner_bore} mm"
+                    )
+
+            if outer_bore is None:
+                last_part = relevant_parts[-1]
+                if last_part.geometry_config and "r" in last_part.geometry_config:
+                    outer_bore = last_part.geometry_config["r"][1] + eps
+                    print(
+                        f"Inferred outer_bore from last {last_part.type} part '{last_part.name}': {outer_bore} mm"
+                    )
+
+    # Create magnet with extracted or provided bore values
+    magnet = Magnet(**obj)
+    if inner_bore is not None:
+        magnet.inner_bore = inner_bore
+    if outer_bore is not None:
+        magnet.outer_bore = outer_bore
+
+    if geometry is not None:
+        # Upload geometry attachment
         attachment = upload_attachment(path.join(data_directory, "geometries", f"{geometry}.yaml"))
         if attachment is not None:
             magnet.geometry_attachment = attachment
