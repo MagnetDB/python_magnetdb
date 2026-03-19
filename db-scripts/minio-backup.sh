@@ -22,6 +22,10 @@ if [ -f ".envrc" ]; then
     set +a
 fi
 
+# Using Docker
+alias mc='docker run --rm -it magnetdb-minio --entrypoint=/bin/sh minio/mc'
+mc --version
+
 # MinIO configuration with defaults
 MINIO_ENDPOINT="${S3_ENDPOINT:-localhost:9000}"
 MINIO_ACCESS_KEY="${S3_ACCESS_KEY:-minio}"
