@@ -91,6 +91,18 @@ def show(id: int, user=Depends(get_user("read"))):
     return model_serializer(site)
 
 
+@router.get("/api/sites/{id}/magnets")
+def magnets(id: int, user=Depends(get_user("read"))):
+    site = Site.objects.prefetch_related("sitemagnet_set__magnet").get(id=id)
+    if not site:
+        raise HTTPException(status_code=404, detail="Site not found")
+
+    result = []
+    for site_magnet in site.sitemagnet_set.all():
+        result.append(model_serializer(site_magnet))
+    return {"magnets": result}
+
+
 @router.get("/api/sites/{id}/geometry.yaml")
 def geometry(id: int, user=Depends(get_user("read"))):
     site = Site.objects.prefetch_related(

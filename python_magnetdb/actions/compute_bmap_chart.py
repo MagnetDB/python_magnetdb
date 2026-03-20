@@ -4,24 +4,24 @@ import numpy as np
 
 
 plotmethod = {
-    'Bz': (bmap.getBz, '[T]', 'Magnetic Field Bz'),
-    'Br': (bmap.getBr, '[T]', 'Magnetic Field Bz'),
-    'B': (bmap.getB, '[T]', 'Magnetic Field'),
-    'A': (bmap.getA, '[A/m]', 'Magnetic Potential'),
-    'dBr/dr': (bmap.getdBrdr, '[T/m]', 'Gradient of Magnetic Field Br'),
-    'dBr/dz': (bmap.getdBrdz, '[T/m]', 'Gradient of Magnetic Field Br'),
-    'dBz/dr': (bmap.getdBzdr, '[T/m]', 'Gradient of Magnetic Field Bz'),
-    'dBz/dz': (bmap.getdBzdz, '[T/m]', 'Gradient of Magnetic Field Bz'),
-    'G': (bmap.getGradMagnetoGravPotential, '[%]', 'He Levitation Force Homogeneity'),
-    'd²Bz/dz²': (bmap.getd2Bzdz2, '[T/m²]', 'Second order Derivative of Magnetic Field Bz'),
+    "Bz": (bmap.getBz, "[T]", "Magnetic Field Bz"),
+    "Br": (bmap.getBr, "[T]", "Magnetic Field Bz"),
+    "B": (bmap.getB, "[T]", "Magnetic Field"),
+    "A": (bmap.getA, "[A/m]", "Magnetic Potential"),
+    "dBr/dr": (bmap.getdBrdr, "[T/m]", "Gradient of Magnetic Field Br"),
+    "dBr/dz": (bmap.getdBrdz, "[T/m]", "Gradient of Magnetic Field Br"),
+    "dBz/dr": (bmap.getdBzdr, "[T/m]", "Gradient of Magnetic Field Bz"),
+    "dBz/dz": (bmap.getdBzdz, "[T/m]", "Gradient of Magnetic Field Bz"),
+    "G": (bmap.getGradMagnetoGravPotential, "[%]", "He Levitation Force Homogeneity"),
+    "d²Bz/dz²": (bmap.getd2Bzdz2, "[T/m²]", "Second order Derivative of Magnetic Field Bz"),
 }
 
 
 def prepare_bmap_chart_params(data, i_h, i_b, i_s, n, r0, z0, r, z, pkey, command):
     # when UMagnets, add hts.json to data??
-    (Tubes,Helices,OHelices,BMagnets,UMagnets,Shims) = data
+    (Tubes, Helices, OHelices, BMagnets, UMagnets, Shims) = data
     icurrents = mt.get_currents(Tubes, Helices, BMagnets, UMagnets)
-    print(f'prepare_bmap_chart_params: pkey={pkey}, icurrents={[current for current in icurrents]}')
+    print(f"prepare_bmap_chart_params: pkey={pkey}, icurrents={[current for current in icurrents]}")
 
     return (
         i_h if i_h is not None else (icurrents[0] if len(icurrents) > 0 else 0),
@@ -34,13 +34,13 @@ def prepare_bmap_chart_params(data, i_h, i_b, i_s, n, r0, z0, r, z, pkey, comman
         z if z is not None else (-1.00, 1.00),
         pkey if pkey is not None else "Bz",
         command if command is not None else "1D_z",
-        ["i_h", "i_b", "i_s"][:len(icurrents)],
+        ["i_h", "i_b", "i_s"][: len(icurrents)],
     )
 
 
 def compute_bmap_chart(data, i_h, i_b, i_s, n, r0, z0, r, z, pkey, command):
     def update_current():
-        (Tubes,Helices,OHelices,BMagnets,UMagnets,Shims) = data
+        (Tubes, Helices, OHelices, BMagnets, UMagnets, Shims) = data
 
         icurrents = mt.get_currents(Tubes, Helices, BMagnets, UMagnets)
         n_magnets = len(icurrents)
@@ -57,27 +57,33 @@ def compute_bmap_chart(data, i_h, i_b, i_s, n, r0, z0, r, z, pkey, command):
         # update Ih, Ib, Is range
         vcurrents = list(icurrents)
         num = 0
-        if len(Tubes) != 0: vcurrents[num] = i_h; num += 1
-        if len(BMagnets) != 0: vcurrents[num] = i_b; num += 1
-        if len(UMagnets) != 0: vcurrents[num] = i_s; num += 1
+        if len(Tubes) != 0:
+            vcurrents[num] = i_h
+            num += 1
+        if len(BMagnets) != 0:
+            vcurrents[num] = i_b
+            num += 1
+        if len(UMagnets) != 0:
+            vcurrents[num] = i_s
+            num += 1
 
         currents = mt.DoubleVector(vcurrents)
         print(f"currents= set to {vcurrents}")
         mt.set_currents(Tubes, Helices, BMagnets, UMagnets, OHelices, currents)
-        print(f"actual currents={mt.get_currents(Tubes, Helices, BMagnets, UMagnets)}" )
+        print(f"actual currents={mt.get_currents(Tubes, Helices, BMagnets, UMagnets)}")
         Bz0 = mt.MagneticField(Tubes, Helices, BMagnets, UMagnets, 0, 0)[1]
         print(f"Bz0={Bz0} T")
 
     def sine():
         # print("panel_bmap: compute b")
         G0 = -2050.0  # -500 T/m² for liquid Hydrogen
-        (Tubes,Helices,OHelices,BMagnets,UMagnets,Shims) = data
-        if command == '1D_z':
+        (Tubes, Helices, OHelices, BMagnets, UMagnets, Shims) = data
+        if command == "1D_z":
             x = np.linspace(z[0], z[1], n)
-            if pkey in ['G']:
+            if pkey in ["G"]:
                 B_ = np.vectorize(plotmethod[pkey][0], excluded=[0, 2, 3, 4, 5, 6])
                 Bval = lambda y: B_(r0, x, Tubes, Helices, BMagnets, UMagnets, Shims, G0)
-            elif pkey in ['dBr/dr', 'dBr/dz', 'dBz/dr', 'dBz/dz']:
+            elif pkey in ["dBr/dr", "dBr/dz", "dBz/dr", "dBz/dz"]:
                 B_ = np.vectorize(plotmethod[pkey][0], excluded=[0, 2, 3, 4, 5, 6])
                 Bval = lambda y: B_(r0, x, Tubes, Helices, BMagnets, UMagnets, Shims)
             else:
@@ -85,12 +91,12 @@ def compute_bmap_chart(data, i_h, i_b, i_s, n, r0, z0, r, z, pkey, command):
                 Bval = lambda y: B_(r0, x, Tubes, Helices, BMagnets, UMagnets)
             return x, Bval(x)
 
-        if command == '1D_r':
+        if command == "1D_r":
             x = np.linspace(r[0], r[1], n)
-            if pkey in ['G']:
+            if pkey in ["G"]:
                 B_ = np.vectorize(plotmethod[pkey][0], excluded=[1, 2, 3, 4, 5, 6])
                 Bval = lambda y: B_(x, y, Tubes, Helices, BMagnets, UMagnets, Shims, G0)
-            elif pkey in ['dBr/dr', 'dBr/dz', 'dBz/dr', 'dBz/dz']:
+            elif pkey in ["dBr/dr", "dBr/dz", "dBz/dr", "dBz/dz"]:
                 B_ = np.vectorize(plotmethod[pkey][0], excluded=[1, 2, 3, 4, 5, 6])
                 Bval = lambda y: B_(x, y, Tubes, Helices, BMagnets, UMagnets, Shims)
             else:
@@ -99,15 +105,21 @@ def compute_bmap_chart(data, i_h, i_b, i_s, n, r0, z0, r, z, pkey, command):
             return x, Bval(x)
 
     def compute_max():
-        (Tubes,Helices,OHelices,BMagnets,UMagnets,Shims) = data
+        (Tubes, Helices, OHelices, BMagnets, UMagnets, Shims) = data
 
         # get current for max
         icurrents = mt.get_currents(Tubes, Helices, BMagnets, UMagnets)
         vcurrents = list(icurrents)
         num = 0
-        if len(Tubes) != 0: vcurrents[num] = 31.e+3; num += 1
-        if len(BMagnets) != 0: vcurrents[num] = 31.e+3; num += 1
-        if len(UMagnets) != 0: vcurrents[num] = 0; num += 1
+        if len(Tubes) != 0:
+            vcurrents[num] = 31.0e3
+            num += 1
+        if len(BMagnets) != 0:
+            vcurrents[num] = 31.0e3
+            num += 1
+        if len(UMagnets) != 0:
+            vcurrents[num] = 0
+            num += 1
 
         Bz0 = mt.MagneticField(Tubes, Helices, BMagnets, UMagnets, 0, 0)[1]
 
