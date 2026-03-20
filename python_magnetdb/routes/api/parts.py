@@ -12,6 +12,7 @@ from .serializers import model_serializer
 from ...dependencies import get_user
 from ...models import Part, Material, AuditLog, StorageAttachment
 from ...models.part import PartType
+
 # Use lazy loading pattern for python_magnetgeo
 import python_magnetgeo as pmg
 import yaml
@@ -87,6 +88,18 @@ def create(
         )
     AuditLog.log(user, "Part created", resource=part)
     return model_serializer(part)
+
+
+@router.get("/api/parts/{id}/magnets")
+def magnets(id: int, user=Depends(get_user("read"))):
+    part = Part.objects.prefetch_related("magnetpart_set__magnet").get(id=id)
+    if not part:
+        raise HTTPException(status_code=404, detail="Part not found")
+
+    result = []
+    for magnet_part in part.magnetpart_set.all():
+        result.append(model_serializer(magnet_part.magnet))
+    return {"magnets": result}
 
 
 @router.get("/api/parts/{id}/sites")
