@@ -120,7 +120,9 @@ POST_PROCESSORS = {
 }
 
 
-def model_serializer(model: models.Model, already_processed = []):
+def model_serializer(model: models.Model, already_processed=None):
+    if already_processed is None:
+        already_processed = []
     res = {}
     for field in model._meta.fields:
         if not isinstance(field, ForeignKey):

@@ -1,5 +1,6 @@
 import json
-#from datetime import datetime
+
+# from datetime import datetime
 from django.utils import timezone
 from typing import List, Dict
 
@@ -19,11 +20,17 @@ router = APIRouter()
 
 
 @router.get("/api/magnets")
-def index(user=Depends(get_user('read')), page: int = 1, per_page: int = Query(default=25, lte=100),
-          query: str = Query(None), sort_by: str = Query('created_at'), sort_desc: bool = Query(False),
-          status: List[str] = Query(default=None, alias="status[]")):
-    db_query = Magnet.objects.prefetch_related('sitemagnet_set', 'meshattachment_set__attachment')
-    if query is not None and query.strip() != '':
+def index(
+    user=Depends(get_user("read")),
+    page: int = 1,
+    per_page: int = Query(default=25, lte=100),
+    query: str = Query(None),
+    sort_by: str = Query("created_at"),
+    sort_desc: bool = Query(False),
+    status: List[str] = Query(default=None, alias="status[]"),
+):
+    db_query = Magnet.objects.prefetch_related("sitemagnet_set", "meshattachment_set__attachment")
+    if query is not None and query.strip() != "":
         db_query = db_query.filter(Q(name__icontains=query))
     if status is not None:
         db_query = db_query.filter(Q(status__in=status))
@@ -47,8 +54,8 @@ def create(
     type: MagnetType = Form(...),
     description: str = Form(None),
     design_office_reference: str = Form(None),
-    metadata: str = Form('{}'),
-    flow_params: str = Form('null'),
+    metadata: str = Form("{}"),
+    flow_params: str = Form("null"),
 ):
     magnet = Magnet(
         name=name,
@@ -62,14 +69,18 @@ def create(
     try:
         magnet.save()
     except IntegrityError as e:
-        raise HTTPException(status_code=422, detail="Name already taken.") if 'magnets_name_unique' in str(e) else e
+        raise (
+            HTTPException(status_code=422, detail="Name already taken.")
+            if "magnets_name_unique" in str(e)
+            else e
+        )
     AuditLog.log(user, "Magnet created", resource=magnet)
     return model_serializer(magnet)
 
 
 @router.get("/api/magnets/{id}/sites")
 def sites(id: int, user=Depends(get_user("read"))):
-    magnet = Magnet.objects.prefetch_related('sitemagnet_set__site').get(id=id)
+    magnet = Magnet.objects.prefetch_related("sitemagnet_set__site").get(id=id)
     if not magnet:
         raise HTTPException(status_code=404, detail="Magnet not found")
 
@@ -79,12 +90,22 @@ def sites(id: int, user=Depends(get_user("read"))):
     return {"sites": result}
 
 
+@router.get("/api/magnets/{id}/parts")
+def parts(id: int, user=Depends(get_user("read"))):
+    try:
+        magnet = Magnet.objects.prefetch_related("magnetpart_set__part").get(id=id)
+    except Magnet.DoesNotExist:
+        raise HTTPException(status_code=404, detail="Magnet not found")
+
+    result = []
+    for part_magnet in magnet.magnetpart_set.all():
+        result.append(model_serializer(part_magnet))
+    return {"parts": result}
+
+
 @router.get("/api/magnets/{id}/geometry.yaml")
-def geometry(id: int, user=Depends(get_user('read'))):
-    magnet = Magnet.objects.prefetch_related(
-        'magnetpart_set__part',
-        'probe_set'
-    ).get(id=id)
+def geometry(id: int, user=Depends(get_user("read"))):
+    magnet = Magnet.objects.prefetch_related("magnetpart_set__part", "probe_set").get(id=id)
     if not magnet:
         raise HTTPException(status_code=404, detail="Magnet not found")
 
@@ -93,7 +114,7 @@ def geometry(id: int, user=Depends(get_user('read'))):
 
 @router.get("/api/magnets/{id}/records")
 def records(id: int, user=Depends(get_user("read"))):
-    magnet = Magnet.objects.prefetch_related('sitemagnet_set__site__record_set').get(id=id)
+    magnet = Magnet.objects.prefetch_related("sitemagnet_set__site__record_set").get(id=id)
     if not magnet:
         raise HTTPException(status_code=404, detail="Magnet not found")
 
@@ -103,9 +124,10 @@ def records(id: int, user=Depends(get_user("read"))):
             result.append(model_serializer(record))
     return {"records": result}
 
+
 @router.get("/api/magnets/{id}/probes")
 def probes(id: int, user=Depends(get_user("read"))):
-    magnet = Magnet.objects.prefetch_related('probe_set').get(id=id)
+    magnet = Magnet.objects.prefetch_related("probe_set").get(id=id)
     if not magnet:
         raise HTTPException(status_code=404, detail="Magnet not found")
 
@@ -127,9 +149,13 @@ def mdata(id: int, user=Depends(get_user("read"))):
 
 @router.get("/api/magnets/{id}")
 def show(id: int, user=Depends(get_user("read"))):
-    magnet = Magnet.objects\
-        .prefetch_related('magnetpart_set__part', 'probe_set', 'sitemagnet_set__site', 'cadattachment_set__attachment', 'meshattachment_set__attachment')\
-        .get(id=id)
+    magnet = Magnet.objects.prefetch_related(
+        "magnetpart_set__part",
+        "probe_set",
+        "sitemagnet_set__site",
+        "cadattachment_set__attachment",
+        "meshattachment_set__attachment",
+    ).get(id=id)
     if not magnet:
         raise HTTPException(status_code=404, detail="Magnet not found")
 
@@ -148,9 +174,13 @@ def update(
     metadata: str = Form(None),
     flow_params: str = Form(None),
 ):
-    magnet = Magnet.objects \
-        .prefetch_related('magnetpart_set__part', 'probe_set', 'sitemagnet_set__site', 'cadattachment_set__attachment', 'meshattachment_set__attachment') \
-        .get(id=id)
+    magnet = Magnet.objects.prefetch_related(
+        "magnetpart_set__part",
+        "probe_set",
+        "sitemagnet_set__site",
+        "cadattachment_set__attachment",
+        "meshattachment_set__attachment",
+    ).get(id=id)
     if not magnet:
         raise HTTPException(status_code=404, detail="Magnet not found")
 
@@ -169,10 +199,15 @@ def update(
 
 
 @router.post("/api/magnets/{id}/defunct")
-def defunct(id: int, decommissioned_at=Form(default_factory=timezone.now), user=Depends(get_user('update'))):
-    magnet = Magnet.objects \
-        .prefetch_related('magnetpart_set__part', 'sitemagnet_set__site', 'cadattachment_set__attachment', 'meshattachment_set__attachment') \
-        .get(id=id)
+def defunct(
+    id: int, decommissioned_at=Form(default_factory=timezone.now), user=Depends(get_user("update"))
+):
+    magnet = Magnet.objects.prefetch_related(
+        "magnetpart_set__part",
+        "sitemagnet_set__site",
+        "cadattachment_set__attachment",
+        "meshattachment_set__attachment",
+    ).get(id=id)
     if not magnet:
         raise HTTPException(status_code=404, detail="Magnet not found")
 
@@ -192,9 +227,13 @@ def defunct(id: int, decommissioned_at=Form(default_factory=timezone.now), user=
 
 @router.delete("/api/magnets/{id}")
 def destroy(id: int, user=Depends(get_user("delete"))):
-    magnet = Magnet.objects \
-        .prefetch_related('magnetpart_set__part', 'probe_set', 'sitemagnet_set__site', 'cadattachment_set__attachment', 'meshattachment_set__attachment') \
-        .get(id=id)
+    magnet = Magnet.objects.prefetch_related(
+        "magnetpart_set__part",
+        "probe_set",
+        "sitemagnet_set__site",
+        "cadattachment_set__attachment",
+        "meshattachment_set__attachment",
+    ).get(id=id)
     if not magnet:
         raise HTTPException(status_code=404, detail="Magnet not found")
 
