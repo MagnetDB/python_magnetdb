@@ -3,6 +3,7 @@ import os
 import shutil
 
 from python_magnetdb.actions.generate_simulation_config import generate_magnet_config
+from python_magnetdb.actions.generate_flow_params import generate_flow_params
 from python_magnetdb.models import Site
 
 
@@ -15,16 +16,15 @@ def mkdir(dir):
 
 def generate_site_directory(site_id, directory):
     site = Site.objects.prefetch_related(
-        'sitemagnet_set__magnet__magnetpart_set__part__partgeometry_set__attachment',
+        'sitemagnet_set__magnet',
         'sitemagnet_set__magnet__magnetpart_set__part__cadattachment_set__attachment',
-        'sitemagnet_set__magnet__geometry_attachment'
         'sitemagnet_set__magnet__magnetpart_set__part__material',
         'sitemagnet_set__magnet__cadattachment_set__attachment',
     ).get(id=site_id)
     mkdir(f"{directory}/data")
     mkdir(f"{directory}/data/geometries")
     mkdir(f"{directory}/data/cad")
-    shutil.copyfile(f"{os.getcwd()}/flow_params.json", f"{directory}/flow_params.json")
+
     site_config = {"name": site.name, "magnets": []}
     for site_magnet in site.sitemagnet_set.all():
         print(
@@ -34,25 +34,32 @@ def generate_site_directory(site_id, directory):
         #     continue
         magnet = site_magnet.magnet
         # print(f'site_magnet: name={magnet.name} id={magnet.id}')
-        if magnet.geometry_attachment:
-            print(f"download: magnet geometry={magnet.geometry_attachment.filename}")
-            magnet.geometry_attachment.download(
-                f"{directory}/data/geometries/{magnet.geometry_attachment.filename}"
-            )
+        with open(f"{directory}/data/geometries/{magnet.name}.yaml", "w") as f:
+            f.write(magnet.geometry_config_to_yaml)
+
+        # add flow_params per magnet
+        generate_flow_params(magnet, directory, magnet.name)
+            
         for magnet_part in magnet.magnetpart_set.all():
             print(f"magnet_part: name={magnet_part.part.name}")
             # if not magnet_part.active:
             #     continue
-            for geometry in magnet_part.part.partgeometry_set.all():
-                print(f"download: magnet geometry={geometry.attachment.filename}")
-                geometry.attachment.download(
-                    f"{directory}/data/geometries/{geometry.attachment.filename}"
-                )
+            with open(f"{directory}/data/geometries/{magnet_part.part.name}.yaml", "w") as f:
+                f.write(magnet_part.part.geometry_config_to_yaml)
+            if magnet_part.part.shape_attachment:
+                magnet_part.part.shape_attachment.download(
+                    f"{directory}/data/cad/{magnet_part.part.shape_attachment.attachment.filename}"
+                )   
             if magnet_part.part.cadattachment_set.all():
                 for cad in magnet_part.part.cadattachment_set.all():
                     cad.attachment.download(
                         f"{directory}/data/cad/{cad.attachment.filename}"
                     )
+            
+        for probe in magnet.probe_set.all():
+            with open(f"{directory}/data/geometries/{probe.name}.yaml", "w") as f:
+                f.write(probe.geometry_config_to_yaml)
+
         with open(f"{directory}/{magnet.name}-data.json", "w+") as file:
             magnet_config = generate_magnet_config(magnet.id)
             file.write(json.dumps(magnet_config))

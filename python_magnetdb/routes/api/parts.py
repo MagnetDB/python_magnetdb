@@ -12,22 +12,35 @@ from .serializers import model_serializer
 from ...dependencies import get_user
 from ...models import Part, Material, AuditLog, StorageAttachment
 from ...models.part import PartType
-from ...utils.yaml_json import yaml_to_json
+
+# Use lazy loading pattern for python_magnetgeo
+import python_magnetgeo as pmg
+import yaml
+import tempfile
+
+# Register YAML constructors for lazy loading
+pmg.verify_class_registration()
 
 router = APIRouter()
 
 
 @router.get("/api/parts")
-def index(user=Depends(get_user('read')), page: int = 1, per_page: int = Query(default=25, lte=100),
-          query: str = Query(None), sort_by: str = Query("created_at"), sort_desc: bool = Query(False),
-          status: List[str] = Query(default=None, alias="status[]"),
-          type: List[str] = Query(default=None, alias="type[]")):
+def index(
+    user=Depends(get_user("read")),
+    page: int = 1,
+    per_page: int = Query(default=25, lte=100),
+    query: str = Query(None),
+    sort_by: str = Query("created_at"),
+    sort_desc: bool = Query(False),
+    status: List[str] = Query(default=None, alias="status[]"),
+    type: List[str] = Query(default=None, alias="type[]"),
+):
     db_query = Part.objects
     if status is not None and len(status) > 0:
         db_query = db_query.filter(status__in=status)
     if type is not None and len(type) > 0:
         db_query = db_query.filter(type__in=type)
-    if query is not None and query.strip() != '':
+    if query is not None and query.strip() != "":
         db_query = db_query.filter(Q(name__icontains=query))
     if sort_by is not None:
         order_field = f"-{sort_by}" if sort_desc else sort_by
@@ -44,9 +57,13 @@ def index(user=Depends(get_user('read')), page: int = 1, per_page: int = Query(d
 
 @router.post("/api/parts")
 def create(
-    user=Depends(get_user('create')), name: str = Form(...), description: str = Form(None),
-    type: PartType = Form(...), material_id: str = Form(...), design_office_reference: str = Form(None),
-    metadata: str = Form('{}'),
+    user=Depends(get_user("create")),
+    name: str = Form(...),
+    description: str = Form(None),
+    type: PartType = Form(...),
+    material_id: str = Form(...),
+    design_office_reference: str = Form(None),
+    metadata: str = Form("{}"),
 ):
     material = Material.objects.filter(id=material_id).get()
     if not material:
@@ -55,7 +72,7 @@ def create(
     part = Part(
         name=name,
         description=description,
-        status='in_study',
+        status="in_study",
         type=type,
         design_office_reference=design_office_reference,
         material=material,
@@ -64,16 +81,30 @@ def create(
     try:
         part.save()
     except IntegrityError as e:
-        raise HTTPException(status_code=422, detail="Name already taken.") if 'parts_name_unique' in str(e) else e
+        raise (
+            HTTPException(status_code=422, detail="Name already taken.")
+            if "parts_name_unique" in str(e)
+            else e
+        )
     AuditLog.log(user, "Part created", resource=part)
     return model_serializer(part)
 
 
+@router.get("/api/parts/{id}/magnets")
+def magnets(id: int, user=Depends(get_user("read"))):
+    part = Part.objects.prefetch_related("magnetpart_set__magnet").get(id=id)
+    if not part:
+        raise HTTPException(status_code=404, detail="Part not found")
+
+    result = []
+    for magnet_part in part.magnetpart_set.all():
+        result.append(model_serializer(magnet_part.magnet))
+    return {"magnets": result}
+
+
 @router.get("/api/parts/{id}/sites")
-def sites(id: int, user=Depends(get_user('read'))):
-    part = Part.objects \
-        .prefetch_related('magnetpart_set__magnet__sitemagnet_set__site') \
-        .get(id=id)
+def sites(id: int, user=Depends(get_user("read"))):
+    part = Part.objects.prefetch_related("magnetpart_set__magnet__sitemagnet_set__site").get(id=id)
     if not part:
         raise HTTPException(status_code=404, detail="Part not found")
 
@@ -81,14 +112,14 @@ def sites(id: int, user=Depends(get_user('read'))):
     for magnet_part in part.magnetpart_set.all():
         for site_magnet in magnet_part.magnet.sitemagnet_set.all():
             result.append(model_serializer(site_magnet.site))
-    return {'sites': result}
+    return {"sites": result}
 
 
 @router.get("/api/parts/{id}/records")
-def records(id: int, user=Depends(get_user('read'))):
-    part = Part.objects \
-        .prefetch_related('magnetpart_set__magnet__sitemagnet_set__site__record_set') \
-        .get(id=id)
+def records(id: int, user=Depends(get_user("read"))):
+    part = Part.objects.prefetch_related(
+        "magnetpart_set__magnet__sitemagnet_set__site__record_set"
+    ).get(id=id)
     if not part:
         raise HTTPException(status_code=404, detail="Part not found")
 
@@ -97,15 +128,18 @@ def records(id: int, user=Depends(get_user('read'))):
         for site_magnet in magnet_part.magnet.sitemagnet_set.all():
             for record in site_magnet.site.record_set.all():
                 result.append(model_serializer(record))
-    return {'records': result}
+    return {"records": result}
 
 
 @router.get("/api/parts/{id}")
-def show(id: int, user=Depends(get_user('read'))):
-    part = Part.objects\
-        .select_related('material', 'hts_attachment', 'shape_attachment')\
-        .prefetch_related('cadattachment_set__attachment', 'magnetpart_set__magnet')\
+def show(id: int, user=Depends(get_user("read"))):
+    part = (
+        Part.objects.select_related(
+            "material", "hts_attachment", "shape_attachment", "modelaxi_attachment"
+        )
+        .prefetch_related("cadattachment_set__attachment", "magnetpart_set__magnet")
         .get(id=id)
+    )
     if not part:
         raise HTTPException(status_code=404, detail="Part not found")
 
@@ -114,15 +148,26 @@ def show(id: int, user=Depends(get_user('read'))):
 
 @router.patch("/api/parts/{id}")
 def update(
-    id: int, user=Depends(get_user('update')), name: str = Form(...), description: str = Form(None),
-    type: PartType = Form(...), material_id: str = Form(...), design_office_reference: str = Form(None),
-    geometry_yaml_config: str = Form(None), geometry_hts: UploadFile = File(None),
-    geometry_shape: UploadFile = File(None), metadata: str = Form(None),
+    id: int,
+    user=Depends(get_user("update")),
+    name: str = Form(...),
+    description: str = Form(None),
+    type: PartType = Form(...),
+    material_id: str = Form(...),
+    design_office_reference: str = Form(None),
+    geometry_yaml_config: str = Form(None),
+    geometry_hts: UploadFile = File(None),
+    geometry_shape: UploadFile = File(None),
+    geometry_modelaxi: UploadFile = File(None),
+    metadata: str = Form(None),
 ):
-    part = Part.objects \
-        .select_related('material', 'hts_attachment', 'shape_attachment') \
-        .prefetch_related('cadattachment_set__attachment', 'magnetpart_set__magnet') \
+    part = (
+        Part.objects.select_related(
+            "material", "hts_attachment", "shape_attachment", "modelaxi_attachment"
+        )
+        .prefetch_related("cadattachment_set__attachment", "magnetpart_set__magnet")
         .get(id=id)
+    )
     if not part:
         raise HTTPException(status_code=404, detail="Part not found")
 
@@ -136,11 +181,42 @@ def update(
     part.design_office_reference = design_office_reference
     part.material = material
     if geometry_yaml_config is not None:
-        part.geometry_config = json.loads(yaml_to_json(geometry_yaml_config))
+        try:
+            # Load YAML string as python_magnetgeo object, then serialize to JSON
+            # This ensures proper validation and uses the object's to_json() method
+            with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as tmp:
+                tmp.write(geometry_yaml_config)
+                tmp_path = tmp.name
+            try:
+                geometry_obj = pmg.load(tmp_path, from_json=False)
+                part.geometry_config = json.loads(geometry_obj.to_json())
+            finally:
+                import os
+
+                os.unlink(tmp_path)
+        except FileNotFoundError as e:
+            raise HTTPException(
+                status_code=400,
+                detail=f"YAML contains file references that cannot be resolved: {e}. "
+                f"Please provide fully expanded inline YAML without file references, "
+                f"or upload the complete geometry including all referenced files.",
+            )
+        except pmg.ObjectLoadError as e:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Failed to load geometry configuration: {e}",
+            )
+        except pmg.UnsupportedTypeError as e:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid geometry type: {e}",
+            )
     if geometry_hts is not None and part.allow_hts_file:
         part.hts_attachment = StorageAttachment.upload(geometry_hts)
     if geometry_shape is not None and part.allow_shape_file:
         part.shape_attachment = StorageAttachment.upload(geometry_shape)
+    if geometry_modelaxi is not None and part.allow_modelaxi_file:
+        part.modelaxi_attachment = StorageAttachment.upload(geometry_modelaxi)
     if metadata is not None:
         part.metadata = json.loads(metadata)
     part.save()
@@ -149,7 +225,7 @@ def update(
 
 
 @router.get("/api/parts/{id}/geometry.yaml")
-def geometry(id: int, user=Depends(get_user('read'))):
+def geometry(id: int, user=Depends(get_user("read"))):
     part = Part.objects.get(id=id)
     if not part:
         raise HTTPException(status_code=404, detail="Part not found")
@@ -158,19 +234,19 @@ def geometry(id: int, user=Depends(get_user('read'))):
 
 
 @router.post("/api/parts/{id}/defunct")
-def defunct(id: int, user=Depends(get_user('update'))):
+def defunct(id: int, user=Depends(get_user("update"))):
     part = Part.objects.get(id=id)
     if not part:
         raise HTTPException(status_code=404, detail="Part not found")
 
-    part.status = 'defunct'
+    part.status = "defunct"
     part.save()
     AuditLog.log(user, "Part defunct", resource=part)
     return model_serializer(part)
 
 
 @router.delete("/api/parts/{id}")
-def destroy(id: int, user=Depends(get_user('delete'))):
+def destroy(id: int, user=Depends(get_user("delete"))):
     part = Part.objects.get(id=id)
     if not part:
         raise HTTPException(status_code=404, detail="Part not found")

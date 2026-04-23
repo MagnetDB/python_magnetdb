@@ -19,20 +19,20 @@
           <template #content>
             <div class="space-y-2">
               <router-link
-                  class="btn btn-default btn-block"
-                  :to="{ name: 'visualisation_bmap', query: { resource_type: 'magnet', resource_id: magnet.id } }"
+                class="btn btn-default btn-block"
+                :to="{ name: 'visualisation_bmap', query: { resource_type: 'magnet', resource_id: magnet.id } }"
               >
                 BMAP
               </router-link>
               <router-link
-                  class="btn btn-default btn-block"
-                  :to="{ name: 'visualisation_stress_map', query: { resource_type: 'magnet', resource_id: magnet.id } }"
+                class="btn btn-default btn-block"
+                :to="{ name: 'visualisation_stress_map', query: { resource_type: 'magnet', resource_id: magnet.id } }"
               >
                 Stress map
               </router-link>
               <router-link
-                  class="btn btn-default btn-block"
-                  :to="{ name: 'visualisation_bmap_2d', query: { resource_type: 'magnet', resource_id: magnet.id } }"
+                class="btn btn-default btn-block"
+                :to="{ name: 'visualisation_bmap_2d', query: { resource_type: 'magnet', resource_id: magnet.id } }"
               >
                 BMAP 2D
               </router-link>
@@ -40,7 +40,6 @@
           </template>
         </Popover>
       </div>
-
     </div>
 
     <Alert v-if="error" class="alert alert-danger mb-6" :error="error"/>
@@ -52,11 +51,11 @@
 
       <Form ref="form" :initial-values="initialValues" @submit="submit" @validate="validate">
         <FormField
-            label="Name"
-            name="name"
-            type="text"
-            :component="FormInput"
-            :required="true"
+          label="Name"
+          name="name"
+          type="text"
+          :component="FormInput"
+          :required="true"
         />
         <FormField
           label="Type"
@@ -67,32 +66,32 @@
           :options="typeOptions"
         />
         <FormField
-            label="Description"
-            name="description"
-            type="text"
-            :component="FormInput"
+          label="Description"
+          name="description"
+          type="text"
+          :component="FormInput"
         />
         <FormField
-            label="Design Office Reference"
-            name="design_office_reference"
-            type="text"
-            :component="FormInput"
+          label="Design Office Reference"
+          name="design_office_reference"
+          type="text"
+          :component="FormInput"
         />
         <FormField
-            label="Inner bore"
-            name="inner_bore"
-            type="number"
-            placeholder="0"
-            :component="FormInput"
-            :required="true"
+          label="Inner bore [mm]"
+          name="inner_bore"
+          type="number"
+          placeholder="0"
+          :component="FormInput"
+          :required="true"
         />
         <FormField
-            label="Outer bore"
-            name="outer_bore"
-            type="number"
-            placeholder="0"
-            :component="FormInput"
-            :required="true"
+          label="Outer bore [mm]"
+          name="outer_bore"
+          type="number"
+          placeholder="0"
+          :component="FormInput"
+          :required="true"
         />
         <div class="form-field">
           <label class="form-field-label">Geometry</label>
@@ -105,10 +104,10 @@
           :default-attachments="magnet.cad"
         />
         <MeshAttachmentEditor
-            label="Meshes"
-            resource-type="magnet"
-            :resource-id="magnet.id"
-            :default-attachments="magnet.meshes"
+          label="Meshes"
+          resource-type="magnet"
+          :resource-id="magnet.id"
+          :default-attachments="magnet.meshes"
         />
         <div class="form-field">
           <label class="form-field-label">Flow params</label>
@@ -130,9 +129,9 @@
         <div class="flex items-center justify-between">
           <div>Parts</div>
           <Button
-              v-if="magnet.status === 'in_study'"
-              class="btn btn-primary btn-small"
-              @click="addPartModalVisible = true"
+            v-if="magnet.status === 'in_study'"
+            class="btn btn-primary btn-small"
+            @click="addPartModalVisible = true"
           >
             Add a part
           </Button>
@@ -146,7 +145,7 @@
               <th class="whitespace-nowrap">Name</th>
               <th class="whitespace-nowrap">Description</th>
               <th class="whitespace-nowrap">Status</th>
-              <th class="whitespace-nowrap">Angle</th>
+              <th class="whitespace-nowrap">Angle [deg]</th>
               <th class="whitespace-nowrap">Commissioned At</th>
               <th class="whitespace-nowrap">Decommissioned At</th>
               <th class="whitespace-nowrap"></th>
@@ -195,10 +194,56 @@
 
     <Card class="mb-6">
       <template #header>
+        Probes
+      </template>
+      <div class="table-responsive">
+        <table>
+          <thead class="bg-white">
+            <tr>
+              <th>Name</th>
+              <th>Description</th>
+              <th>Type</th>
+              <th>Labels</th>
+              <th>Points</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-if="!magnet.probe_set || magnet.probe_set.length === 0">
+              <td colspan="5" class="text-gray-500 italic">No probes</td>
+            </tr>
+            <tr v-for="probe in magnet.probe_set" :key="probe.id">
+              <td>
+                <router-link :to="{ name: 'probe', params: { id: probe.id } }" class="link">
+                  {{ probe.name }}
+                </router-link>
+              </td>
+              <td>
+                <template v-if="probe.description">{{ probe.description }}</template>
+                <span v-else class="text-gray-500 italic">Not available</span>
+              </td>
+              <td>
+                <template v-if="probe.type">{{ probe.type }}</template>
+                <span v-else class="text-gray-500 italic">Not available</span>
+              </td>
+              <td>
+                <template v-if="probe.labels">{{ probe.labels }}</template>
+                <span v-else class="text-gray-500 italic">Not available</span>
+              </td>
+              <td>
+                <template v-if="probe.points">{{ probe.points }}</template>
+                <span v-else class="text-gray-500 italic">Not available</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </Card>
+
+    <Card class="mb-6">
+      <template #header>
         <div class="flex items-center justify-between">
           <div>Related Site</div>
         </div>
-
       </template>
 
       <div class="table-responsive">
@@ -235,10 +280,10 @@
     </Card>
 
     <AddPartToMagnetModal
-        :magnet-id="magnet.id"
-        :visible="addPartModalVisible"
-        :allowed-types="magnet.supported_part_types"
-        @close="addPartModalVisible = false; fetch()"
+      :magnet-id="magnet.id"
+      :visible="addPartModalVisible"
+      :allowed-types="magnet.supported_part_types"
+      @close="addPartModalVisible = false; fetch()"
     />
   </div>
   <Alert v-else-if="error" class="alert alert-danger" :error="error"/>
@@ -312,10 +357,10 @@ export default {
     },
     defunct() {
       return magnetService.defunct({ magnetId: this.magnet.id })
-          .then(this.fetch)
-          .catch((error) => {
-            this.error = error
-          })
+        .then(this.fetch)
+        .catch((error) => {
+          this.error = error
+        })
     },
     submit(values, {setRootError}) {
       let payload = {
@@ -336,8 +381,8 @@ export default {
       }
 
       return magnetService.update(payload)
-          .then(this.fetch)
-          .catch(setRootError)
+        .then(this.fetch)
+        .catch(setRootError)
     },
     validate() {
       return Yup.object().shape({
@@ -346,27 +391,27 @@ export default {
     },
     fetch() {
       client.get(`/api/magnets/${this.$route.params.id}/geometry.yaml`)
-          .then((res) => this.defaultGeometryValue = res.data)
+        .then((res) => this.defaultGeometryValue = res.data)
       return magnetService.find({id: this.$route.params.id})
-          .then((magnet) => {
-            this.magnet = magnet
-            this.defaultFlowParamsValue = magnet.flow_params ? JSON.stringify(magnet.flow_params, null, 2) : ''
-            this.initialValues = {
-              ...magnet,
-              type: this.typeOptions.find((opt) => opt.value === this.magnet.type),
-              flow_params: this.defaultFlowParamsValue,
-            }
-          })
-          .catch((error) => {
-            this.error = error
-          })
+        .then((magnet) => {
+          this.magnet = magnet
+          this.defaultFlowParamsValue = magnet.flow_params ? JSON.stringify(magnet.flow_params, null, 2) : ''
+          this.initialValues = {
+            ...magnet,
+            type: this.typeOptions.find((opt) => opt.value === this.magnet.type),
+            flow_params: this.defaultFlowParamsValue,
+          }
+        })
+        .catch((error) => {
+          this.error = error
+        })
     },
     removePart(magnetPart) {
       magnetService.deletePart({ magnetPartId: magnetPart.id })
-          .then(this.fetch)
-          .catch((error) => {
-            this.error = error
-          })
+        .then(this.fetch)
+        .catch((error) => {
+          this.error = error
+        })
     },
   },
   async mounted() {

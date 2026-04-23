@@ -1,4 +1,4 @@
-FROM trophime/magnettools:1.1.0-bookworm-poetry-1.8.4
+FROM trophime/magnettools:bookworm-poetry-2.2.1
 
 ARG USERNAME=feelpp
 ARG USER_UID=1000
@@ -14,6 +14,9 @@ RUN apt-get update \
     && apt-get install -y debconf-utils \
     && apt-get install -y libpq-dev
 
+RUN echo "*** install prerequisites for MagnetTools ***" \
+    && apt-get install -y magnettools libmagnettools-dev
+
 RUN echo "create local user $USERNAME (uid=${USER_UID}, gid=${USER_GID})" \
     && echo "create local user $USERNAME (uid=${USER_UID}, gid=${USER_GID})" \
     && echo "getent group ${USER_GID}: $(getent group ${USER_GID})" \
@@ -27,10 +30,11 @@ RUN echo "create local user $USERNAME (uid=${USER_UID}, gid=${USER_GID})" \
     && chmod 0440 /etc/sudoers.d/$USERNAME \
     && echo "local user $(getent group $USER_GID)" \
     && echo "local user $(getent passwd $USER_UID)" \
-    && mkdir -p ~${USERNAME}/.ssh/ \
+    && mkdir -p /home/${USERNAME}/.ssh/ \
     # add github ssh key\
-    && ssh-keyscan github.com >> ~${USERNAME}/.ssh/known_hosts \
-    && chown -R $USER_GID:$USER_UID ~${USERNAME}/.ssh
+    && ssh-keyscan github.com >> /home/${USERNAME}/.ssh/known_hosts \
+    && chown -R $USER_GID:$USER_UID /home/${USERNAME}/.ssh
 
+ENV LD_LIBRARY_PATH="/usr/lib/x86_64-linux-gnu/MagnetTools/:$LD_LIBRARY_PATH"
 USER $USERNAME
 

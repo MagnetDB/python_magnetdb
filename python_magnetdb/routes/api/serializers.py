@@ -53,8 +53,12 @@ def _part_post_processor(model: Part, res: dict):
     if 'shape_attachment' in res:
         res['shape'] = res['shape_attachment']
         del res['shape_attachment']
+    if 'modelaxi_attachment' in res:
+        res['modelaxi'] = res['modelaxi_attachment']
+        del res['modelaxi_attachment']
     res['allow_hts_file'] = model.allow_hts_file
     res['allow_shape_file'] = model.allow_shape_file
+    res['allow_modelaxi_file'] = model.allow_modelaxi_file
     return res
 
 
@@ -116,7 +120,9 @@ POST_PROCESSORS = {
 }
 
 
-def model_serializer(model: models.Model, already_processed = []):
+def model_serializer(model: models.Model, already_processed=None):
+    if already_processed is None:
+        already_processed = []
     res = {}
     for field in model._meta.fields:
         if not isinstance(field, ForeignKey):

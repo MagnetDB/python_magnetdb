@@ -1,0 +1,40 @@
+{
+  "organization": {
+    "name": "Your Organization Name",
+    "prm": "12345678901234",
+    "siret": "12345678900012",
+    "contract_type": "Engie Dynamic Clic"
+  },
+  "api_credentials": {
+    "enedis": {
+      "client_id": "YOUR_ENEDIS_ID",
+      "client_secret": "YOUR_ENEDIS_SECRET",
+      "redirect_uri": "http://localhost:8000/callback"
+    },
+    "rte": {
+      "client_id": "YOUR_RTE_ID",
+      "client_secret": "YOUR_RTE_SECRET"
+    }
+  },
+  "clic_strategy": {
+    "comment": "Define your fixed price portions here",
+    "clic_ratio": 0.40,
+    "clic_fixed_rate_kwh": 0.1450,
+    "engie_margin_kwh": 0.0085
+  },
+  "taxes_and_fixed_costs_2026": {
+    "subscription_monthly_ht": 42.75,
+    "cta_monthly_ht": 9.40,
+    "accise_ticfe_kwh": 0.02658,
+    "vat_rates": {
+      "subscription_and_cta": 0.20,
+      "energy_and_accise": 0.20
+    }
+  },
+  "local_settings": {
+    "off_peak_slots": [
+      {"start": 22, "end": 6}
+    ],
+    "timezone": "Europe/Paris"
+  }
+}

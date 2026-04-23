@@ -24,7 +24,7 @@
 
     <Modal :visible="newMeshModalOpen" @close="newMeshModalOpen = false" :closeable="true">
       <template #header>
-        Add a part
+        Add a mesh
       </template>
       <template>
         <Form ref="form" @submit="submit" @validate="validate">

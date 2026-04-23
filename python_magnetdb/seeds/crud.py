@@ -1,64 +1,129 @@
 import json
 import os
-
-from python_magnetdb.utils.yaml_json import yaml_to_json
-
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'python_magnetdb.settings')
-
-import django
-django.setup()
-
 import re
-from datetime import datetime
 from os import path, getenv
 
+# Use lazy loading pattern for python_magnetgeo
+import python_magnetgeo as pmg
+
+# Register YAML constructors for lazy loading
+pmg.verify_class_registration()
+
+# Configure Django before importing models
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "python_magnetdb.settings")
+
+import django
+
+django.setup()
+
+# Now safe to import Django models
+from django.utils import timezone
+
 from python_magnetdb.models import StorageAttachment
-from python_magnetdb.models.magnet import Magnet
+from python_magnetdb.models.magnet import Magnet, MagnetType
 from python_magnetdb.models.material import Material
-from python_magnetdb.models.part import Part
+from python_magnetdb.models.part import Part, PartType
+from python_magnetdb.models.probe import Probe
 from python_magnetdb.models.record import Record
 from python_magnetdb.models.site import Site
 
-data_directory = getenv('DATA_DIR')
+data_directory = getenv("DATA_DIR")
+project_directory = None
+
+# Validate data_directory
+if not data_directory:
+    raise ValueError("DATA_DIR environment variable is not set")
+if not path.exists(data_directory):
+    raise FileNotFoundError(f"DATA_DIR directory does not exist: {data_directory}")
+if not path.isdir(data_directory):
+    raise NotADirectoryError(f"DATA_DIR is not a directory: {data_directory}")
+
+print(f"Using DATA_DIR={data_directory}")
 
 
 def upload_attachment(file: str) -> StorageAttachment:
     try:
-        return StorageAttachment.raw_upload(path.basename(file), 'text/tsv', file)
+        return StorageAttachment.raw_upload(path.basename(file), "text/tsv", file)
     except Exception as e:
-        print("failed to upload attachment: {}".format(e))
+        print(f"failed to upload attachment: {e}")
         return None
 
 
 def create_material(obj):
     """create material"""
+    res = query_material(obj["name"])
+    if res is not None:
+        print(f"material {obj['name']} already exists")
+        return res
+    print(f"material {obj['name']} does not exist, creating new one")
     return Material.objects.create(**obj)
 
 
 def create_part(obj):
     """create part"""
-    print("creating part {}".format(obj['name']))
-    geometry = obj.pop('geometry', None)
-    cad = obj.pop('cad', None)
+    res = query_part(obj["name"])
+    if res is not None:
+        print(f"part {obj['name']} already exists")
+        return res
+
+    print(f"creating part {obj['name']}")
+    geometry = obj.pop("geometry", None)
+    cad = obj.pop("cad", None)
+    shape = obj.pop("shape", None)
+    modelaxi = obj.pop("modelaxi", None)
     part = Part(**obj)
+    if project_directory is not None:
+        geometry = path.join(project_directory, geometry)
+    print(f"geometry={geometry}.yaml")
+    print(f"data_directory={data_directory}")
     if geometry is not None:
-        with open(path.join(data_directory, 'geometries', f"{geometry}.yaml")) as file:
-            part.geometry_config = json.loads(yaml_to_json(file.read()))
+        geometry_dir = path.join(data_directory, "geometries")
+        geometry_file = path.join(geometry_dir, f"{geometry}.yaml")
+
+        # Load as python_magnetgeo object (with validation), then serialize to JSON
+        # This ensures proper object deserialization and uses the object's to_json() method
+        try:
+            geometry_obj = pmg.load(geometry_file)
+            print(f"Loaded geometry object: {geometry_obj}")
+            print("json:\n", geometry_obj.to_json())
+            print("part.geometry:\n", json.loads(geometry_obj.to_json()))
+            part.geometry_config = json.loads(geometry_obj.to_json())
+        except pmg.ObjectLoadError as e:
+            print(f"Failed to load geometry from {geometry_file}: {e}")
+            raise
+        except pmg.UnsupportedTypeError as e:
+            print(f"Invalid geometry type in {geometry_file}: {e}")
+            raise
     part.save()
     if cad is not None:
         for file in [f"{cad}.xao", f"{cad}.brep"]:
-            attachment = upload_attachment(path.join(data_directory, 'cad', file))
+            attachment = upload_attachment(path.join(data_directory, "cad", file))
             if attachment is not None:
-                part.cadattachment_set.create(part=part, attachment=attachment)
+                part.cadattachment_set.create(part=part, attachment=attachment)  # type=)
+    if shape is not None:
+        attachment = upload_attachment(path.join(data_directory, "shape", f"{shape}"))
+        if attachment is not None:
+            part.shape_attachment = attachment
+            part.save()
+    if modelaxi is not None:
+        attachment = upload_attachment(path.join(data_directory, "modelaxi", f"{modelaxi}"))
+        if attachment is not None:
+            part.modelaxi_attachment = attachment
+            part.save()
     return part
 
 
 def create_site(obj):
     """create site"""
-    config = obj.pop('config', None)
+    res = query_site(obj["name"])
+    if res is not None:
+        print(f"site {obj['name']} already exists")
+        return res
+
+    config = obj.pop("config", None)
     site = Site(**obj)
     if config is not None:
-        attachment = upload_attachment(path.join(data_directory, 'conf', f"{config}"))
+        attachment = upload_attachment(path.join(data_directory, "conf", f"{config}"))
         if attachment is not None:
             site.config_attachment = attachment
     site.save()
@@ -67,56 +132,156 @@ def create_site(obj):
 
 def create_magnet(obj):
     """create magnet"""
-    site = obj.pop('site', None)
-    parts = obj.pop('parts', None)
-    geometry = obj.pop('geometry', None)
-    cad = obj.pop('cad', None)
-    magnet = Magnet(**obj)
+    res = query_magnet(obj["name"])
+    if res is not None:
+        print(f"magnet {obj['name']} already exists")
+        return res
+    site = obj.pop("site", None)
+    parts = obj.pop("parts", None)
+    geometry = obj.pop("geometry", None)
+    inner_bore = obj.pop("inner_bore", None)
+    outer_bore = obj.pop("outer_bore", None)
+
+    if project_directory is not None:
+        geometry = path.join(project_directory, geometry)
+    cad = obj.pop("cad", None)
+
+    # Load geometry if provided
     if geometry is not None:
-        attachment = upload_attachment(path.join(data_directory, 'geometries', f"{geometry}.yaml"))
+        geometry_file = path.join(data_directory, "geometries", f"{geometry}.yaml")
+
+        # Load as python_magnetgeo object (with validation)
+        try:
+            geometry_obj = pmg.load(geometry_file)
+            print(f"Loaded geometry object: {geometry_obj}")
+
+            # Get innerbore and outerbore from geometry if not provided
+            if inner_bore is None and hasattr(geometry_obj, "innerbore"):
+                inner_bore = geometry_obj.innerbore
+                print(f"Using innerbore from geometry: {inner_bore}")
+            if outer_bore is None and hasattr(geometry_obj, "outerbore"):
+                outer_bore = geometry_obj.outerbore
+                print(f"Using outerbore from geometry: {outer_bore}")
+        except pmg.ObjectLoadError as e:
+            print(f"Failed to load geometry from {geometry_file}: {e}")
+            raise
+        except pmg.UnsupportedTypeError as e:
+            print(f"Invalid geometry type in {geometry_file}: {e}")
+            raise
+
+    # Infer inner_bore and outer_bore from parts if still not set
+    if (inner_bore is None or outer_bore is None) and parts is not None and len(parts) > 0:
+        # Epsilon in mm - clearance for bore calculations
+        eps = 0.9
+        
+        # Determine which part types to use based on magnet type
+        magnet_type = obj.get("type")
+        if magnet_type == MagnetType.INSERT.value:
+            relevant_types = [PartType.HELIX, PartType.RING]
+        elif magnet_type == MagnetType.BITTERS.value:
+            relevant_types = [PartType.BITTER]
+        elif magnet_type == MagnetType.SUPRAS.value:
+            relevant_types = [PartType.SUPRA]
+        else:
+            relevant_types = []
+
+        # Filter parts by relevant types
+        relevant_parts = [p for p in parts if p.type in [t.value for t in relevant_types]]
+
+        if len(relevant_parts) > 0:
+            # Get r values from first and last relevant parts
+            # Units are in mm (from geometry YAML config files)
+            if inner_bore is None:
+                first_part = relevant_parts[0]
+                if first_part.geometry_config and "r" in first_part.geometry_config:
+                    inner_bore = first_part.geometry_config["r"][0] - eps
+                    print(
+                        f"Inferred inner_bore from first {first_part.type} part '{first_part.name}': {inner_bore} mm"
+                    )
+
+            if outer_bore is None:
+                last_part = relevant_parts[-1]
+                if last_part.geometry_config and "r" in last_part.geometry_config:
+                    outer_bore = last_part.geometry_config["r"][1] + eps
+                    print(
+                        f"Inferred outer_bore from last {last_part.type} part '{last_part.name}': {outer_bore} mm"
+                    )
+
+    # Create magnet with extracted or provided bore values
+    magnet = Magnet(**obj)
+    if inner_bore is not None:
+        magnet.inner_bore = inner_bore
+    if outer_bore is not None:
+        magnet.outer_bore = outer_bore
+
+    if geometry is not None:
+        # Upload geometry attachment
+        attachment = upload_attachment(path.join(data_directory, "geometries", f"{geometry}.yaml"))
         if attachment is not None:
             magnet.geometry_attachment = attachment
     magnet.save()
     if cad is not None:
         for file in [f"{cad}.xao", f"{cad}.brep"]:
-            attachment = upload_attachment(path.join(data_directory, 'cad', file))
+            attachment = upload_attachment(path.join(data_directory, "cad", file))
             if attachment is not None:
                 magnet.cadattachment_set.create(magnet=magnet, attachment=attachment)
     if site is not None:
-        magnet.sitemagnet_set.create(site=site, commissioned_at=datetime.now())
+        magnet.sitemagnet_set.create(site=site, commissioned_at=timezone.now())
     if parts is not None:
         for part in parts:
-            print('part:', part.name)
-            magnet.magnetpart_set.create(commissioned_at=datetime.now(), part=part)
+            print("part:", part.name)
+            magnet.magnetpart_set.create(commissioned_at=timezone.now(), part=part)
     return magnet
 
 
+# see create part
+# see seeds.py pour faire test
+def create_probe(obj):
+    """create probe"""
+    res = query_probe(obj["name"])
+    if res is not None:
+        print(f"probe {obj['name']} already exists")
+        return res
+    print(f"creating probe {obj['name']}")
+    return Probe.objects.create(**obj)
+
+
 def extract_date_from_filename(filename):
-    for match in re.finditer(r".+_(\d{4}).(\d{2}).(\d{2})---(\d{2}):(\d{2}):(\d{2}).+", filename):
-        return datetime(int(match.group(1)), int(match.group(2)), int(match.group(3)),
-                        int(match.group(4)), int(match.group(5)), int(match.group(6)))
+    for match in re.finditer(r".+_(\d{4}).(\d{2}).(\d{2})---(\d{2}):(\d{2}):(\d{2}).txt", filename):
+        year, month, day, hour, minute, second = match.groups()
+        return timezone.datetime(  # Using timezone.datetime instead of datetime
+            int(year),
+            int(month),
+            int(day),
+            int(hour),
+            int(minute),
+            int(second),
+            tzinfo=timezone.get_current_timezone(),
+        )
     return None
 
 
 def create_record(obj):
     """create a record from file for site"""
 
-    file = obj.pop('file', None)
-    site = obj.pop('site', None)
+    file = obj.pop("file", None)
+    site = obj.pop("site", None)
     if file is not None and site is not None:
-        print(f'{data_directory}/mrecords/{file}')
+        print(f"{data_directory}/mrecords/{file}")
         print(f"{path.basename(path.join(data_directory, 'mrecords', file))}")
-        created_at = extract_date_from_filename(path.basename(path.join(data_directory, 'mrecords', file)))
-        print(f'created_at={created_at}')
+        created_at = extract_date_from_filename(
+            path.basename(path.join(data_directory, "mrecords", file))
+        )
+        print(f"created_at={created_at}")
         if created_at is None:
-            created_at = datetime.now()
+            created_at = timezone.now()
 
-        attachment = upload_attachment(path.join(data_directory, 'mrecords', file))
+        attachment = upload_attachment(path.join(data_directory, "mrecords", file))
         if attachment is None:
             return None
 
         return Record.objects.create(
-            name=path.basename(path.join(data_directory, 'mrecords', file)),
+            name=path.basename(path.join(data_directory, "mrecords", file)),
             created_at=created_at,
             attachment=attachment,
             site=site,
@@ -134,10 +299,10 @@ def query_by_name(model_class, name: str):
     try:
         return model_class.objects.get(name=name)
     except model_class.DoesNotExist:
-        print(f'{model_class.__name__}[name={name}] no such object')
+        print(f"{model_class.__name__}[name={name}] no such object")
         return None
     except model_class.MultipleObjectsReturned:
-        raise Exception(f'{model_class.__name__}[name={name}] returns more than one object')
+        raise Exception(f"{model_class.__name__}[name={name}] returns more than one object")
 
 
 def query_part(name: str):
@@ -145,9 +310,19 @@ def query_part(name: str):
     return query_by_name(Part, name)
 
 
+def query_probe(name: str):
+    """search a probe object by name"""
+    return query_by_name(Probe, name)
+
+
 def query_material(name: str):
     """search a material object by name"""
     return query_by_name(Material, name)
+
+
+def query_magnet(name: str):
+    """search a magnet object by name"""
+    return query_by_name(Magnet, name)
 
 
 def query_site(name: str):

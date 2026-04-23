@@ -1,7 +1,9 @@
 import json
 
 from fastapi import APIRouter, HTTPException, Form, Depends
-from datetime import datetime
+
+# from datetime import datetime
+from django.utils import timezone
 
 from .serializers import model_serializer
 from ...dependencies import get_user
@@ -17,7 +19,7 @@ def create(
     magnet_id: int = Form(...),
     part_id: int = Form(...),
     angle: float = Form(None),
-    metadata: str = Form('{}'),
+    metadata: str = Form("{}"),
 ):
     magnet = Magnet.objects.get(id=magnet_id)
     if not magnet:
@@ -29,6 +31,9 @@ def create(
 
     for magnet_part in part.magnetpart_set.all():
         if magnet_part.magnet.status == Status.IN_STUDY:
+            print(
+                f"Warning: deleting magnet_part id={magnet_part.id} from magnet id={magnet_part.magnet.id}"
+            )
             magnet_part.delete()
 
     magnet_part = MagnetPart(
@@ -36,7 +41,7 @@ def create(
         part=part,
         angle=angle,
         metadata=json.loads(metadata),
-        commissioned_at=datetime.now()
+        commissioned_at=timezone.now(),
     )
     magnet_part.save()
 
@@ -46,11 +51,14 @@ def create(
 
 @router.delete("/api/magnet_parts/{magnetpart_id}")
 def destroy(magnetpart_id: int, user=Depends(get_user("delete"))):
-    magnet_part = MagnetPart.objects.select_related('magnet').get(id=magnetpart_id)
+    magnet_part = MagnetPart.objects.select_related("magnet").get(id=magnetpart_id)
     if not magnet_part:
         raise HTTPException(status_code=404, detail="Magnet part not found")
 
-    if magnet_part.magnet.status != Status.IN_STUDY and magnet_part.magnet.status != Status.IN_STOCK:
+    if (
+        magnet_part.magnet.status != Status.IN_STUDY
+        and magnet_part.magnet.status != Status.IN_STOCK
+    ):
         raise HTTPException(status_code=422, detail="Magnet not editable")
 
     magnet_part.delete()

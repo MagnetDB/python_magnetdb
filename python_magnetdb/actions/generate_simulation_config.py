@@ -30,7 +30,15 @@ def generate_magnet_config(magnet_id):
         f"generate_magnet_config[{magnet_id}]: magnet={magnet.name}"
     )
     payload = {"geom": f"{magnet.name}.yaml"}
-    insulator_payload = format_material(Material.objects.get(name="MAT_ISOLANT"))
+    
+    try:
+        insulator_payload = format_material(Material.objects.get(name="MAT_ISOLANT"))
+    except Material.DoesNotExist:
+        raise ValueError(
+            "Material 'MAT_ISOLANT' is not defined in the database. "
+            "Please create this material before generating magnet configurations."
+        )
+    
     for magnet_part in magnet.magnetpart_set.all():
         # if not magnet_part.active:
         #     continue

@@ -1,0 +1,268 @@
+# Django Migrations Timeline - python_magnetdb
+
+This document provides a comprehensive overview of the database migrations for the `python_magnetdb` Django application, organized chronologically with detailed explanations of major changes.
+
+## Migration Guide
+
+### Create a migration
+
+Connect to magnetdb-api container and Run:
+
+```bash
+[poetry run] python manage.py makemigrations
+```
+
+To apply the the migration
+
+```bash
+[poetry run] python manage.py migrate
+```
+
+refs: [Django docs](docs.djangoproject.com/en/5.2/topics/migrations/)
+
+## Migration Timeline
+
+### 0001_initial.py (2024-07-23 13:59)
+**Initial Database Schema Creation**
+
+This migration establishes the foundational database schema for the magnetdb application.
+
+**Major Components Created:**
+- **Core Models**: Material, Record, StorageAttachment, User, Server, AuditLog
+- **Magnet System**: Magnet, Part, MagnetPart (junction table)
+- **Site System**: Site, SiteMagnet (junction table)  
+- **Simulation System**: Simulation, SimulationCurrent
+- **CAD System**: CadAttachment
+- **Storage System**: StorageAttachment with file management
+
+**Key Relationships Established:**
+- Many-to-many relationship between Magnets and Parts through MagnetPart
+- Many-to-many relationship between Sites and Magnets through SiteMagnet
+- Foreign key relationships for material properties and user ownership
+- File attachment system for storing CAD files and other documents
+
+**Database Tables Created:** 15 tables including users, materials, magnets, parts, sites, simulations, and various junction tables.
+
+---
+
+### 0002_cadattachment_magnet_cadattachment_part_and_more.py (2024-07-24 09:06)
+**CAD Attachment System Refactoring**
+
+**Changes:**
+- **Added specific foreign keys** to CadAttachment for magnet, part, and site
+- **Implemented data migration** to convert generic resource_type/resource_id to specific foreign keys
+- **Added many-to-many relationships** between models and their CAD attachments
+
+**Impact:** Improved type safety and performance for CAD file associations by moving from generic foreign keys to specific relationships.
+
+---
+
+### 0003_remove_cadattachment_resource_id_and_more.py (2024-07-24 09:31)
+**Simulation System Enhancement**
+
+**Changes:**
+- **Removed generic resource fields** from CadAttachment (resource_id, resource_type)
+- **Enhanced Simulation model** with direct relationships to Magnet and Site
+- **Added bidirectional many-to-many** relationships for simulations
+- **Modified setup_state field** to use JSONField with default empty dictionary
+
+**Impact:** Simplified the CAD attachment system and strengthened simulation-to-model relationships.
+
+---
+
+### 0004_alter_simulation_setup_state.py (2024-07-24 09:50)
+**JSON Field Migration and Data Conversion**
+
+**Changes:**
+- **Converted setup_state** from JSONField to jsonfield.fields.JSONField
+- **Implemented data migration** to convert simulation resource references to direct foreign keys
+- **Data cleanup** with transaction safety and error handling
+
+**Impact:** Improved JSON field handling and completed the migration from generic to specific foreign key relationships.
+
+---
+
+### 0005_remove_simulation_resource_id_and_more.py (2024-07-24 09:51)
+**Final Cleanup of Generic References**
+
+**Changes:**
+- **Removed remaining generic fields** from Simulation model (resource_id, resource_type)
+
+**Impact:** Completed the refactoring from generic foreign keys to specific typed relationships.
+
+---
+
+### 0006_remove_magnet_cad_attachments_and_more.py (Date not shown)
+**CAD Attachment Architecture Simplification**
+
+**Changes:**
+- **Removed many-to-many relationships** between models and CAD attachments
+- **Simplified attachment system** to direct foreign key relationships
+
+**Impact:** Streamlined the CAD attachment system for better performance and simpler queries.
+
+---
+
+### 0007_part_geometry_config_part_hts_attachment_and_more.py (2024-12-09 14:29)
+**Part Model Enhancement for Geometry and Materials**
+
+**Changes:**
+- **Added geometry_config JSONField** to Part model for storing geometric configuration
+- **Added hts_attachment** foreign key for High Temperature Superconductor data
+- **Added shape_attachment** foreign key for shape definition files
+
+**Impact:** Enhanced Part model to support complex geometry definitions and specialized material attachments.
+
+---
+
+### 0008_alter_part_hts_attachment_and_more.py (2024-12-19 13:20)
+**Attachment Relationship Refinement**
+
+**Changes:**
+- **Modified related_name** for hts_attachment (part_hts_set → part_hts)
+- **Modified related_name** for shape_attachment (part_shape_set → part_shape)
+
+**Impact:** Improved naming consistency for reverse relationships in attachment system.
+
+---
+
+### 0009_magnetpart_angle_magnetpart_inner_bore_and_more.py (2024-12-19 13:49)
+**MagnetPart Geometry Enhancement**
+
+**Changes:**
+- **Added geometric fields** to MagnetPart: angle, inner_bore, outer_bore
+- **Deleted PartGeometry model** (consolidated into MagnetPart)
+
+**Impact:** Simplified geometry storage by moving geometric properties directly to the MagnetPart junction table, eliminating the need for a separate PartGeometry model.
+
+---
+
+### 0010_sitemagnet_parallax_sitemagnet_r_offset_and_more.py (2024-12-19 19:04)
+**Site-Magnet Positioning System**
+
+**Changes:**
+- **Added positioning fields** to SiteMagnet: parallax, r_offset, z_offset
+
+**Impact:** Enhanced the site-magnet relationship with 3D positioning capabilities for precise magnet placement within sites.
+
+---
+
+### 0011_magnet_type.py (2025-01-10 10:13)
+**Magnet Classification System**
+
+**Changes:**
+- **Added type field** to Magnet model (required field)
+
+**Impact:** Introduced magnet categorization system for better organization and filtering.
+
+---
+
+### 0012_remove_magnetpart_inner_bore_and_more.py (2025-01-10 10:33)
+**Geometry Field Reorganization**
+
+**Changes:**
+- **Moved bore dimensions** from MagnetPart to Magnet (inner_bore, outer_bore)
+
+**Impact:** Simplified the data model by moving bore dimensions to the magnet level, as these are typically magnet-wide properties rather than part-specific.
+
+---
+
+### 0013_alter_magnet_type_alter_part_type.py (2025-01-10 13:44)
+**Type Field Constraints and Validation**
+
+**Changes:**
+- **Added choices constraint** to Magnet.type: 'insert', 'bitters', 'supras'
+- **Added choices constraint** to Part.type: 'supra', 'helix', 'ring', 'screen', 'lead', 'bitter'
+
+**Impact:** Enforced data integrity with predefined type categories for both magnets and parts.
+
+---
+
+### 0014_magnet_metadata_magnetpart_metadata_and_more.py (2025-01-23 09:50)
+**Universal Metadata System**
+
+**Changes:**
+- **Added metadata JSONField** to multiple models:
+  - Magnet, MagnetPart, Material, Part, Record, Simulation, Site, SiteMagnet
+
+**Impact:** Introduced flexible metadata storage across all major models, enabling extensible data storage without schema changes.
+
+---
+
+### 0015_magnet_flow_params.py (2025-01-30 16:02)
+**Flow Simulation Parameters**
+
+**Changes:**
+- **Added flow_params JSONField** to Magnet model
+
+**Impact:** Enhanced Magnet model to support fluid dynamics simulation parameters.
+
+---
+
+### 0016_remove_magnet_geometry_attachment_and_more.py (2025-03-13 16:08)
+**Geometry System Cleanup**
+
+**Changes:**
+- **Removed geometry_attachment** from Magnet model
+- **Standardized setup_state** field back to models.JSONField
+
+**Impact:** Simplified geometry handling and standardized JSON field implementation.
+
+---
+
+### 0017_meshattachment.py (2025-04-03 12:38)
+**Mesh Management System**
+
+**Changes:**
+- **Created MeshAttachment model** with:
+  - Type field (choices: 'axi', '3d')
+  - Foreign keys to StorageAttachment, Magnet, and Site
+  - Created mesh_attachments table
+
+**Impact:** Introduced dedicated mesh file management for computational simulations.
+
+---
+
+### 0018_simulation_mesh_attachment.py (2025-04-03 14:42)
+**Simulation-Mesh Integration**
+
+**Changes:**
+- **Added mesh_attachment** foreign key to Simulation model
+
+**Impact:** Connected simulations with their corresponding mesh files for computational analysis.
+
+---
+
+## Summary of Major Changes
+
+### Database Evolution Phases
+
+1. **Foundation Phase (0001-0005)**: Initial schema creation and refactoring from generic to specific foreign key relationships
+2. **Enhancement Phase (0006-0010)**: Improved attachment systems and added geometric capabilities
+3. **Classification Phase (0011-0013)**: Introduced type systems and data validation
+4. **Extensibility Phase (0014-0015)**: Added metadata and specialized parameter systems
+5. **Optimization Phase (0016-0018)**: Cleanup and mesh system integration
+
+### Key Architectural Decisions
+
+- **Migration from Generic Foreign Keys**: Early migrations (0002-0005) systematically replaced generic resource references with specific typed relationships
+- **Geometry Data Consolidation**: Moved from separate geometry models to embedded fields and JSON configurations
+- **Metadata Strategy**: Universal metadata JSON fields provide extensibility without frequent schema changes
+- **Attachment System Evolution**: Progressed from many-to-many to direct foreign key relationships for better performance
+
+### Current Schema State (as of Migration 0018)
+
+The database now supports:
+- **18 core models** with well-defined relationships
+- **Type-safe categorization** for magnets and parts
+- **Flexible metadata storage** across all major entities
+- **Comprehensive attachment system** for files, CAD data, and meshes
+- **3D positioning system** for site-magnet relationships
+- **Simulation integration** with mesh and parameter storage
+
+### Data Integrity Features
+
+- **Foreign key constraints** ensure referential integrity
+- **Choice field validation** prevents invalid type values
+- **Transaction-safe migrations** with error handling
+- **Cascading deletes** where appropriate to maintain consistency

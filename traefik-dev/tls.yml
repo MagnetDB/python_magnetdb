@@ -2,11 +2,8 @@ tls:
   stores:
     default:
       defaultCertificate:
-        certFile: /etc/ssl/traefik/magnetdb-dev.local.pem
-        keyFile: /etc/ssl/traefik/magnetdb-dev.local-key.pem
-  certificates:
-    - certFile: /etc/ssl/traefik/_wildcard.magnetdb-dev.local.pem
-      keyFile: /etc/ssl/traefik/_wildcard.magnetdb-dev.local-key.pem
+        certFile: /etc/ssl/traefik/magnetdb-dev.local+2.pem
+        keyFile: /etc/ssl/traefik/magnetdb-dev.local+2-key.pem
 http:
   routers:
     webapi:
@@ -16,7 +13,7 @@ http:
         - "https"
       tls: {}
     lemon:
-      rule: "Host(`lemon.magnetdb-dev.local`) || Host(`auth.lemon.magnetdb-dev.local`) || Host(`manager.lemon.magnetdb-dev.local`) || Host(`handler.lemon.magnetdb-dev.local`) || Host(`api.lemon.magnetdb-dev.local`)"
+      rule: "Host(`auth.lemon.magnetdb-dev.local`) || Host(`manager.lemon.magnetdb-dev.local`) || Host(`handler.lemon.magnetdb-dev.local`) || Host(`api.lemon.magnetdb-dev.local`)"
       service: "lemon"
       entryPoints:
         - "https"

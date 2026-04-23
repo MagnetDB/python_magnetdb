@@ -1,6 +1,7 @@
 import jwt
 
-from datetime import datetime
+#from datetime import datetime
+from django.utils import timezone
 from os import getenv
 
 authorization_server = getenv('SECURITY_AUTHORIZATION_SERVER') or "http://sso.lncmig.local"
@@ -12,7 +13,7 @@ secret = getenv("SECRET") or "defaultsecretpleasechangeme"
 
 
 def generate_user_token(user):
-    return jwt.encode({"user_id": user.id, "created_at": datetime.now().utctimetuple()}, secret, algorithm="HS256")
+    return jwt.encode({"user_id": user.id, "created_at": timezone.now().utctimetuple()}, secret, algorithm="HS256")
 
 
 def parse_user_token(token):

@@ -15,27 +15,29 @@ git submodule update --init --recursive
 
 0. Pre-requisites
 
-On your server:
+* Hosts settings
+
+On your host, set /etc/hosts:
 ```shell
-echo "127.0.0.1 handler.sso.lncmig.local api.manager.sso.lncmig.local manager.sso.lncmig.local sso.lncmig.local test.sso.lncmig.local" | sudo tee -a /etc/hosts
-echo "127.0.0.1 magnetdb.lncmig.local" | sudo tee -a /etc/hosts
-echo "127.0.0.1 magnetdb-api.lncmig.local" | sudo tee -a /etc/hosts
-echo "127.0.0.1 magnetdb-worker.lncmig.local" | sudo tee -a /etc/hosts
-echo "127.0.0.1 redis.lncmig.local" | sudo tee -a /etc/hosts
-echo "127.0.0.1 postgres.lncmig.local" | sudo tee -a /etc/hosts
-echo "127.0.0.1 pgadmin.lncmig.local" | sudo tee -a /etc/hosts
-echo "127.0.0.1 minio.lncmig.local" | sudo tee -a /etc/hosts
+echo "127.0.0.1 magnetdb.local api.magnetdb.local lemon.magnetdb.local manager.lemon.magnetdb.local auth.lemon.magnetdb.local pgadmin.magnetdb.local minio.magnetdb.local traefik.magnetdb.local swagger.magnetdb.local" | sudo tee -a /etc/hosts
 ```
 
-Create a self signed certificate for the magnetdb server
+* Certificates
+
+Create a self signed certificate for the magnetdb server:
    
 ```shell
 mkdir -p certs
-openssl req -new -x509 -days 365 -nodes -out certs/cert.pem -keyout certs/cert.key
-chmod 600 certs/cert.perm certs.cert.key
+cd certs
+mkcert -CAROOT
+mkcert 'magnetdb.local' '*.magnetdb.local'  '*.lemon.magnetdb.local'
+mkcert -install
+chmod 600 certs/*.key
 ```
 
-NB: eventually remove poetry-cache data before starting the services
+> Note
+> * by default, mkcert creates certificates with a validity of 825 days
+> * eventually remove poetry-cache data before starting the services
 
 
 1. Start the services
@@ -94,7 +96,7 @@ poetry run python3 -m python_magnetdb.seeds.seed-records
    4. Go in Administration > WebSSO Manager > OpenID Connect Relying Parties > "Name of the relying party" > Options > Basic
    5. Set Client ID to `testid`
    6. Set Client secret to `testsecret`
-   7. Set Allowed redirection addresses for login to `http://localhost:8080magnetdb-dev.local/sign_in`
+   7. Set Allowed redirection addresses for login to `http://magnetdb-dev.local/sign_in`
 
 5. Setup pgadmin
 

@@ -57,7 +57,6 @@
             label="Mesh"
             name="mesh"
             :component="FormSelect"
-            :required="true"
             :options="meshOptions"
             :clearable="true"
         />
@@ -158,7 +157,7 @@ export default {
     validate() {
       return Yup.object().shape({
         resource: Yup.mixed().required(),
-        mesh: Yup.mixed().required(),
+        // mesh: Yup.mixed().required(),
         method: Yup.string().required(),
         model: Yup.string().oneOf(this.modelOptions).required(),
         geometry: Yup.string().required(),

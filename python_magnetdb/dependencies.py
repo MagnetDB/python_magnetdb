@@ -19,10 +19,15 @@ def is_authorize(user: User, action: str) -> bool:
 def get_user(action=False):
     def handler(request: Request) -> User:
         authorization = request.query_params.get('auth_token') or request.headers.get('authorization')
+        print(f"authorization: {authorization}")
         if authorization is None:
             raise HTTPException(detail="Forbidden.", status_code=403)
         token = parse_user_token(authorization)
+        print(f"token: {token}")
+        # print(f"user: {User.objects.filter(api_key=authorization).get()}")
+        # print(f"user: {User.objects.filter(id=token['user_id']).get()}")
         user = User.objects.filter(id=token['user_id']).get() if token else User.objects.filter(api_key=authorization).get()
+        print(f'user: {user}')
         if not (user is not None and (action is False or is_authorize(user, action))):
             raise HTTPException(detail="Forbidden.", status_code=403)
         return user

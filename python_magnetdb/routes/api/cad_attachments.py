@@ -2,13 +2,14 @@ from fastapi import APIRouter, UploadFile, Depends, File, HTTPException, Form
 
 from python_magnetdb.dependencies import get_user
 from python_magnetdb.models import Magnet, Part, CadAttachment, StorageAttachment, Site
+from python_magnetdb.models.cad_attachment import CadAttachmentType
 from python_magnetdb.routes.api.serializers import model_serializer
 
 router = APIRouter()
 
 
 @router.post("/api/cad_attachments")
-def create(resource_id: str = Form(...), resource_type: str = Form(...),
+def create(resource_id: str = Form(...), resource_type: str = Form(...), type: CadAttachmentType = Form(...),
             file: UploadFile = File(...), user=Depends(get_user('update'))):
     cad_attachment = CadAttachment()
     if resource_type == 'magnet':
@@ -25,6 +26,7 @@ def create(resource_id: str = Form(...), resource_type: str = Form(...),
             raise HTTPException(status_code=404, detail="Site not found")
     else:
         raise HTTPException(status_code=404, detail="Resource not found")
+    cad_attachment.type = type
     cad_attachment.attachment = StorageAttachment.upload(file)
     cad_attachment.save()
     return model_serializer(cad_attachment)

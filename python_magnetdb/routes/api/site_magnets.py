@@ -1,5 +1,6 @@
 import json
-from datetime import datetime
+#from datetime import datetime
+from django.utils import timezone
 
 from fastapi import APIRouter, HTTPException, Form, Depends
 
@@ -34,7 +35,7 @@ def create(
             AuditLog.log(user, "Magnet detached from Site", resource=magnet)
 
     site_magnet = SiteMagnet(
-        commissioned_at=datetime.now(),
+        commissioned_at=timezone.now(),
         site=site,
         magnet=magnet,
         z_offset=z_offset,
