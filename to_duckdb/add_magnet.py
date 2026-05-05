@@ -122,10 +122,24 @@ CREATE TABLE IF NOT EXISTS sites (
 );
 
 CREATE TABLE IF NOT EXISTS site_magnets (
-    site_name   VARCHAR REFERENCES sites(name),
-    magnet_name VARCHAR REFERENCES magnets(name),
+    site_name          VARCHAR REFERENCES sites(name),
+    magnet_name        VARCHAR REFERENCES magnets(name),
+    z_offset           DOUBLE    DEFAULT 0.0,
+    r_offset           DOUBLE    DEFAULT 0.0,
+    parallax           DOUBLE    DEFAULT 0.0,
+    commissioned_at    TIMESTAMP,
+    decommissioned_at  TIMESTAMP,
+    metadata           JSON      DEFAULT '{}',
     PRIMARY KEY (site_name, magnet_name)
 );
+
+-- Migration: add SiteMagnet fields to existing databases (no-op if already present)
+ALTER TABLE site_magnets ADD COLUMN IF NOT EXISTS z_offset          DOUBLE    DEFAULT 0.0;
+ALTER TABLE site_magnets ADD COLUMN IF NOT EXISTS r_offset          DOUBLE    DEFAULT 0.0;
+ALTER TABLE site_magnets ADD COLUMN IF NOT EXISTS parallax          DOUBLE    DEFAULT 0.0;
+ALTER TABLE site_magnets ADD COLUMN IF NOT EXISTS commissioned_at   TIMESTAMP;
+ALTER TABLE site_magnets ADD COLUMN IF NOT EXISTS decommissioned_at TIMESTAMP;
+ALTER TABLE site_magnets ADD COLUMN IF NOT EXISTS metadata          JSON      DEFAULT '{}';
 
 CREATE TABLE IF NOT EXISTS experiments (
     id          INTEGER PRIMARY KEY,

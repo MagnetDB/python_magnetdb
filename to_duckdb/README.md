@@ -20,6 +20,7 @@ magnetdb/                        ← repo root
 └── to_duckdb/                   ← this directory
     ├── README.md
     ├── seeds_to_duckdb.py
+    ├── add_magnet.py
     ├── add_site.py
     └── student_queries.py
 ```
@@ -32,7 +33,7 @@ magnetdb/                        ← repo root
 |------|---------|
 | `seeds_to_duckdb.py` | Build the DB from `python_magnetdb/seeds/` — creates materials, parts, and magnets |
 | `add_magnet.py` | Add a magnet (with its parts and materials) from a MagnetDB magnet JSON export |
-| `add_site.py` | Add a site (with magnet links and experiment records) from a MagnetDB JSON export |
+| `add_site.py` | Add a site (with magnet links and experiment records) from a MagnetDB JSON export; update SiteMagnet fields |
 | `student_queries.py` | Example queries to explore the DB — can be used as a notebook starting point |
 
 ---
@@ -99,34 +100,55 @@ python add_magnet.py /path/to/M25032101.json --db /path/to/student.duckdb
 
 The magnet type (`insert`, `bitters`, `hybrid`) is inferred automatically from the part types. The operation is **idempotent**: running it twice with the same JSON is safe — existing materials, parts, and magnets are skipped.
 
-Appending to an existing DB works the same way — just point `--db` at it:
-
-```bash
-python add_magnet.py /path/to/M25032101.json --db student.duckdb
-```
-
 ---
 
 ### Step 2 — Add sites
 
-Sites reference magnets by name, so Step 1 (or Step 1b) must be completed first. Use a MagnetDB site JSON export (as produced by `python_magnetapi`) to add a site with its magnet links and experiment records.
+Sites reference magnets by name, so Step 1 (or Step 1b) must be completed first. Use `add_site.py add` with a MagnetDB site JSON export to add a site with its magnet links and experiment records.
 
 ```bash
 cd to_duckdb/
 
 # Preview without writing
-python add_site.py /path/to/M10_M19071101_13.json --dry-run
+python add_site.py add /path/to/M10_M19071101_13.json --dry-run
 
 # Write to the default DB (student_magnetdb.duckdb in current directory)
-python add_site.py /path/to/M10_M19071101_13.json
+python add_site.py add /path/to/M10_M19071101_13.json
 
 # Write to a specific DB
-python add_site.py /path/to/M10_M19071101_13.json --db /path/to/student.duckdb
+python add_site.py add /path/to/M10_M19071101_13.json --db /path/to/student.duckdb
+
+# Auto-load missing magnets from a separate directory
+python add_site.py add /path/to/M10_M19071101_13.json --magnet-dir /path/to/magnet/jsons
 ```
 
-The script validates that all magnets referenced in the JSON already exist in the DB and fails with a clear message if any are missing.
+Magnets referenced in the JSON that are not yet in the DB are loaded automatically from a same-named JSON file (e.g. `M19071101.json`) found in the same directory as the site JSON (or the directory given by `--magnet-dir`). The script fails with a clear message if any magnet file cannot be found.
 
 The operation is **idempotent**: running it twice with the same JSON is safe — existing sites, magnet links, and experiment records are skipped.
+
+### Step 2b — Update SiteMagnet fields
+
+After a site has been added, positional and temporal fields for a specific magnet within that site can be patched without re-importing the full JSON:
+
+```bash
+# Update positional offsets
+python add_site.py update-magnet M10_M19071101_13 M19071101 \
+    --z-offset 12.5 --r-offset 0.0 --parallax 0.0
+
+# Set commissioning / decommissioning dates
+python add_site.py update-magnet M10_M19071101_13 M19071101 \
+    --commissioned-at "2025-11-12 00:00:00"
+
+# Attach arbitrary metadata (JSON string)
+python add_site.py update-magnet M10_M19071101_13 M19071101 \
+    --metadata '{"current_max_A": 26000}'
+
+# Target a specific DB file
+python add_site.py update-magnet M10_M19071101_13 M19071101 \
+    --z-offset 5.0 --db /path/to/student.duckdb
+```
+
+Only the fields explicitly passed are updated; all others are left unchanged.
 
 ---
 
@@ -138,9 +160,22 @@ parts            individual physical components (helix, ring, bitter, lead)
 magnets          magnet assemblies (insert, bitters, hybrid, …)
 magnet_parts     ordered parts within a magnet, with coil_index
 sites            operational configurations (housing, commissioning dates)
-site_magnets     which magnets are active in a site (many-to-many)
+site_magnets     magnets active in a site — positional & temporal metadata
 experiments      operational records (TSV files) attached to a site
 ```
+
+### site_magnets columns
+
+| Column | Type | Default | Description |
+|--------|------|---------|-------------|
+| `site_name` | VARCHAR | — | FK → sites |
+| `magnet_name` | VARCHAR | — | FK → magnets |
+| `z_offset` | DOUBLE | 0.0 | Axial offset of the magnet in the site (m) |
+| `r_offset` | DOUBLE | 0.0 | Radial offset of the magnet in the site (m) |
+| `parallax` | DOUBLE | 0.0 | Parallax angle |
+| `commissioned_at` | TIMESTAMP | NULL | When this magnet was commissioned in this site |
+| `decommissioned_at` | TIMESTAMP | NULL | When removed (NULL = still active) |
+| `metadata` | JSON | `{}` | Free-form key/value store |
 
 ### coil_index
 
@@ -176,7 +211,7 @@ con.execute("""
 
 ## Site JSON format
 
-The JSON expected by `add_site.py` matches the format produced by `python_magnetapi`. The minimal required fields are:
+The JSON expected by `add_site.py add` matches the format produced by `python_magnetapi`. The minimal required fields are:
 
 ```json
 {
@@ -199,8 +234,25 @@ The JSON expected by `add_site.py` matches the format produced by `python_magnet
 }
 ```
 
+Each entry in `magnets` is either a **plain string** (name only — positional fields default to `0.0`, metadata to `{}`) or a **dict** with the full `SiteMagnet` fields:
+
+```json
+"magnets": [
+    "M19071101",
+    {
+        "name":               "M10Bitters",
+        "z_offset":           0.0,
+        "r_offset":           0.0,
+        "parallax":           0.0,
+        "commissioned_at":    "2025-11-12 00:00:00",
+        "decommissioned_at":  null,
+        "metadata":           {"current_max_A": 26000}
+    }
+]
+```
+
 Notes:
-- `magnets` contains magnet **names only** — no part or material definitions. The magnets must already be in the DB.
+- `magnets` contains magnet **names** — magnets must already be in the DB (or resolvable from a JSON file).
 - `decommissioned_at` can be `"None"` or omitted for active sites.
 - `records` can be an empty list `[]` if no experiment files are available yet.
 
@@ -234,12 +286,15 @@ cd to_duckdb/
 python seeds_to_duckdb.py --repo .. --seeds bitters,M19061901,M19071101
 
 # 1b. Or load a magnet directly from a MagnetDB JSON export (no seeds needed)
-python add_magnet.py /path/to/M25032101.json
 python add_magnet.py /path/to/M25032101.json --dry-run   # preview first
+python add_magnet.py /path/to/M25032101.json
 
 # 2. Add one or more operational sites from their JSON exports
-python add_site.py /path/to/M10_M19071101_13.json
-python add_site.py /path/to/M9_M19061901_xx.json   # repeat for each site
+python add_site.py add /path/to/M10_M19071101_13.json
+python add_site.py add /path/to/M9_M19061901_xx.json     # repeat for each site
+
+# 2b. Optionally patch positional data after the fact
+python add_site.py update-magnet M10_M19071101_13 M19071101 --z-offset 12.5
 
 # 3. Verify the result
 python student_queries.py

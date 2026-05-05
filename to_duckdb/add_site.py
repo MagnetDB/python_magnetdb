@@ -20,7 +20,15 @@ JSON format (as exported from MagnetDB)
     "decommissioned_at":  "None",
     "magnets": [
         "M19071101",
-        "M10Bitters"
+        {
+            "name":               "M10Bitters",
+            "z_offset":           0.0,
+            "r_offset":           0.0,
+            "parallax":           0.0,
+            "commissioned_at":    "2025-11-12 00:00:00",
+            "decommissioned_at":  null,
+            "metadata":           {}
+        }
     ],
     "records": [
         {
@@ -32,12 +40,17 @@ JSON format (as exported from MagnetDB)
     ]
 }
 
+Each entry in "magnets" is either a plain string (magnet name only, positional
+fields default to 0.0 and metadata to {}) or a dict with the full SiteMagnet
+fields.
+
 Usage
 -----
     python add_site.py M10_M19071101_13.json
     python add_site.py M10_M19071101_13.json --db path/to/student.duckdb
     python add_site.py M10_M19071101_13.json --dry-run
     python add_site.py M10_M19071101_13.json --magnet-dir /path/to/magnet/jsons
+    python add_site.py --update-magnet M10_M19071101_13 M19071101 --z-offset 12.5
 """
 
 import argparse
@@ -113,10 +126,24 @@ CREATE TABLE IF NOT EXISTS sites (
 );
 
 CREATE TABLE IF NOT EXISTS site_magnets (
-    site_name   VARCHAR REFERENCES sites(name),
-    magnet_name VARCHAR REFERENCES magnets(name),
+    site_name          VARCHAR REFERENCES sites(name),
+    magnet_name        VARCHAR REFERENCES magnets(name),
+    z_offset           DOUBLE    DEFAULT 0.0,
+    r_offset           DOUBLE    DEFAULT 0.0,
+    parallax           DOUBLE    DEFAULT 0.0,
+    commissioned_at    TIMESTAMP,
+    decommissioned_at  TIMESTAMP,
+    metadata           JSON      DEFAULT '{}',
     PRIMARY KEY (site_name, magnet_name)
 );
+
+-- Migration: add SiteMagnet fields to existing databases (no-op if already present)
+ALTER TABLE site_magnets ADD COLUMN IF NOT EXISTS z_offset          DOUBLE    DEFAULT 0.0;
+ALTER TABLE site_magnets ADD COLUMN IF NOT EXISTS r_offset          DOUBLE    DEFAULT 0.0;
+ALTER TABLE site_magnets ADD COLUMN IF NOT EXISTS parallax          DOUBLE    DEFAULT 0.0;
+ALTER TABLE site_magnets ADD COLUMN IF NOT EXISTS commissioned_at   TIMESTAMP;
+ALTER TABLE site_magnets ADD COLUMN IF NOT EXISTS decommissioned_at TIMESTAMP;
+ALTER TABLE site_magnets ADD COLUMN IF NOT EXISTS metadata          JSON      DEFAULT '{}';
 
 CREATE TABLE IF NOT EXISTS experiments (
     id          INTEGER PRIMARY KEY,
@@ -143,6 +170,11 @@ def _exists(con, table, name):
     return con.execute(f"SELECT 1 FROM {table} WHERE name = ?", [name]).fetchone() is not None
 
 
+def _magnet_name(entry):
+    """Return the magnet name from a list entry (string or dict)."""
+    return entry if isinstance(entry, str) else entry["name"]
+
+
 def _next_experiment_id(con):
     row = con.execute("SELECT COALESCE(MAX(id), 0) FROM experiments").fetchone()
     return (row[0] or 0) + 1
@@ -162,7 +194,7 @@ def _ensure_magnets(magnet_names, db_path, magnet_dir, dry_run=False):
     check existence with a short-lived connection per iteration.
     """
     errors = []
-    for name in magnet_names:
+    for name in [_magnet_name(e) for e in magnet_names]:
         # Check with a fresh read-only connection to avoid lock conflicts
         with duckdb.connect(str(db_path)) as chk:
             found = (
@@ -224,8 +256,11 @@ def _insert_site(con, data):
     print(f"  + site      {name}  [{data.get('housing', '?')}]  {data.get('status', '')}")
 
 
-def _insert_site_magnets(con, site_name, magnet_names):
-    for magnet_name in magnet_names:
+def _insert_site_magnets(con, site_name, magnet_entries):
+    for entry in magnet_entries:
+        magnet_name = _magnet_name(entry)
+        extra = entry if isinstance(entry, dict) else {}
+
         existing = con.execute(
             "SELECT 1 FROM site_magnets WHERE site_name = ? AND magnet_name = ?",
             [site_name, magnet_name],
@@ -234,7 +269,24 @@ def _insert_site_magnets(con, site_name, magnet_names):
             print(f"  ~ magnet    {magnet_name}  (already linked, skipped)")
             continue
 
-        con.execute("INSERT INTO site_magnets VALUES (?,?)", [site_name, magnet_name])
+        con.execute(
+            """
+            INSERT INTO site_magnets
+                (site_name, magnet_name, z_offset, r_offset, parallax,
+                 commissioned_at, decommissioned_at, metadata)
+            VALUES (?,?,?,?,?,?,?,?)
+            """,
+            [
+                site_name,
+                magnet_name,
+                extra.get("z_offset", 0.0),
+                extra.get("r_offset", 0.0),
+                extra.get("parallax", 0.0),
+                _parse_timestamp(extra.get("commissioned_at")),
+                _parse_timestamp(extra.get("decommissioned_at")),
+                json.dumps(extra.get("metadata", {})),
+            ],
+        )
         row = con.execute("SELECT type FROM magnets WHERE name = ?", [magnet_name]).fetchone()
         mag_type = row[0] if row else "?"
         print(f"  + magnet    {magnet_name}  ({mag_type})")
@@ -271,8 +323,60 @@ def _insert_experiments(con, site_name, records):
 
 
 # ---------------------------------------------------------------------------
-# Public entry point
+# Public entry points
 # ---------------------------------------------------------------------------
+
+_FLOAT_FIELDS = {"z_offset", "r_offset", "parallax"}
+_TIMESTAMP_FIELDS = {"commissioned_at", "decommissioned_at"}
+_JSON_FIELDS = {"metadata"}
+_SITE_MAGNET_FIELDS = _FLOAT_FIELDS | _TIMESTAMP_FIELDS | _JSON_FIELDS
+
+
+def update_site_magnet(site_name, magnet_name, db_path, **kwargs):
+    """
+    Update SiteMagnet fields for an existing (site_name, magnet_name) row.
+
+    Accepted keyword arguments: z_offset, r_offset, parallax,
+    commissioned_at, decommissioned_at, metadata.
+    Only fields explicitly passed (and not None) are updated.
+    """
+    updates = {k: v for k, v in kwargs.items() if k in _SITE_MAGNET_FIELDS and v is not None}
+    if not updates:
+        print("Nothing to update.")
+        return
+
+    db_path = Path(db_path)
+    con = duckdb.connect(str(db_path))
+    con.execute(SCHEMA_SQL)
+
+    existing = con.execute(
+        "SELECT 1 FROM site_magnets WHERE site_name = ? AND magnet_name = ?",
+        [site_name, magnet_name],
+    ).fetchone()
+    if not existing:
+        print(f"Error: no link between site '{site_name}' and magnet '{magnet_name}'.")
+        con.close()
+        sys.exit(1)
+
+    set_clauses = []
+    values = []
+    for field, value in updates.items():
+        set_clauses.append(f"{field} = ?")
+        if field in _TIMESTAMP_FIELDS:
+            values.append(_parse_timestamp(value))
+        elif field in _JSON_FIELDS:
+            values.append(json.dumps(value) if not isinstance(value, str) else value)
+        else:
+            values.append(float(value))
+
+    values.extend([site_name, magnet_name])
+    con.execute(
+        f"UPDATE site_magnets SET {', '.join(set_clauses)} "
+        f"WHERE site_name = ? AND magnet_name = ?",
+        values,
+    )
+    con.close()
+    print(f"Updated site_magnets ({site_name}, {magnet_name}): {sorted(updates)}")
 
 
 def add_site(data, db_path, dry_run=False, magnet_dir=None):
@@ -322,9 +426,10 @@ def add_site(data, db_path, dry_run=False, magnet_dir=None):
         sys.exit(1)
 
     if dry_run:
+        magnet_names = [_magnet_name(e) for e in data.get("magnets", [])]
         print("[dry-run] Validation passed. Would insert:")
         print(f"  site     : {data['name']}  [{data.get('housing', '?')}]")
-        print(f"  magnets  : {data.get('magnets', [])}")
+        print(f"  magnets  : {magnet_names}")
         print(f"  records  : {len(data.get('records', []))}")
         return
 
@@ -348,17 +453,21 @@ def add_site(data, db_path, dry_run=False, magnet_dir=None):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Add a site to the student DuckDB from a MagnetDB JSON export.",
+        description="Manage sites in the student DuckDB.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )
-    parser.add_argument("json_file", help="Path to the site JSON file")
-    parser.add_argument(
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    # --- add subcommand (default) ---
+    add_p = subparsers.add_parser("add", help="Add a site from a JSON export file.")
+    add_p.add_argument("json_file", help="Path to the site JSON file")
+    add_p.add_argument(
         "--db",
         default="student_magnetdb.duckdb",
         help="Target DuckDB file (default: student_magnetdb.duckdb)",
     )
-    parser.add_argument(
+    add_p.add_argument(
         "--magnet-dir",
         default=None,
         help=(
@@ -366,21 +475,60 @@ def main():
             "missing from the DB (default: same directory as the site JSON file)"
         ),
     )
-    parser.add_argument(
+    add_p.add_argument(
         "--dry-run",
         action="store_true",
         help="Validate and preview without writing to the DB",
     )
+
+    # --- update-magnet subcommand ---
+    upd_p = subparsers.add_parser(
+        "update-magnet",
+        help="Update SiteMagnet fields for a given site/magnet pair.",
+    )
+    upd_p.add_argument("site_name", help="Name of the site")
+    upd_p.add_argument("magnet_name", help="Name of the magnet")
+    upd_p.add_argument("--db", default="student_magnetdb.duckdb",
+                       help="Target DuckDB file (default: student_magnetdb.duckdb)")
+    upd_p.add_argument("--z-offset", type=float, dest="z_offset", help="z offset (m)")
+    upd_p.add_argument("--r-offset", type=float, dest="r_offset", help="r offset (m)")
+    upd_p.add_argument("--parallax", type=float, help="parallax angle")
+    upd_p.add_argument("--commissioned-at", dest="commissioned_at",
+                       help="Commissioning timestamp (YYYY-MM-DD or datetime)")
+    upd_p.add_argument("--decommissioned-at", dest="decommissioned_at",
+                       help="Decommissioning timestamp (YYYY-MM-DD or datetime)")
+    upd_p.add_argument("--metadata", help="JSON string for metadata field")
+
     args = parser.parse_args()
 
-    json_path = Path(args.json_file)
-    if not json_path.exists():
-        print(f"Error: '{json_path}' not found.")
-        sys.exit(1)
+    if args.command == "add":
+        json_path = Path(args.json_file)
+        if not json_path.exists():
+            print(f"Error: '{json_path}' not found.")
+            sys.exit(1)
+        magnet_dir = args.magnet_dir if args.magnet_dir else json_path.parent
+        data = json.loads(json_path.read_text())
+        add_site(data, args.db, dry_run=args.dry_run, magnet_dir=magnet_dir)
 
-    magnet_dir = args.magnet_dir if args.magnet_dir else json_path.parent
-    data = json.loads(json_path.read_text())
-    add_site(data, args.db, dry_run=args.dry_run, magnet_dir=magnet_dir)
+    elif args.command == "update-magnet":
+        metadata = None
+        if args.metadata:
+            try:
+                metadata = json.loads(args.metadata)
+            except json.JSONDecodeError as exc:
+                print(f"Error: --metadata is not valid JSON: {exc}")
+                sys.exit(1)
+        update_site_magnet(
+            args.site_name,
+            args.magnet_name,
+            args.db,
+            z_offset=args.z_offset,
+            r_offset=args.r_offset,
+            parallax=args.parallax,
+            commissioned_at=args.commissioned_at,
+            decommissioned_at=args.decommissioned_at,
+            metadata=metadata,
+        )
 
 
 if __name__ == "__main__":
