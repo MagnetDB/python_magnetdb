@@ -238,11 +238,6 @@ verified clean on Node 22.
   migration; the Options API SFCs in this project require no changes for Vue 3
   compatibility (no `Vue.filter`, no class components, no `$listeners`)
 
-> **Note:** `Vue.filter` is used in `src/main.js` (lines 25–56) and is
-> deprecated in Vue 3. This is not a blocker for Vue CLI 5, but must be
-> addressed in a future Vue 3 migration (replace with global properties or
-> composable helpers).
-
 ---
 
 ## Rollback
@@ -279,7 +274,7 @@ docker run --rm -v $(pwd)/web:/app -w /app node:20-trixie npm install
 
 | Item | Priority | Status |
 |------|----------|--------|
-| Replace `Vue.filter` with global properties (Vue 3 prep) | Medium | 🔲 Pending |
+| Replace `Vue.filter` with global properties (Vue 3 prep) | Medium | ✅ Done |
 | Vue 2 → Vue 3 migration | Low (long-term) | 🔲 Pending |
 | Consider Vite as an alternative to Vue CLI 5 | Low | 🔲 Pending |
 
@@ -288,5 +283,3 @@ docker run --rm -v $(pwd)/web:/app -w /app node:20-trixie npm install
 ## Next Steps
 
 1. **Commit** all changed files on `node22` and **open a PR** to `main`.
-2. **Replace `Vue.filter`** in `src/main.js` (lines 25–56) with global
-   properties — low effort, required before any Vue 3 migration.

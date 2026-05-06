@@ -170,11 +170,11 @@
                 <span v-else class="text-gray-500 italic">Not set</span>
               </td>
               <td class="whitespace-nowrap">
-                <template v-if="magnetPart.commissioned_at !== null">{{ magnetPart.commissioned_at | datetime }}</template>
+                <template v-if="magnetPart.commissioned_at !== null">{{ $filters.datetime(magnetPart.commissioned_at) }}</template>
                 <span v-else class="text-gray-500 italic">Not available</span>
               </td>
               <td class="whitespace-nowrap">
-                <template v-if="magnetPart.decommissioned_at !== null">{{ magnetPart.decommissioned_at | datetime }}</template>
+                <template v-if="magnetPart.decommissioned_at !== null">{{ $filters.datetime(magnetPart.decommissioned_at) }}</template>
                 <span v-else class="text-gray-500 italic">Not available</span>
               </td>
               <td class="whitespace-nowrap">
