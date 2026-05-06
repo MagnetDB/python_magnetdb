@@ -255,3 +255,26 @@ docker run --rm -v $(pwd)/web:/app -w /app node:20-trixie npm install
 | Migrate ESLint 8 → 9 with flat config | Medium | Medium |
 | Vue 2 → Vue 3 migration | Low (long-term) | High |
 | Consider Vite as an alternative to Vue CLI 5 | Low | High |
+
+---
+
+## Next Steps
+
+### Immediate — ship the branch
+
+1. **Commit** all changed files on `node22`:
+   - `web/package.json`
+   - `web/package-lock.json`
+   - `web/tailwind.config.js`
+   - `web/vue.config.js` (webpack fallbacks + HMR WebSocket fix)
+   - `web/Dockerfile`
+   - `web/Dockerfile-dev`
+   - `web/src/router.js` (duplicate `probe` route removed)
+   - `docker-compose-dev-traefik-ssl.yml` (`--legacy-peer-deps` dropped)
+
+2. **Open a PR** from `node22` → `main`.
+
+### Post-merge (medium-term)
+
+3. **ESLint 8 → 9** — ESLint 8 is already EOL (npm warns on every install). Migrating to ESLint 9 flat config would silence the warning.
+4. **Replace `Vue.filter`** in `src/main.js` (lines 25–56) with global properties — low effort, required before any Vue 3 migration.
