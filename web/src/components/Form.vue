@@ -68,7 +68,7 @@ export default {
             this.rootError = rootError
           }).bind(this),
         })
-      } catch (e) {
+      } catch {
         // this.errors = errors
       } finally {
         this.loading = false

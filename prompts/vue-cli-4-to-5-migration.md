@@ -130,7 +130,7 @@ Kept: all remaining entries (still present via other dependencies).
 
 ### Phase 6 — Full build and smoke test ✅
 
-All three CLI checks pass inside a `node:20-trixie` container:
+All three CLI checks pass inside a `node:22-trixie` container:
 
 | Command | Result |
 |---------|--------|
@@ -138,8 +138,7 @@ All three CLI checks pass inside a `node:20-trixie` container:
 | `npm run lint` | ✅ No lint errors found |
 | `npm run serve` | ✅ Compiled successfully in ~21s, serving on :8080 |
 
-The remaining smoke-test items require the full docker-compose stack
-(`docker-compose -f docker-compose-dev-traefik-ssl.yml up`) and a browser:
+Browser smoke test via `docker compose -f docker-compose-dev-traefik-ssl.yml up`:
 
 - [x] App loads and sign-in works
 - [x] Sites / Magnets / Parts / Records list views render correctly
@@ -155,7 +154,7 @@ Both images built successfully:
 | Image | Tag | Result |
 |-------|-----|--------|
 | `magnetdb-web` | `vuecli5` | ✅ Built — nginx:alpine serving compiled `dist/` |
-| `magnetdb-web-dev` | `vuecli5` | ✅ Built — node:20-trixie with deps installed |
+| `magnetdb-web-dev` | `vuecli5` | ✅ Built — node:22-trixie with deps installed |
 
 ```bash
 # Dev image
@@ -171,6 +170,34 @@ docker build -f web/Dockerfile \
   --build-arg API_ENDPOINT=http://localhost:5000 \
   -t magnetdb-web:vuecli5 web/
 ```
+
+### Phase 8 — ESLint 8 → 9 with flat config ✅
+
+`@vue/cli-plugin-eslint@5` passes removed ESLint 8 options to ESLint 9's
+constructor, so `vue-cli-service lint` is bypassed in favour of calling ESLint
+directly.
+
+Changes:
+- `eslint` bumped to `^9.0.0`
+- `eslint-plugin-vue` bumped to `^10.0.0` (adds flat config, keeps vue2-* presets)
+- `globals: ^16.0.0` added to devDependencies
+- `eslint-webpack-plugin: ^4.0.0` added to overrides (v3 doesn't support ESLint 9)
+- `eslintConfig` section removed from `package.json`
+- `web/eslint.config.js` created (flat config)
+- `lint` script changed from `vue-cli-service lint` to `eslint src/`
+- `lintOnSave: false` added to `vue.config.js` (webpack build no longer runs ESLint)
+- `vue/no-reserved-component-names: off` added (new rule in v10, flags `Button`/`Form`)
+- `catch (e)` → `catch` in `Form.vue` (optional catch binding, fixes `no-unused-vars`)
+
+### Phase 9 — Switch to `node:22-trixie` ✅
+
+```diff
+-FROM node:20-trixie AS builder
++FROM node:22-trixie AS builder
+```
+
+Applied to both `web/Dockerfile` and `web/Dockerfile-dev`. Build and lint
+verified clean on Node 22.
 
 ---
 
@@ -243,38 +270,23 @@ docker run --rm -v $(pwd)/web:/app -w /app node:20-trixie npm install
 | 5 | Audit and trim `overrides` | ~30 min | ✅ Done |
 | 6 | Full build + smoke test | ~1 hour | ✅ Done |
 | 7 | Docker builds | ~30 min | ✅ Done |
-| **Total** | | **~4–4.5 hours** | |
+| 8 | ESLint 8 → 9 with flat config | ~1 hour | ✅ Done |
+| 9 | Switch to `node:22-trixie` | ~15 min | ✅ Done |
 
 ---
 
-## Long-Term Recommendations (out of scope)
+## Long-Term Recommendations
 
-| Item | Priority | Effort |
+| Item | Priority | Status |
 |------|----------|--------|
-| Replace `Vue.filter` with global properties (Vue 3 prep) | Medium | Low |
-| Migrate ESLint 8 → 9 with flat config | Medium | Medium |
-| Vue 2 → Vue 3 migration | Low (long-term) | High |
-| Consider Vite as an alternative to Vue CLI 5 | Low | High |
+| Replace `Vue.filter` with global properties (Vue 3 prep) | Medium | 🔲 Pending |
+| Vue 2 → Vue 3 migration | Low (long-term) | 🔲 Pending |
+| Consider Vite as an alternative to Vue CLI 5 | Low | 🔲 Pending |
 
 ---
 
 ## Next Steps
 
-### Immediate — ship the branch
-
-1. **Commit** all changed files on `node22`:
-   - `web/package.json`
-   - `web/package-lock.json`
-   - `web/tailwind.config.js`
-   - `web/vue.config.js` (webpack fallbacks + HMR WebSocket fix)
-   - `web/Dockerfile`
-   - `web/Dockerfile-dev`
-   - `web/src/router.js` (duplicate `probe` route removed)
-   - `docker-compose-dev-traefik-ssl.yml` (`--legacy-peer-deps` dropped)
-
-2. **Open a PR** from `node22` → `main`.
-
-### Post-merge (medium-term)
-
-3. **ESLint 8 → 9** — ESLint 8 is already EOL (npm warns on every install). Migrating to ESLint 9 flat config would silence the warning.
-4. **Replace `Vue.filter`** in `src/main.js` (lines 25–56) with global properties — low effort, required before any Vue 3 migration.
+1. **Commit** all changed files on `node22` and **open a PR** to `main`.
+2. **Replace `Vue.filter`** in `src/main.js` (lines 25–56) with global
+   properties — low effort, required before any Vue 3 migration.
