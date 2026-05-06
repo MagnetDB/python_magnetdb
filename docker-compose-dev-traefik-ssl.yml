@@ -132,7 +132,7 @@ services:
       - /bin/bash
       - -c
       - |
-        npm install --legacy-peer-deps
+        npm install
         npm run serve
     working_dir: /app
     labels:
