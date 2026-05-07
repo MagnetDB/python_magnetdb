@@ -7,7 +7,7 @@
     <Card>
       <DataTable :headers="headers" @fetch="fetch">
         <template v-slot:item.created_at="{ item }">
-          {{ item.created_at | datetime }}
+          {{ $filters.datetime(item.created_at) }}
         </template>
         <template v-slot:item.message="{ item }">
           {{ item.message }}

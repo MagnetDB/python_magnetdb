@@ -8,6 +8,7 @@ import App from './App.vue'
 import router from './router'
 import store from './store'
 import './main.css'
+import * as filters from './filters'
 
 Chart.register(...registerables, zoomPlugin)
 
@@ -21,39 +22,7 @@ Vue.use(VueMonacoEditorPlugin, {
   },
 })
 
-
-Vue.filter('datetime', (date) => {
-  if (!date) {
-    return
-  }
-
-  return new Intl.DateTimeFormat('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: 'numeric',
-  }).format(date instanceof Date ? date : new Date(date))
-})
-
-Vue.filter('statusName', (status) => ({
-  in_stock: 'In stock',
-  in_study: 'In study',
-  in_operation: 'In operation',
-  defunct: 'Defunct',
-  pending: 'Pending',
-  in_progress: 'In progress',
-  done: 'Done',
-  failed: 'Failed',
-  scheduled: 'Scheduled',
-}[status]))
-
-Vue.filter('roleName', (role) => ({
-  guest: 'Guest',
-  user: 'User',
-  designer: 'Designer',
-  admin: 'Admin',
-}[role]))
+Vue.prototype.$filters = filters
 
 new Vue({
   render: h => h(App),
