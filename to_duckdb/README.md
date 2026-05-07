@@ -21,10 +21,12 @@ magnetdb/                        ← repo root
     ├── README.md
     ├── schema.py
     ├── crud.py
-    ├── seeds_to_duckdb.py
+    ├── seeds_to_duckdb.py       ← DEPRECATED (use magnetdb.py instead)
     ├── magnetdb.py              ← unified CLI (use this)
     ├── add_magnet.py            ← DEPRECATED (kept for compatibility)
     ├── add_site.py              ← DEPRECATED (kept for compatibility)
+    ├── find_site_tdms.py        ← find TDMS archive files for a site
+    ├── find_site_pupitre.py     ← find pupitre TXT files for a site
     └── student_queries.py
 ```
 
@@ -36,10 +38,12 @@ magnetdb/                        ← repo root
 |------|---------|
 | `schema.py` | Canonical DDL — single source of truth for all table definitions |
 | `crud.py` | CRUD helpers for material, part, magnet, and site operations |
-| `seeds_to_duckdb.py` | Build the DB from `python_magnetdb/seeds/` — creates materials, parts, and magnets |
+| `seeds_to_duckdb.py` | ~~Build the DB from seed files~~ — **deprecated**, use `magnetdb.py magnet add` / `magnetdb.py site add` |
 | `magnetdb.py` | **Unified CLI** — single entry point for all add / view / delete / update operations |
 | `add_magnet.py` | ~~Add a magnet from a JSON export~~ — **deprecated**, use `magnetdb.py magnet add` |
 | `add_site.py` | ~~Manage sites~~ — **deprecated**, use `magnetdb.py site ...` |
+| `find_site_tdms.py` | Find TDMS archive files for a site's operational window and register them in `operationaldata` |
+| `find_site_pupitre.py` | Find pupitre TXT files for a site's operational window and register them in `operationaldata` |
 | `student_queries.py` | Example queries to explore the DB — can be used as a notebook starting point |
 
 ---
@@ -71,10 +75,10 @@ python magnetdb.py <entity> <action> [arguments] [options]
 
 | Command | Description |
 |---------|-------------|
-| `magnet add <json>` | Add a magnet (parts + materials) from a JSON export |
+| `magnet add <json> [--input-dir <dir>]` | Add a magnet (parts + materials) from a JSON export |
 | `magnet view [name]` | List all magnets, or show detail for one |
 | `magnet delete <name>` | Delete a magnet and its part links |
-| `site add <json>` | Add a site (magnet links + experiments) from a JSON export |
+| `site add <json> [--input-dir <dir>]` | Add a site (magnet links) from a JSON export |
 | `site view [name]` | List all sites, or show detail for one |
 | `site delete <name>` | Delete a site, its magnet links, and its experiments |
 | `site update-magnet <site> <magnet>` | Patch positional/temporal fields on a site–magnet link |
@@ -85,36 +89,9 @@ All subcommands accept `--db <path>` (default: `student_magnetdb.duckdb` in the 
 
 ## Workflow
 
-### Step 1 — Build the structural data
+### Step 1 — Add a magnet from a JSON export
 
-Run `seeds_to_duckdb.py` from the `to_duckdb/` directory. It reads the seed files in `../python_magnetdb/seeds/` and populates the DB with materials, parts, and magnets.
-
-```bash
-cd to_duckdb/
-
-# Load all available seeds (repo root inferred as ../)
-python seeds_to_duckdb.py --repo ..
-
-# Load specific seeds only
-python seeds_to_duckdb.py --repo .. --seeds bitters,M19061901,M19071101
-
-# Custom output path
-python seeds_to_duckdb.py --repo .. --output /path/to/student.duckdb
-```
-
-Available seed keys:
-
-| Key | Seed file | Content |
-|-----|-----------|---------|
-| `bitters` | `seeds-Bitters.py` | M8, M9, M10 Bitter magnets |
-| `M19061901` | `seed-M19061901.py` | HL-31 insert, 14 helices + rings |
-| `M19071101` | `seed-M19071101.py` | H12-phi50 insert, 12 helices + rings |
-| `M18110501` | `seed-M18110501.py` | Earlier HL-31 configuration |
-| `M20022001` | `seed-M20022001.py` | Insert configuration |
-| `M22011801` | `seed-M22011801.py` | Insert configuration |
-| `records` | `seed-records.py` | Experiment records for M9/M10 sites |
-
-### Step 1b — Add a magnet from a JSON export (alternative to seeds)
+Load a magnet directly from a MagnetDB magnet JSON export (produced by `python_magnetapi`). The JSON embeds all part and material definitions, so no prior data in the DB is needed.
 
 When a magnet is not covered by a seed file, load it directly from a MagnetDB magnet JSON export. The JSON embeds all part and material definitions, so no prior data in the DB is needed.
 
@@ -129,6 +106,9 @@ python magnetdb.py magnet add /path/to/M25032101.json
 
 # Write to a specific DB
 python magnetdb.py magnet add /path/to/M25032101.json --db /path/to/student.duckdb
+
+# Specify a directory — json_file becomes a bare name looked up inside it
+python magnetdb.py magnet add M25032101.json --input-dir /path/to/jsons/
 
 # When part JSON files live in a separate directory
 python magnetdb.py magnet add /path/to/M25032101.json --part-dir /path/to/parts/
@@ -166,6 +146,9 @@ python magnetdb.py site add /path/to/M10_M19071101_13.json
 
 # Write to a specific DB
 python magnetdb.py site add /path/to/M10_M19071101_13.json --db /path/to/student.duckdb
+
+# Specify a directory — json_file becomes a bare name looked up inside it
+python magnetdb.py site add M10_M19071101_13.json --input-dir /path/to/jsons/
 
 # Auto-load missing magnets from a separate directory
 python magnetdb.py site add /path/to/M10_M19071101_13.json --magnet-dir /path/to/magnet/jsons
@@ -224,6 +207,7 @@ magnet_parts     ordered parts within a magnet, with coil_index
 sites            operational configurations (housing, commissioning dates)
 site_magnets     magnets active in a site — positional & temporal metadata
 experiments      operational records (TSV files) attached to a site
+operationaldata       discovered archive files (TDMS/TXT) linked to a site, with type tag
 ```
 
 ### site_magnets columns
@@ -320,6 +304,88 @@ Notes:
 
 ---
 
+## Finding archived files — `operationaldata` table
+
+Two helper scripts scan the storage server for raw data files that belong to a given site's operational window (between `commissioned_at` and `decommissioned_at`). Matched files are inserted into the `operationaldata` table, which mirrors `experiments` and adds a `type` column.
+
+### `operationaldata` type values
+
+| Type | Script | File format | Source directory |
+|------|--------|-------------|-----------------|
+| `Overview` | `find_site_tdms.py` | `.tdms`, `YYDDMM-HHMM` | `<records_base>/<pbsurv>/<housing>/Overview/` |
+| `Archive` | `find_site_tdms.py` | `.tdms`, `YYDDMM-HHMM` | `<records_base>/<pbsurv>/<housing>/Fichiers_Archive/` |
+| `Spike` | `find_site_tdms.py` | `.tdms`, `YYMMDD-HHMMSS` | `<records_base>/<pbsurv>/<housing>/Fichiers_Spike/` |
+| `Default` | `find_site_tdms.py` | `.tdms`, `YYMMDD-HHMMSS` | `<records_base>/<pbsurv>/<housing>/Fichiers_Default/` |
+| `Pupitre` | `find_site_pupitre.py` | `.txt`, `YYYY.MM.DD - HH:MM:SS` | `<records_base>/<srv_subdir>/<housing>/` |
+
+All file timestamps are interpreted as French local time (`Europe/Paris`).
+
+### `find_site_tdms.py`
+
+Scans four TDMS subdirectories for a housing and registers matching files in `operationaldata`.
+
+```bash
+# Scan all types (dry run — no DB writes)
+python find_site_tdms.py M10_M19071101_13 --dry-run
+
+# Scan and register
+python find_site_tdms.py M10_M19071101_13
+
+# Restrict to specific types
+python find_site_tdms.py M10_M19071101_13 --type Overview Archive
+
+# DB timestamps stored as French local time instead of UTC
+python find_site_tdms.py M10_M19071101_13 --db-tz Europe/Paris
+
+# Override storage paths
+python find_site_tdms.py M10_M19071101_13 \
+    --records-base /data/records \
+    --pbsurv pbsurv
+```
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--db` | `student_magnetdb.duckdb` | DuckDB file |
+| `--db-tz` | `UTC` | Timezone of `commissioned_at` / `decommissioned_at` in the DB |
+| `--type` | all | Restrict scan to one or more of `Overview Archive Spike Default` |
+| `--records-base` | `/mnt/LNCMIG-Data/records` | Root of the records tree |
+| `--pbsurv` | `pbsurv` | Subdirectory of `records-base` that contains housing directories |
+| `--dry-run` | — | Match files without writing to the DB |
+
+### `find_site_pupitre.py`
+
+Scans a single flat directory for pupitre TXT files and registers matching files in `operationaldata` with `type = 'Pupitre'`.
+
+```bash
+# Scan and register
+python find_site_pupitre.py M10_M19071101_13
+
+# Dry run
+python find_site_pupitre.py M10_M19071101_13 --dry-run
+
+# DB timestamps stored as French local time instead of UTC
+python find_site_pupitre.py M10_M19071101_13 --db-tz Europe/Paris
+
+# Override storage paths
+python find_site_pupitre.py M10_M19071101_13 \
+    --records-base /data/records \
+    --srv-subdir srv-data-install
+```
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--db` | `student_magnetdb.duckdb` | DuckDB file |
+| `--db-tz` | `UTC` | Timezone of `commissioned_at` / `decommissioned_at` in the DB |
+| `--records-base` | `/mnt/LNCMIG-Data/records` | Root of the records tree |
+| `--srv-subdir` | `srv-data-install` | Subdirectory of `records-base` that contains housing directories |
+| `--dry-run` | — | Match files without writing to the DB |
+
+### Timezone note
+
+The scripts compare file timestamps (always `Europe/Paris`) against the site's `commissioned_at` / `decommissioned_at` from the DB. If those DB timestamps were stored as UTC (the default assumption), use `--db-tz UTC`. If they were stored as French local time, pass `--db-tz Europe/Paris`. The scripts convert both sides to the same timezone before comparing, so DST transitions are handled correctly.
+
+---
+
 ## Example queries
 
 `student_queries.py` contains ready-to-run examples covering:
@@ -344,10 +410,7 @@ python student_queries.py
 ```bash
 cd to_duckdb/
 
-# 1a. Build structural data from seeds (when seed files are available)
-python seeds_to_duckdb.py --repo .. --seeds bitters,M19061901,M19071101
-
-# 1b. Or load a magnet directly from a MagnetDB JSON export (no seeds needed)
+# 1. Load magnets from MagnetDB JSON exports
 python magnetdb.py magnet add /path/to/M25032101.json --dry-run   # preview first
 python magnetdb.py magnet add /path/to/M25032101.json
 
@@ -370,10 +433,11 @@ python student_queries.py
 
 ## Deprecated scripts
 
-`add_magnet.py` and `add_site.py` are kept for backward compatibility only. They issue a `DeprecationWarning` when called directly and will be removed in a future version. Migrate to the equivalent `magnetdb.py` commands:
+`add_magnet.py`, `add_site.py`, and `seeds_to_duckdb.py` are kept for reference only and will be removed in a future version. Migrate to the equivalent `magnetdb.py` commands:
 
 | Old command | New command |
 |-------------|-------------|
+| `python seeds_to_duckdb.py --repo .. --seeds ...` | `python magnetdb.py magnet add <json>` + `python magnetdb.py site add <json>` |
 | `python add_magnet.py <json>` | `python magnetdb.py magnet add <json>` |
 | `python add_site.py add <json>` | `python magnetdb.py site add <json>` |
 | `python add_site.py update-magnet <s> <m> ...` | `python magnetdb.py site update-magnet <s> <m> ...` |

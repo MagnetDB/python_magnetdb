@@ -58,7 +58,6 @@ import duckdb
 
 from add_magnet import add_magnet
 from crud import (
-    insert_experiments,
     insert_site,
     insert_site_magnets,
     load_json,
@@ -170,7 +169,6 @@ def add_site(data: dict, db_path, dry_run: bool = False, magnet_dir=None) -> Non
 
     insert_site(con, data)
     insert_site_magnets(con, site_name, data.get("magnets", []))
-    insert_experiments(con, site_name, data.get("records", []))
 
     con.close()
     print("\nDone.")

@@ -1,6 +1,17 @@
 """
-seeds_to_duckdb.py
-==================
+seeds_to_duckdb.py  [DEPRECATED — use magnetdb.py instead]
+===========================================================
+
+.. deprecated::
+   This script is superseded by the unified CLI ``magnetdb.py``.
+   Load magnets and sites from JSON exports produced by ``python_magnetapi``::
+
+       python magnetdb.py magnet add <magnet>.json
+       python magnetdb.py site   add <site>.json
+
+   ``seeds_to_duckdb.py`` is kept for reference only and may be removed in a
+   future version.
+
 Build a student DuckDB database from MagnetDB seed files,
 WITHOUT requiring a running Django stack or PostgreSQL.
 

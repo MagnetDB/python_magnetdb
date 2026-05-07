@@ -4,7 +4,7 @@ find_site_pupitre.py
 Load a site by name, then find pupitre TXT files whose filename timestamp
 falls within the site's commissioned / decommissioned window.
 
-Matched files are inserted into the ``pigbrother`` table (type = 'Pupitre')
+Matched files are inserted into the ``operationaldata`` table (type = 'Pupitre')
 in the DuckDB database, and printed to stdout.
 
 Scanned directory:
@@ -25,6 +25,7 @@ Usage:
     python find_site_pupitre.py M10_M19071101_13
     python find_site_pupitre.py M10_M19071101_13 --db-tz Europe/Paris
     python find_site_pupitre.py M10_M19071101_13 --dry-run
+    python find_site_pupitre.py M10_M19071101_13 --records-base /data/records --srv-subdir srv-data-install
 """
 
 import argparse
@@ -43,7 +44,8 @@ import duckdb
 from schema import ensure_schema
 
 DEFAULT_DB    = "student_magnetdb.duckdb"
-PUPITRE_ROOT  = Path("/mnt/LNCMIG-Data/records/srv-data-install")
+_RECORDS_BASE = Path("/mnt/LNCMIG-Data/records")
+_SRV_SUBDIR   = "srv-data-install"
 FILE_TZ       = ZoneInfo("Europe/Paris")  # file timestamps are French local time
 FILE_TYPE     = "Pupitre"
 
@@ -100,18 +102,18 @@ def load_site(site_name: str, db_path: str) -> dict | None:
 
 
 def _next_id(con) -> int:
-    return con.execute("SELECT COALESCE(MAX(id), 0) + 1 FROM pigbrother").fetchone()[0]
+    return con.execute("SELECT COALESCE(MAX(id), 0) + 1 FROM operationaldata").fetchone()[0]
 
 
-def insert_pigbrother(con, site_name: str, fpath: Path) -> bool:
+def insert_operationaldata(con, site_name: str, fpath: Path) -> bool:
     """Insert one pupitre file. Returns True if newly inserted."""
     already = con.execute(
-        "SELECT COUNT(*) FROM pigbrother WHERE file = ?", [str(fpath)]
+        "SELECT COUNT(*) FROM operationaldata WHERE file = ?", [str(fpath)]
     ).fetchone()[0]
     if already:
         return False
     con.execute(
-        "INSERT INTO pigbrother (id, name, description, file, site_name, type, status) "
+        "INSERT INTO operationaldata (id, name, description, file, site_name, type, status) "
         "VALUES (?, ?, '', ?, ?, ?, 'pending')",
         [_next_id(con), fpath.stem, str(fpath), site_name, FILE_TYPE],
     )
@@ -123,17 +125,19 @@ def insert_pigbrother(con, site_name: str, fpath: Path) -> bool:
 # ---------------------------------------------------------------------------
 
 def find_and_register(
-    site:    dict,
-    db_path: str,
-    db_tz:   ZoneInfo,
-    dry_run: bool,
+    site:         dict,
+    db_path:      str,
+    db_tz:        ZoneInfo,
+    dry_run:      bool,
+    records_base: Path = _RECORDS_BASE,
+    srv_subdir:   str  = _SRV_SUBDIR,
 ) -> list[tuple[Path, datetime]]:
     housing = site["housing"]
     if not housing:
         print(f"[WARN] site '{site['name']}' has no housing value.")
         return []
 
-    pupitre_dir = PUPITRE_ROOT / housing
+    pupitre_dir = records_base / srv_subdir / housing
     if not pupitre_dir.is_dir():
         print(f"[WARN] pupitre directory not found: {pupitre_dir}")
         return []
@@ -163,12 +167,12 @@ def find_and_register(
         with duckdb.connect(db_path) as con:
             ensure_schema(con)
             new_count = sum(
-                insert_pigbrother(con, site["name"], fpath)
+                insert_operationaldata(con, site["name"], fpath)
                 for fpath, _ in matches
             )
         skipped = len(matches) - new_count
         print(
-            f"\npigbrother: inserted {new_count} new row(s)"
+            f"\noperationaldata: inserted {new_count} new row(s)"
             + (f", {skipped} already present." if skipped else ".")
         )
 
@@ -183,7 +187,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description=(
             "Find pupitre TXT files for a site's operational window "
-            "and register them in the 'pigbrother' table (type=Pupitre)."
+            "and register them in the 'operationaldata' table (type=Pupitre)."
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
@@ -197,6 +201,14 @@ def main() -> None:
             "Timezone of commissioned_at / decommissioned_at in DuckDB. "
             "Default: UTC.  Use 'Europe/Paris' if stored as French local time."
         ),
+    )
+    parser.add_argument(
+        "--records-base", default=str(_RECORDS_BASE), dest="records_base",
+        help=f"Root of the records tree (default: {_RECORDS_BASE})",
+    )
+    parser.add_argument(
+        "--srv-subdir", default=_SRV_SUBDIR, dest="srv_subdir",
+        help=f"Subdirectory of records-base that holds housing dirs (default: {_SRV_SUBDIR})",
     )
     parser.add_argument(
         "--dry-run", action="store_true",
@@ -224,7 +236,12 @@ def main() -> None:
         print("[DRY RUN — no writes to DuckDB]")
     print()
 
-    matches = find_and_register(site, args.db, db_tz, dry_run=args.dry_run)
+    matches = find_and_register(
+        site, args.db, db_tz,
+        dry_run=args.dry_run,
+        records_base=Path(args.records_base),
+        srv_subdir=args.srv_subdir,
+    )
 
     if not matches:
         print("\nNo matching pupitre files found.")

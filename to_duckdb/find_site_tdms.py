@@ -4,7 +4,7 @@ find_site_tdms.py
 Load a site by name, then find TDMS files in all known subdirectories whose
 filename timestamp falls within the site's commissioned / decommissioned window.
 
-Matched files are inserted into a ``pigbrother`` table (same columns as
+Matched files are inserted into a ``operationaldata`` table (same columns as
 ``experiments``, plus a ``type`` field) in the DuckDB database, and printed
 to stdout.
 
@@ -49,19 +49,19 @@ import duckdb
 
 from schema import ensure_schema
 
-DEFAULT_DB = "student_magnetdb.duckdb"
+DEFAULT_DB    = "student_magnetdb.duckdb"
 _RECORDS_BASE = Path("/mnt/LNCMIG-Data/records")
-FILE_TZ = ZoneInfo("Europe/Paris")  # file timestamps are always French local
+_PBSURV       = "pbsurv"
+FILE_TZ       = ZoneInfo("Europe/Paris")  # file timestamps are always French local
 
-# type label → (root_dir, subdir_name)
-# full scan path = root_dir / housing / subdir_name
-TYPE_LOCATIONS: dict[str, tuple[Path, str]] = {
-    "Overview": (_RECORDS_BASE / "pbsurv", "Overview"),
-    "Archive": (_RECORDS_BASE / "pbsurv", "Fichiers_Archive"),
-    "Spike": (_RECORDS_BASE / "pbsurv", "Fichiers_Spike"),
-    "Default": (_RECORDS_BASE / "pbsurv", "Fichiers_Default"),
+# subdir names per type; full path = (records_base / pbsurv) / housing / subdir
+_SUBDIR_NAMES: dict[str, str] = {
+    "Overview": "Overview",
+    "Archive":  "Fichiers_Archive",
+    "Spike":    "Fichiers_Spike",
+    "Default":  "Fichiers_Default",
 }
-ALL_TYPES = list(TYPE_LOCATIONS)
+ALL_TYPES = list(_SUBDIR_NAMES)
 
 # Per-type: (compiled regex capturing the timestamp, strptime format)
 # Overview/Archive: YYDDMM-HHMM  (French day-first, minute precision, 6+4 digits)
@@ -123,18 +123,18 @@ def load_site(site_name: str, db_path: str) -> dict | None:
 
 
 def _next_id(con) -> int:
-    return con.execute("SELECT COALESCE(MAX(id), 0) + 1 FROM pigbrother").fetchone()[0]
+    return con.execute("SELECT COALESCE(MAX(id), 0) + 1 FROM operationaldata").fetchone()[0]
 
 
-def insert_pigbrother(con, site_name: str, fpath: Path, file_type: str) -> bool:
+def insert_operationaldata(con, site_name: str, fpath: Path, file_type: str) -> bool:
     """Insert one TDMS file. Returns True if newly inserted, False if already present."""
     already = con.execute(
-        "SELECT COUNT(*) FROM pigbrother WHERE file = ?", [str(fpath)]
+        "SELECT COUNT(*) FROM operationaldata WHERE file = ?", [str(fpath)]
     ).fetchone()[0]
     if already:
         return False
     con.execute(
-        "INSERT INTO pigbrother (id, name, description, file, site_name, type, status) "
+        "INSERT INTO operationaldata (id, name, description, file, site_name, type, status) "
         "VALUES (?, ?, '', ?, ?, ?, 'pending')",
         [_next_id(con), fpath.stem, str(fpath), site_name, file_type],
     )
@@ -169,11 +169,13 @@ def scan_subdir(
 
 
 def find_and_register(
-    site: dict,
-    db_path: str,
-    db_tz: ZoneInfo,
-    dry_run: bool,
-    type_filter: list[str] | None = None,
+    site:         dict,
+    db_path:      str,
+    db_tz:        ZoneInfo,
+    dry_run:      bool,
+    type_filter:  list[str] | None = None,
+    records_base: Path = _RECORDS_BASE,
+    pbsurv:       str  = _PBSURV,
 ) -> list[tuple[Path, datetime, str]]:
     housing = site["housing"]
     if not housing:
@@ -191,9 +193,9 @@ def find_and_register(
     active_types = type_filter if type_filter else ALL_TYPES
     matches: list[tuple[Path, datetime, str]] = []
 
+    pbsurv_dir = records_base / pbsurv
     for file_type in active_types:
-        root, subdir_name = TYPE_LOCATIONS[file_type]
-        subdir = root / housing / subdir_name
+        subdir = pbsurv_dir / housing / _SUBDIR_NAMES[file_type]
         found = scan_subdir(subdir, file_type, t_start, t_end)
         if not subdir.is_dir():
             print(f"[SKIP] {subdir}/  not found")
@@ -207,12 +209,12 @@ def find_and_register(
         with duckdb.connect(db_path) as con:
             ensure_schema(con)
             new_count = sum(
-                insert_pigbrother(con, site["name"], fpath, file_type)
+                insert_operationaldata(con, site["name"], fpath, file_type)
                 for fpath, _, file_type in matches
             )
         skipped = len(matches) - new_count
         print(
-            f"\npigbrother: inserted {new_count} new row(s)"
+            f"\noperationaldata: inserted {new_count} new row(s)"
             + (f", {skipped} already present." if skipped else ".")
         )
 
@@ -228,7 +230,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description=(
             "Find TDMS files for a site's operational window "
-            "and register them in the 'pigbrother' table."
+            "and register them in the 'operationaldata' table."
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
@@ -252,6 +254,14 @@ def main() -> None:
         help=(
             f"Restrict scan to one or more file types " f"({', '.join(ALL_TYPES)}). Default: all."
         ),
+    )
+    parser.add_argument(
+        "--records-base", default=str(_RECORDS_BASE), dest="records_base",
+        help=f"Root of the records tree (default: {_RECORDS_BASE})",
+    )
+    parser.add_argument(
+        "--pbsurv", default=_PBSURV,
+        help=f"Subdirectory of records-base that holds housing dirs (default: {_PBSURV})",
     )
     parser.add_argument(
         "--dry-run",
@@ -286,6 +296,8 @@ def main() -> None:
         db_tz,
         dry_run=args.dry_run,
         type_filter=args.types,
+        records_base=Path(args.records_base),
+        pbsurv=args.pbsurv,
     )
 
     if not matches:
