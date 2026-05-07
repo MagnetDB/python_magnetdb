@@ -30,7 +30,8 @@ hierarchy = con.execute("""
         mat.nuance,
         mat.rpe / 1e6 AS rpe_MPa
     FROM sites s
-    JOIN magnets m       ON m.site_name   = s.name
+    JOIN site_magnets sm ON sm.site_name   = s.name
+    JOIN magnets m       ON m.name         = sm.magnet_name
     JOIN magnet_parts mp ON mp.magnet_name = m.name
     JOIN parts p         ON p.name        = mp.part_name
     LEFT JOIN materials mat ON mat.name   = p.material_name
@@ -62,10 +63,10 @@ print(coil_map.to_string())
 # ── 3. All records for a site ─────────────────────────────────────────────
 print("\n=== Records for M9_M19061901 ===")
 records = con.execute("""
-    SELECT id, record_file, status
+    SELECT id, file, status
     FROM experiments
     WHERE site_name = 'M9_M19061901'
-    ORDER BY record_file
+    ORDER BY file
 """).df()
 print(records.to_string())
 

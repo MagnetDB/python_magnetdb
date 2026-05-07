@@ -15,15 +15,14 @@ The seed files (seeds-Bitters.py, seed-M19061901.py, …) call functions from
 `python_magnetdb.seeds.crud` which write to Django ORM / PostgreSQL.
 
 This script replaces that entire layer with lightweight stubs that capture
-every create_*/query_* call and redirect the data into DuckDB instead.
-No Django, no PostgreSQL, no MinIO needed.
+every create_*/query_* call and store the data in memory.  Once all seeds are
+loaded the collected data is flushed to DuckDB via the shared crud helpers.
 
 coil_index assignment
 ---------------------
 Parts are ordered in the `parts` list passed to `create_magnet()`.
-Only parts of type 'helix' or 'bitter' receive a coil_index (1-based,
-in their order of appearance). Parts of type 'ring' or 'lead' get NULL.
-This matches the Icoil_N column convention in operational records.
+Only parts of type 'helix' or 'bitter' receive a coil_index (1-based).
+Parts of type 'ring' or 'lead' get NULL.
 """
 
 import argparse
@@ -33,11 +32,16 @@ from pathlib import Path
 
 import duckdb
 
-# ---------------------------------------------------------------------------
-# Configuration
-# ---------------------------------------------------------------------------
-
-COIL_TYPES = {"helix", "bitter"}  # these map to Icoil_N columns
+from crud import (
+    insert_experiments,
+    insert_magnet,
+    insert_magnet_part_row,
+    insert_material,
+    insert_part,
+    insert_site,
+    insert_site_magnets,
+)
+from schema import COIL_TYPES, ensure_schema
 
 # ---------------------------------------------------------------------------
 # Lightweight mock objects returned by create_*/query_* stubs
@@ -45,8 +49,6 @@ COIL_TYPES = {"helix", "bitter"}  # these map to Icoil_N columns
 
 
 class MockObject:
-    """Minimal stand-in for a Django model instance."""
-
     def __init__(self, **kwargs):
         self.__dict__.update(kwargs)
 
@@ -115,7 +117,6 @@ def _create_site(obj: dict) -> MockObject:
         _sites[name] = {
             "name": name,
             "status": obj.get("status"),
-            "config": obj.get("config"),
         }
     return MockObject(**_sites[name])
 
@@ -126,12 +127,9 @@ def _create_magnet(obj: dict) -> MockObject:
         site = obj.get("site")
         site_name = site.name if isinstance(site, MockObject) else site
 
-        parts = obj.get("parts", []) or []
-
-        # Assign coil_index only to helix/bitter parts
         coil_counter = 0
         parts_list = []
-        for rank, part in enumerate(parts):
+        for rank, part in enumerate(obj.get("parts") or []):
             part_name = part.name if isinstance(part, MockObject) else part
             part_type = _parts.get(part_name, {}).get("type", "")
             if part_type in COIL_TYPES:
@@ -140,15 +138,9 @@ def _create_magnet(obj: dict) -> MockObject:
             else:
                 coil_index = None
             parts_list.append(
-                {
-                    "magnet_name": name,
-                    "part_name": part_name,
-                    "rank": rank,
-                    "coil_index": coil_index,
-                }
+                {"magnet_name": name, "part_name": part_name, "rank": rank, "coil_index": coil_index}
             )
 
-        # Normalise MagnetType enum → plain string
         mag_type = obj.get("type")
         if hasattr(mag_type, "value"):
             mag_type = mag_type.value
@@ -160,22 +152,17 @@ def _create_magnet(obj: dict) -> MockObject:
             "type": str(mag_type) if mag_type else None,
             "status": obj.get("status"),
             "geometry": obj.get("geometry"),
-            "site_name": site_name,
             "design_office_reference": obj.get("design_office_reference"),
+            "_site_name": site_name,
             "_parts": parts_list,
         }
-    return MockObject(**{k: v for k, v in _magnets[name].items() if k != "_parts"})
+    return MockObject(**{k: v for k, v in _magnets[name].items() if not k.startswith("_")})
 
 
 def _create_record(obj: dict) -> None:
     site = obj.get("site")
     site_name = site.name if isinstance(site, MockObject) else site
-    _records.append(
-        {
-            "record_file": obj.get("file"),
-            "site_name": site_name,
-        }
-    )
+    _records.append({"record_file": obj.get("file"), "site_name": site_name})
 
 
 def _query_material(name: str) -> MockObject | None:
@@ -210,7 +197,6 @@ def _make_crud_module() -> types.ModuleType:
     mod.query_part = _query_part
     mod.query_magnet = _query_magnet
     mod.query_site = _query_site
-    # Some seeds also import these names directly
     mod.upload_attachment = lambda *a, **kw: None
     return mod
 
@@ -240,21 +226,14 @@ def _make_models_module() -> types.ModuleType:
 
 
 def _install_stubs() -> None:
-    # Ensure parent packages exist as empty modules so Python is happy
-    for pkg in [
-        "python_magnetdb",
-        "python_magnetdb.models",
-        "python_magnetdb.seeds",
-    ]:
+    for pkg in ["python_magnetdb", "python_magnetdb.models", "python_magnetdb.seeds"]:
         if pkg not in sys.modules:
             sys.modules[pkg] = types.ModuleType(pkg)
 
     sys.modules["python_magnetdb.seeds.crud"] = _make_crud_module()
     sys.modules["python_magnetdb.models.magnet"] = _make_models_module()
 
-    # Silence getenv("DATA_DIR") calls in seeds — not needed here
     import os
-
     os.environ.setdefault("DATA_DIR", "/tmp/dummy_data_dir")
 
 
@@ -274,15 +253,8 @@ SEED_MODULES = {
 
 
 def _load_seed(key: str, repo_root: Path) -> None:
-    """
-    Import a seed module from the repo without requiring it to be installed.
-    We load it as a regular file using importlib.util so that relative imports
-    (from .crud import …) work by virtue of the stubs already being in sys.modules.
-    """
     import importlib.util
 
-    # Map dotted name → file path
-    # e.g. "python_magnetdb.seeds.seeds-Bitters" → repo_root/python_magnetdb/seeds/seeds-Bitters.py
     module_name = SEED_MODULES[key]
     rel_path = Path(*module_name.split(".")).with_suffix(".py")
     file_path = repo_root / rel_path
@@ -305,162 +277,38 @@ def _load_seed(key: str, repo_root: Path) -> None:
 # Write collected data to DuckDB
 # ---------------------------------------------------------------------------
 
-SCHEMA_SQL = """
-CREATE TABLE IF NOT EXISTS materials (
-    name                    VARCHAR PRIMARY KEY,
-    description             VARCHAR,
-    nuance                  VARCHAR,
-    t_ref                   DOUBLE,
-    volumic_mass            DOUBLE,
-    specific_heat           DOUBLE,
-    alpha                   DOUBLE,
-    electrical_conductivity DOUBLE,
-    thermal_conductivity    DOUBLE,
-    magnet_permeability     DOUBLE,
-    young                   DOUBLE,
-    poisson                 DOUBLE,
-    expansion_coefficient   DOUBLE,
-    rpe                     DOUBLE      -- Pa (elastic limit)
-);
-
-CREATE TABLE IF NOT EXISTS parts (
-    name                    VARCHAR PRIMARY KEY,
-    type                    VARCHAR,    -- 'helix' | 'ring' | 'bitter' | 'lead'
-    status                  VARCHAR,
-    material_name           VARCHAR REFERENCES materials(name),
-    geometry                VARCHAR,    -- geometry YAML stem (no extension)
-    geometry_data           JSON,       -- python_magnetgeo object serialized as JSON
-    cad                     VARCHAR,    -- CAD file stem
-    design_office_reference VARCHAR
-);
-
-CREATE TABLE IF NOT EXISTS sites (
-    name    VARCHAR PRIMARY KEY,
-    status  VARCHAR,
-    config  VARCHAR     -- .conf filename if available
-);
-
-CREATE TABLE IF NOT EXISTS magnets (
-    name                    VARCHAR PRIMARY KEY,
-    type                    VARCHAR,    -- 'insert' | 'bitters' | 'supra' | 'hybrid'
-    status                  VARCHAR,
-    geometry                VARCHAR,
-    geometry_data           JSON,       -- python_magnetgeo object serialized as JSON
-    site_name               VARCHAR REFERENCES sites(name),
-    design_office_reference VARCHAR
-);
-
--- Migration: add geometry_data to existing databases (no-op if already present)
-ALTER TABLE parts   ADD COLUMN IF NOT EXISTS geometry_data JSON;
-ALTER TABLE magnets ADD COLUMN IF NOT EXISTS geometry_data JSON;
-
-CREATE TABLE IF NOT EXISTS magnet_parts (
-    magnet_name VARCHAR REFERENCES magnets(name),
-    part_name   VARCHAR REFERENCES parts(name),
-    rank        INTEGER,    -- 0-based position in original parts list
-    coil_index  INTEGER,    -- 1-based index among helix/bitter parts; NULL for rings/leads
-    PRIMARY KEY (magnet_name, part_name)
-);
-
-CREATE TABLE IF NOT EXISTS experiments (
-    id          INTEGER PRIMARY KEY,
-    site_name   VARCHAR REFERENCES sites(name),
-    record_file VARCHAR,
-    status      VARCHAR DEFAULT 'pending'
-);
-"""
-
 
 def _write_to_duckdb(output_path: Path) -> None:
     print(f"\nWriting to {output_path} …")
     con = duckdb.connect(str(output_path))
-    con.execute(SCHEMA_SQL)
+    ensure_schema(con)
 
-    # Materials
     for m in _materials.values():
-        con.execute(
-            """
-            INSERT OR REPLACE INTO materials VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-        """,
-            [
-                m["name"],
-                m["description"],
-                m["nuance"],
-                m["t_ref"],
-                m["volumic_mass"],
-                m["specific_heat"],
-                m["alpha"],
-                m["electrical_conductivity"],
-                m["thermal_conductivity"],
-                m["magnet_permeability"],
-                m["young"],
-                m["poisson"],
-                m["expansion_coefficient"],
-                m["rpe"],
-            ],
-        )
+        insert_material(con, m, verbose=False)
 
-    # Parts
     for p in _parts.values():
-        con.execute(
-            """
-            INSERT OR REPLACE INTO parts
-                (name, type, status, material_name, geometry, geometry_data, cad, design_office_reference)
-            VALUES (?,?,?,?,?,NULL,?,?)
-        """,
-            [
-                p["name"],
-                p["type"],
-                p["status"],
-                p["material_name"],
-                p["geometry"],
-                p["cad"],
-                p["design_office_reference"],
-            ],
-        )
+        insert_part(con, p, verbose=False)
 
-    # Sites
     for s in _sites.values():
-        con.execute(
-            "INSERT OR REPLACE INTO sites VALUES (?,?,?)", [s["name"], s["status"], s["config"]]
-        )
+        insert_site(con, s, verbose=False)
 
-    # Magnets + magnet_parts
     for m in _magnets.values():
-        con.execute(
-            """
-            INSERT OR REPLACE INTO magnets
-                (name, type, status, geometry, geometry_data, site_name, design_office_reference)
-            VALUES (?,?,?,?,NULL,?,?)
-        """,
-            [
-                m["name"],
-                m["type"],
-                m["status"],
-                m["geometry"],
-                m["site_name"],
-                m["design_office_reference"],
-            ],
-        )
+        insert_magnet(con, m, m["type"] or "unknown", verbose=False)
         for mp in m["_parts"]:
-            con.execute(
-                """
-                INSERT OR REPLACE INTO magnet_parts VALUES (?,?,?,?)
-            """,
-                [mp["magnet_name"], mp["part_name"], mp["rank"], mp["coil_index"]],
-            )
+            insert_magnet_part_row(con, mp["magnet_name"], mp["part_name"], mp["rank"], mp["coil_index"])
 
-    # Experiments (from seed-records)
-    for i, r in enumerate(_records):
-        con.execute(
-            """
-            INSERT OR REPLACE INTO experiments VALUES (?,?,?,'pending')
-        """,
-            [i + 1, r["site_name"], r["record_file"]],
-        )
+        # Link magnet to its site via site_magnets if a site was specified.
+        if m.get("_site_name"):
+            insert_site_magnets(con, m["_site_name"], [m["name"]], verbose=False)
+
+    # Group records by site and insert as experiments.
+    records_by_site: dict[str, list[dict]] = {}
+    for r in _records:
+        records_by_site.setdefault(r["site_name"], []).append(r)
+    for site_name, recs in records_by_site.items():
+        insert_experiments(con, site_name, recs, verbose=False)
 
     con.close()
-
     _print_summary(output_path)
 
 
@@ -476,11 +324,11 @@ def _print_summary(output_path: Path) -> None:
         """
         SELECT m.name AS magnet, p.type, mp.coil_index, mp.part_name
         FROM magnet_parts mp
-        JOIN parts p  ON p.name  = mp.part_name
-        JOIN magnets m ON m.name = mp.magnet_name
+        JOIN parts   p ON p.name  = mp.part_name
+        JOIN magnets m ON m.name  = mp.magnet_name
         WHERE mp.coil_index IS NOT NULL
         ORDER BY m.name, mp.coil_index
-    """
+        """
     ).fetchall()
     current_magnet = None
     for magnet, ptype, ci, pname in rows:
@@ -522,7 +370,6 @@ def main() -> None:
     output = Path(args.output)
 
     keys = list(SEED_MODULES) if args.seeds == "all" else [k.strip() for k in args.seeds.split(",")]
-
     unknown = [k for k in keys if k not in SEED_MODULES]
     if unknown:
         print(f"Unknown seed keys: {unknown}. Available: {list(SEED_MODULES)}")

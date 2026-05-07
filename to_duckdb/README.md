@@ -19,9 +19,12 @@ magnetdb/                        ← repo root
 │       └── ...
 └── to_duckdb/                   ← this directory
     ├── README.md
+    ├── schema.py
+    ├── crud.py
     ├── seeds_to_duckdb.py
-    ├── add_magnet.py
-    ├── add_site.py
+    ├── magnetdb.py              ← unified CLI (use this)
+    ├── add_magnet.py            ← DEPRECATED (kept for compatibility)
+    ├── add_site.py              ← DEPRECATED (kept for compatibility)
     └── student_queries.py
 ```
 
@@ -31,20 +34,52 @@ magnetdb/                        ← repo root
 
 | File | Purpose |
 |------|---------|
+| `schema.py` | Canonical DDL — single source of truth for all table definitions |
+| `crud.py` | CRUD helpers for material, part, magnet, and site operations |
 | `seeds_to_duckdb.py` | Build the DB from `python_magnetdb/seeds/` — creates materials, parts, and magnets |
-| `add_magnet.py` | Add a magnet (with its parts and materials) from a MagnetDB magnet JSON export |
-| `add_site.py` | Add a site (with magnet links and experiment records) from a MagnetDB JSON export; update SiteMagnet fields |
+| `magnetdb.py` | **Unified CLI** — single entry point for all add / view / delete / update operations |
+| `add_magnet.py` | ~~Add a magnet from a JSON export~~ — **deprecated**, use `magnetdb.py magnet add` |
+| `add_site.py` | ~~Manage sites~~ — **deprecated**, use `magnetdb.py site ...` |
 | `student_queries.py` | Example queries to explore the DB — can be used as a notebook starting point |
 
 ---
 
 ## Requirements
 
+### Virtualenv setup (recommended)
+
 ```bash
-pip install duckdb
+cd to_duckdb/
+python3 -m venv venv
+source venv/bin/activate   # Windows: venv\Scripts\activate
+pip install -r requirements.txt
 ```
 
-No other dependencies. Both scripts use only the Python standard library plus `duckdb`.
+All scripts must be run from inside the activated virtualenv.
+
+---
+
+## Unified CLI — `magnetdb.py`
+
+`magnetdb.py` is the single entry point for managing the DuckDB. It replaces the old `add_magnet.py` and `add_site.py` scripts.
+
+```
+python magnetdb.py <entity> <action> [arguments] [options]
+```
+
+### Quick reference
+
+| Command | Description |
+|---------|-------------|
+| `magnet add <json>` | Add a magnet (parts + materials) from a JSON export |
+| `magnet view [name]` | List all magnets, or show detail for one |
+| `magnet delete <name>` | Delete a magnet and its part links |
+| `site add <json>` | Add a site (magnet links + experiments) from a JSON export |
+| `site view [name]` | List all sites, or show detail for one |
+| `site delete <name>` | Delete a site, its magnet links, and its experiments |
+| `site update-magnet <site> <magnet>` | Patch positional/temporal fields on a site–magnet link |
+
+All subcommands accept `--db <path>` (default: `student_magnetdb.duckdb` in the current directory).
 
 ---
 
@@ -79,72 +114,99 @@ Available seed keys:
 | `M22011801` | `seed-M22011801.py` | Insert configuration |
 | `records` | `seed-records.py` | Experiment records for M9/M10 sites |
 
-The output is printed to the terminal, including a summary table and the full `coil_index → part` mapping for each magnet.
-
 ### Step 1b — Add a magnet from a JSON export (alternative to seeds)
 
-When a magnet is not covered by a seed file, use `add_magnet.py` with a MagnetDB magnet JSON export. The JSON embeds all part and material definitions, so no prior data in the DB is needed.
+When a magnet is not covered by a seed file, load it directly from a MagnetDB magnet JSON export. The JSON embeds all part and material definitions, so no prior data in the DB is needed.
 
 ```bash
 cd to_duckdb/
 
 # Preview without writing
-python add_magnet.py /path/to/M25032101.json --dry-run
+python magnetdb.py magnet add /path/to/M25032101.json --dry-run
 
 # Write to the default DB (student_magnetdb.duckdb in current directory)
-python add_magnet.py /path/to/M25032101.json
+python magnetdb.py magnet add /path/to/M25032101.json
 
 # Write to a specific DB
-python add_magnet.py /path/to/M25032101.json --db /path/to/student.duckdb
+python magnetdb.py magnet add /path/to/M25032101.json --db /path/to/student.duckdb
+
+# When part JSON files live in a separate directory
+python magnetdb.py magnet add /path/to/M25032101.json --part-dir /path/to/parts/
 ```
 
 The magnet type (`insert`, `bitters`, `hybrid`) is inferred automatically from the part types. The operation is **idempotent**: running it twice with the same JSON is safe — existing materials, parts, and magnets are skipped.
+
+### Step 1c — Inspect and manage magnets
+
+```bash
+# List all magnets
+python magnetdb.py magnet view
+
+# Show detail for one magnet (parts, coil indices)
+python magnetdb.py magnet view M25032101
+
+# Delete a magnet and its part links
+python magnetdb.py magnet delete M25032101
+```
 
 ---
 
 ### Step 2 — Add sites
 
-Sites reference magnets by name, so Step 1 (or Step 1b) must be completed first. Use `add_site.py add` with a MagnetDB site JSON export to add a site with its magnet links and experiment records.
+Sites reference magnets by name, so Step 1 (or Step 1b) must be completed first. Use `magnetdb.py site add` with a MagnetDB site JSON export to add a site with its magnet links and experiment records.
 
 ```bash
 cd to_duckdb/
 
 # Preview without writing
-python add_site.py add /path/to/M10_M19071101_13.json --dry-run
+python magnetdb.py site add /path/to/M10_M19071101_13.json --dry-run
 
-# Write to the default DB (student_magnetdb.duckdb in current directory)
-python add_site.py add /path/to/M10_M19071101_13.json
+# Write to the default DB
+python magnetdb.py site add /path/to/M10_M19071101_13.json
 
 # Write to a specific DB
-python add_site.py add /path/to/M10_M19071101_13.json --db /path/to/student.duckdb
+python magnetdb.py site add /path/to/M10_M19071101_13.json --db /path/to/student.duckdb
 
 # Auto-load missing magnets from a separate directory
-python add_site.py add /path/to/M10_M19071101_13.json --magnet-dir /path/to/magnet/jsons
+python magnetdb.py site add /path/to/M10_M19071101_13.json --magnet-dir /path/to/magnet/jsons
 ```
 
 Magnets referenced in the JSON that are not yet in the DB are loaded automatically from a same-named JSON file (e.g. `M19071101.json`) found in the same directory as the site JSON (or the directory given by `--magnet-dir`). The script fails with a clear message if any magnet file cannot be found.
 
 The operation is **idempotent**: running it twice with the same JSON is safe — existing sites, magnet links, and experiment records are skipped.
 
-### Step 2b — Update SiteMagnet fields
+### Step 2b — Inspect and manage sites
+
+```bash
+# List all sites
+python magnetdb.py site view
+
+# Show detail for one site (magnets, experiment count)
+python magnetdb.py site view M10_M19071101_13
+
+# Delete a site (removes magnet links and experiments too)
+python magnetdb.py site delete M10_M19071101_13
+```
+
+### Step 2c — Update SiteMagnet fields
 
 After a site has been added, positional and temporal fields for a specific magnet within that site can be patched without re-importing the full JSON:
 
 ```bash
 # Update positional offsets
-python add_site.py update-magnet M10_M19071101_13 M19071101 \
+python magnetdb.py site update-magnet M10_M19071101_13 M19071101 \
     --z-offset 12.5 --r-offset 0.0 --parallax 0.0
 
 # Set commissioning / decommissioning dates
-python add_site.py update-magnet M10_M19071101_13 M19071101 \
+python magnetdb.py site update-magnet M10_M19071101_13 M19071101 \
     --commissioned-at "2025-11-12 00:00:00"
 
 # Attach arbitrary metadata (JSON string)
-python add_site.py update-magnet M10_M19071101_13 M19071101 \
+python magnetdb.py site update-magnet M10_M19071101_13 M19071101 \
     --metadata '{"current_max_A": 26000}'
 
 # Target a specific DB file
-python add_site.py update-magnet M10_M19071101_13 M19071101 \
+python magnetdb.py site update-magnet M10_M19071101_13 M19071101 \
     --z-offset 5.0 --db /path/to/student.duckdb
 ```
 
@@ -211,7 +273,7 @@ con.execute("""
 
 ## Site JSON format
 
-The JSON expected by `add_site.py add` matches the format produced by `python_magnetapi`. The minimal required fields are:
+The JSON expected by `magnetdb.py site add` matches the format produced by `python_magnetapi`. The minimal required fields are:
 
 ```json
 {
@@ -286,18 +348,32 @@ cd to_duckdb/
 python seeds_to_duckdb.py --repo .. --seeds bitters,M19061901,M19071101
 
 # 1b. Or load a magnet directly from a MagnetDB JSON export (no seeds needed)
-python add_magnet.py /path/to/M25032101.json --dry-run   # preview first
-python add_magnet.py /path/to/M25032101.json
+python magnetdb.py magnet add /path/to/M25032101.json --dry-run   # preview first
+python magnetdb.py magnet add /path/to/M25032101.json
 
 # 2. Add one or more operational sites from their JSON exports
-python add_site.py add /path/to/M10_M19071101_13.json
-python add_site.py add /path/to/M9_M19061901_xx.json     # repeat for each site
+python magnetdb.py site add /path/to/M10_M19071101_13.json
+python magnetdb.py site add /path/to/M9_M19061901_xx.json         # repeat for each site
 
 # 2b. Optionally patch positional data after the fact
-python add_site.py update-magnet M10_M19071101_13 M19071101 --z-offset 12.5
+python magnetdb.py site update-magnet M10_M19071101_13 M19071101 --z-offset 12.5
 
 # 3. Verify the result
+python magnetdb.py magnet view
+python magnetdb.py site view
 python student_queries.py
 
 # 4. Ship student_magnetdb.duckdb + TSV record files to students
 ```
+
+---
+
+## Deprecated scripts
+
+`add_magnet.py` and `add_site.py` are kept for backward compatibility only. They issue a `DeprecationWarning` when called directly and will be removed in a future version. Migrate to the equivalent `magnetdb.py` commands:
+
+| Old command | New command |
+|-------------|-------------|
+| `python add_magnet.py <json>` | `python magnetdb.py magnet add <json>` |
+| `python add_site.py add <json>` | `python magnetdb.py site add <json>` |
+| `python add_site.py update-magnet <s> <m> ...` | `python magnetdb.py site update-magnet <s> <m> ...` |

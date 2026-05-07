@@ -1,12 +1,20 @@
 """
-add_magnet.py
-=============
-Add a magnet (with its parts and materials) to an existing student DuckDB
-database from a MagnetDB magnet JSON export.
+add_magnet.py  [DEPRECATED — use magnetdb.py instead]
+======================================================
 
-Unlike add_site.py, the JSON here is a *magnet* export: it contains the full
-definition of every part, including embedded material objects.  No prior data
-in the DB is required — materials and parts are created on the fly.
+.. deprecated::
+   This script is superseded by the unified CLI ``magnetdb.py``.
+   Use ``python magnetdb.py magnet add <json_file> [options]`` instead.
+   ``add_magnet.py`` is kept for backward compatibility only and may be
+   removed in a future version.
+
+Add a magnet (with its parts and materials) to a student DuckDB database
+from a MagnetDB magnet JSON export.
+
+Parts may be embedded inline as dicts or referenced by name (plain string).
+When a part entry is a plain string, the script looks for a file named
+``<part_name>.json`` in the same directory as the magnet JSON (or the
+directory given by --part-dir) and loads the full part definition from there.
 
 JSON format (as exported from MagnetDB)
 ----------------------------------------
@@ -16,31 +24,16 @@ JSON format (as exported from MagnetDB)
     "design_office_reference": "",
     "description":             "14 Helices, Phi = 34 mm",
     "parts": [
+        "H24110501",               ← name-only reference (resolved from <part_dir>/H24110501.json)
         {
-            "name":                    "H24110501",
-            "description":             "H1",
+            "name":                    "H24110502",
+            "description":             "H2",
             "status":                  "in_operation",
             "type":                    "helix",
             "design_office_reference": "HL-37-021-B",
-            "geometry":                "/path/to/HL-37_H1.yaml",
-            "material": {
-                "name":                    "MA24032701",
-                "description":             "",
-                "t_ref":                   293,
-                "volumic_mass":            9000.0,
-                "specific_heat":           385,
-                "alpha":                   0.0036,
-                "electrical_conductivity": 52900000.0,
-                "thermal_conductivity":    380,
-                "magnet_permeability":     1,
-                "young":                   117000000000.0,
-                "poisson":                 0.33,
-                "expansion_coefficient":   1.8e-05,
-                "rpe":                     490000000.0,
-                "nuance":                  "CuAg2,75"
-            }
-        },
-        ...
+            "geometry":                "/path/to/HL-37_H2.yaml",
+            "material": { ... }
+        }
     ]
 }
 
@@ -49,6 +42,7 @@ Usage
     python add_magnet.py M25032101.json
     python add_magnet.py M25032101.json --db path/to/student.duckdb
     python add_magnet.py M25032101.json --dry-run
+    python add_magnet.py M25032101.json --part-dir /path/to/part/jsons
 """
 
 import argparse
@@ -58,145 +52,45 @@ from pathlib import Path
 
 import duckdb
 
-# ---------------------------------------------------------------------------
-# Schema DDL  (same tables as add_site.py — idempotent on existing DBs)
-# ---------------------------------------------------------------------------
-
-SCHEMA_SQL = """
-CREATE TABLE IF NOT EXISTS materials (
-    name                    VARCHAR PRIMARY KEY,
-    description             VARCHAR,
-    nuance                  VARCHAR,
-    t_ref                   DOUBLE,
-    volumic_mass            DOUBLE,
-    specific_heat           DOUBLE,
-    alpha                   DOUBLE,
-    electrical_conductivity DOUBLE,
-    thermal_conductivity    DOUBLE,
-    magnet_permeability     DOUBLE,
-    young                   DOUBLE,
-    poisson                 DOUBLE,
-    expansion_coefficient   DOUBLE,
-    rpe                     DOUBLE
-);
-
-CREATE TABLE IF NOT EXISTS parts (
-    name                    VARCHAR PRIMARY KEY,
-    type                    VARCHAR,
-    status                  VARCHAR,
-    material_name           VARCHAR REFERENCES materials(name),
-    geometry                VARCHAR,
-    geometry_data           JSON,
-    cad                     VARCHAR,
-    design_office_reference VARCHAR
-);
-
-CREATE TABLE IF NOT EXISTS magnets (
-    name                    VARCHAR PRIMARY KEY,
-    type                    VARCHAR,
-    status                  VARCHAR,
-    geometry                VARCHAR,
-    geometry_data           JSON,
-    design_office_reference VARCHAR
-);
-
--- Migration: add geometry_data to existing databases (no-op if already present)
-ALTER TABLE parts   ADD COLUMN IF NOT EXISTS geometry_data JSON;
-ALTER TABLE magnets ADD COLUMN IF NOT EXISTS geometry_data JSON;
-
-CREATE TABLE IF NOT EXISTS magnet_parts (
-    magnet_name VARCHAR REFERENCES magnets(name),
-    part_name   VARCHAR REFERENCES parts(name),
-    rank        INTEGER,
-    coil_index  INTEGER,
-    PRIMARY KEY (magnet_name, part_name)
-);
-
-CREATE TABLE IF NOT EXISTS sites (
-    name               VARCHAR PRIMARY KEY,
-    description        VARCHAR,
-    status             VARCHAR,
-    housing            VARCHAR,
-    commissioned_at    TIMESTAMP,
-    decommissioned_at  TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS site_magnets (
-    site_name          VARCHAR REFERENCES sites(name),
-    magnet_name        VARCHAR REFERENCES magnets(name),
-    z_offset           DOUBLE    DEFAULT 0.0,
-    r_offset           DOUBLE    DEFAULT 0.0,
-    parallax           DOUBLE    DEFAULT 0.0,
-    commissioned_at    TIMESTAMP,
-    decommissioned_at  TIMESTAMP,
-    metadata           JSON      DEFAULT '{}',
-    PRIMARY KEY (site_name, magnet_name)
-);
-
--- Migration: add SiteMagnet fields to existing databases (no-op if already present)
-ALTER TABLE site_magnets ADD COLUMN IF NOT EXISTS z_offset          DOUBLE    DEFAULT 0.0;
-ALTER TABLE site_magnets ADD COLUMN IF NOT EXISTS r_offset          DOUBLE    DEFAULT 0.0;
-ALTER TABLE site_magnets ADD COLUMN IF NOT EXISTS parallax          DOUBLE    DEFAULT 0.0;
-ALTER TABLE site_magnets ADD COLUMN IF NOT EXISTS commissioned_at   TIMESTAMP;
-ALTER TABLE site_magnets ADD COLUMN IF NOT EXISTS decommissioned_at TIMESTAMP;
-ALTER TABLE site_magnets ADD COLUMN IF NOT EXISTS metadata          JSON      DEFAULT '{}';
-
-CREATE TABLE IF NOT EXISTS experiments (
-    id          INTEGER PRIMARY KEY,
-    name        VARCHAR,
-    description VARCHAR,
-    file        VARCHAR,
-    site_name   VARCHAR REFERENCES sites(name),
-    status      VARCHAR DEFAULT 'pending'
-);
-"""
-
-# Part types that receive a coil_index (i.e. map to an Icoil_N column)
-COIL_TYPES = {"helix", "bitter"}
+from schema import COIL_TYPES
+from crud import (
+    infer_magnet_type,
+    insert_magnet,
+    insert_magnet_parts,
+    insert_material,
+    insert_part,
+    load_json,
+)
+from schema import ensure_schema
 
 
 # ---------------------------------------------------------------------------
-# Helpers
+# Part resolution
 # ---------------------------------------------------------------------------
 
 
-def _load_geometry_json(geometry_path) -> str | None:
+def _resolve_parts(parts: list, part_dir: Path) -> list[dict]:
+    """Return a list of fully-resolved part dicts.
+
+    String entries are resolved by loading ``<part_dir>/<name>.json``.
+    Exits with an error message if a referenced JSON file is not found.
     """
-    Load a geometry YAML file via python_magnetgeo and return a JSON string
-    (with ``__classname__`` annotations) suitable for storing in DuckDB.
-    Returns None if the file is absent or python_magnetgeo is not available.
-    """
-    if not geometry_path:
-        return None
-    path = Path(geometry_path)
-    if not path.exists():
-        return None
-    try:
-        import json as _json
-        import yaml as _yaml
-        from python_magnetgeo.deserialize import serialize_instance
-        with open(path) as f:
-            obj = _yaml.load(f, Loader=_yaml.FullLoader)
-        return _json.dumps(obj, default=serialize_instance)
-    except Exception as exc:
-        print(f"  [WARN] Could not serialize geometry '{geometry_path}': {exc}")
-        return None
-
-
-def _exists(con, table, name):
-    return con.execute(f"SELECT 1 FROM {table} WHERE name = ?", [name]).fetchone() is not None
-
-
-def _infer_magnet_type(parts):
-    """Infer magnet assembly type from the types of its constituent parts."""
-    coil_types = {p["type"] for p in parts if p["type"] in COIL_TYPES}
-    if coil_types == {"helix"}:
-        return "insert"
-    if coil_types == {"bitter"}:
-        return "bitters"
-    if len(coil_types) > 1:
-        return "hybrid"
-    return "unknown"
+    resolved = []
+    for entry in parts:
+        if isinstance(entry, dict):
+            resolved.append(entry)
+            continue
+        name = entry
+        json_path = part_dir / f"{name}.json"
+        if not json_path.exists():
+            print(
+                f"Error: part '{name}' is a name reference but '{json_path}' not found.\n"
+                f"Place the part definition there or use --part-dir."
+            )
+            sys.exit(1)
+        print(f"  ~ part '{name}' not inline — loading from {json_path.name} …")
+        resolved.append(load_json(json_path))
+    return resolved
 
 
 # ---------------------------------------------------------------------------
@@ -204,13 +98,16 @@ def _infer_magnet_type(parts):
 # ---------------------------------------------------------------------------
 
 
-def _validate(data):
+def _validate(data: dict) -> list[str]:
     errors = []
     if not data.get("name"):
         errors.append("Missing top-level 'name'")
     if not data.get("parts"):
         errors.append("'parts' list is empty or missing")
     for i, part in enumerate(data.get("parts", [])):
+        if isinstance(part, str):
+            errors.append(f"Part[{i}] '{part}' is an unresolved name reference")
+            continue
         if not part.get("name"):
             errors.append(f"Part[{i}] is missing 'name'")
         if not part.get("type"):
@@ -221,134 +118,28 @@ def _validate(data):
 
 
 # ---------------------------------------------------------------------------
-# Insertion
-# ---------------------------------------------------------------------------
-
-
-def _insert_material(con, mat):
-    name = mat["name"]
-    if _exists(con, "materials", name):
-        print(f"  ~ material  {name}  (already exists, skipped)")
-        return
-    con.execute(
-        "INSERT INTO materials VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-        [
-            name,
-            mat.get("description") or None,
-            mat.get("nuance") or None,
-            mat.get("t_ref"),
-            mat.get("volumic_mass"),
-            mat.get("specific_heat"),
-            mat.get("alpha"),
-            mat.get("electrical_conductivity"),
-            mat.get("thermal_conductivity"),
-            mat.get("magnet_permeability"),
-            mat.get("young"),
-            mat.get("poisson"),
-            mat.get("expansion_coefficient"),
-            mat.get("rpe"),
-        ],
-    )
-    print(f"  + material  {name}  [{mat.get('nuance', '?')}]")
-
-
-def _insert_part(con, part):
-    name = part["name"]
-    if _exists(con, "parts", name):
-        print(f"  ~ part      {name}  (already exists, skipped)")
-        return
-    con.execute(
-        """
-        INSERT INTO parts
-            (name, type, status, material_name, geometry, geometry_data, cad, design_office_reference)
-        VALUES (?,?,?,?,?,?,?,?)
-        """,
-        [
-            name,
-            part.get("type"),
-            part.get("status"),
-            part["material"]["name"],
-            part.get("geometry") or None,
-            _load_geometry_json(part.get("geometry")),
-            part.get("cad") or None,
-            part.get("design_office_reference") or None,
-        ],
-    )
-    print(f"  + part      {name}  [{part.get('type', '?')}]")
-
-
-def _insert_magnet(con, data, magnet_type):
-    name = data["name"]
-    if _exists(con, "magnets", name):
-        print(f"  ~ magnet    {name}  (already exists, skipped)")
-        return
-    con.execute(
-        """
-        INSERT INTO magnets
-            (name, type, status, geometry, geometry_data, design_office_reference)
-        VALUES (?,?,?,?,?,?)
-        """,
-        [
-            name,
-            magnet_type,
-            data.get("status"),
-            data.get("geometry") or None,
-            _load_geometry_json(data.get("geometry")),
-            data.get("design_office_reference") or None,
-        ],
-    )
-    print(f"  + magnet    {name}  [{magnet_type}]  {data.get('status', '')}")
-
-
-def _insert_magnet_parts(con, magnet_name, parts):
-    coil_counter = 0
-    inserted = 0
-    skipped = 0
-    for rank, part in enumerate(parts):
-        part_name = part["name"]
-        part_type = part.get("type", "")
-
-        coil_index = None
-        if part_type in COIL_TYPES:
-            coil_counter += 1
-            coil_index = coil_counter
-
-        existing = con.execute(
-            "SELECT 1 FROM magnet_parts WHERE magnet_name = ? AND part_name = ?",
-            [magnet_name, part_name],
-        ).fetchone()
-        if existing:
-            skipped += 1
-            continue
-
-        con.execute(
-            "INSERT INTO magnet_parts VALUES (?,?,?,?)",
-            [magnet_name, part_name, rank, coil_index],
-        )
-        inserted += 1
-
-    print(
-        f"  + magnet_parts  {inserted} inserted,  {skipped} already present"
-        f"  ({coil_counter} coil channel(s))"
-    )
-
-
-# ---------------------------------------------------------------------------
 # Public entry point
 # ---------------------------------------------------------------------------
 
 
-def add_magnet(data, db_path, dry_run=False):
-    """
-    Insert a magnet (and its parts and materials) into the student DuckDB.
+def add_magnet(data: dict, db_path, dry_run: bool = False, part_dir=None) -> None:
+    """Insert a magnet and its parts/materials into the student DuckDB.
 
     Parameters
     ----------
     data     : dict matching the MagnetDB magnet JSON export format
     db_path  : path to the .duckdb file (created if it does not exist)
     dry_run  : if True, validate only — do not write
+    part_dir : directory to search for <part_name>.json files when a part
+               entry is a plain name string (default: current directory)
     """
     db_path = Path(db_path)
+    part_dir = Path(part_dir) if part_dir else Path(".")
+
+    # Resolve name-only part references before validation
+    raw_parts = data.get("parts") or []
+    if any(isinstance(p, str) for p in raw_parts):
+        data = {**data, "parts": _resolve_parts(raw_parts, part_dir)}
 
     errors = _validate(data)
     if errors:
@@ -358,46 +149,39 @@ def add_magnet(data, db_path, dry_run=False):
         sys.exit(1)
 
     parts = data["parts"]
-    magnet_type = _infer_magnet_type(parts)
+    magnet_type = infer_magnet_type(parts)
 
     if dry_run:
         coil_parts = [p for p in parts if p.get("type") in COIL_TYPES]
+        mats = {p["material"]["name"] for p in parts if p.get("material")}
         print("[dry-run] Validation passed. Would insert:")
         print(f"  magnet   : {data['name']}  [{magnet_type}]  {data.get('status', '')}")
         print(f"  parts    : {len(parts)}  ({len(coil_parts)} coil channel(s))")
-        mats = {p["material"]["name"] for p in parts if p.get("material")}
         print(f"  materials: {len(mats)}")
         return
 
     con = duckdb.connect(str(db_path))
-    con.execute(SCHEMA_SQL)
+    ensure_schema(con)
 
     print(f"\nAdding magnet '{data['name']}' to {db_path.name} …\n")
 
-    # 1. Materials (deduplicated — multiple parts may share one)
-    seen_materials = set()
+    seen_materials: set[str] = set()
     for part in parts:
         mat = part.get("material", {})
         mat_name = mat.get("name")
         if mat_name and mat_name not in seen_materials:
-            _insert_material(con, mat)
+            insert_material(con, mat)
             seen_materials.add(mat_name)
 
     print()
-
-    # 2. Parts
     for part in parts:
-        _insert_part(con, part)
+        insert_part(con, part)
 
     print()
-
-    # 3. Magnet
-    _insert_magnet(con, data, magnet_type)
+    insert_magnet(con, data, magnet_type)
 
     print()
-
-    # 4. Magnet–part links with coil_index
-    _insert_magnet_parts(con, data["name"], parts)
+    insert_magnet_parts(con, data["name"], parts)
 
     con.close()
     print("\nDone.")
@@ -408,9 +192,16 @@ def add_magnet(data, db_path, dry_run=False):
 # ---------------------------------------------------------------------------
 
 
-def main():
+def main() -> None:
+    import warnings
+    warnings.warn(
+        "add_magnet.py is deprecated. Use 'python magnetdb.py magnet add' instead.",
+        DeprecationWarning,
+        stacklevel=1,
+    )
     parser = argparse.ArgumentParser(
-        description="Add a magnet to the student DuckDB from a MagnetDB JSON export.",
+        description="[DEPRECATED — use: python magnetdb.py magnet add] "
+                    "Add a magnet to the student DuckDB from a MagnetDB JSON export.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )
@@ -419,6 +210,15 @@ def main():
         "--db",
         default="student_magnetdb.duckdb",
         help="Target DuckDB file (default: student_magnetdb.duckdb; created if absent)",
+    )
+    parser.add_argument(
+        "--part-dir",
+        default=None,
+        dest="part_dir",
+        help=(
+            "Directory to search for <part_name>.json files when a part is a "
+            "name-only reference (default: same directory as the magnet JSON file)"
+        ),
     )
     parser.add_argument(
         "--dry-run",
@@ -432,8 +232,9 @@ def main():
         print(f"Error: '{json_path}' not found.")
         sys.exit(1)
 
-    data = json.loads(json_path.read_text())
-    add_magnet(data, args.db, dry_run=args.dry_run)
+    part_dir = args.part_dir if args.part_dir else json_path.parent
+    data = load_json(json_path)
+    add_magnet(data, args.db, dry_run=args.dry_run, part_dir=part_dir)
 
 
 if __name__ == "__main__":
