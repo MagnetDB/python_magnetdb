@@ -1,0 +1,8 @@
+*.png
+*.json
+*.duckdb
+
+deprecated/
+
+# direnv — contains credentials, never commit
+.envrc

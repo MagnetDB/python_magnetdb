@@ -99,3 +99,9 @@ backups/
 # duckdb
 *.duckdb
 
+*.old
+*log
+
+# direnv
+.envrc*
+*.my
