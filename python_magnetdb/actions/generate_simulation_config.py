@@ -22,15 +22,13 @@ def format_material(material):
 
 def generate_magnet_config(magnet_id):
     magnet = Magnet.objects.prefetch_related(
-        'magnetpart_set__part',
-        'magnetpart_set__part__material',
-        'sitemagnet_set__site',
+        "magnetpart_set__part",
+        "magnetpart_set__part__material",
+        "sitemagnet_set__site",
     ).get(id=magnet_id)
-    print(
-        f"generate_magnet_config[{magnet_id}]: magnet={magnet.name}"
-    )
+    print(f"generate_magnet_config[{magnet_id}]: magnet={magnet.name}")
     payload = {"geom": f"{magnet.name}.yaml"}
-    
+
     try:
         insulator_payload = format_material(Material.objects.get(name="MAT_ISOLANT"))
     except Material.DoesNotExist:
@@ -38,7 +36,7 @@ def generate_magnet_config(magnet_id):
             "Material 'MAT_ISOLANT' is not defined in the database. "
             "Please create this material before generating magnet configurations."
         )
-    
+
     for magnet_part in magnet.magnetpart_set.all():
         # if not magnet_part.active:
         #     continue
@@ -65,7 +63,7 @@ def generate_site_config(site_id):
         # if not site_magnet.active:
         #     continue
         payload["magnets"].append(generate_magnet_config(site_magnet.magnet_id))
-    # print(f'generate_site_config: {payload}')
+    print(f"generate_site_config: {payload}")
     return payload
 
 

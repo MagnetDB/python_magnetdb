@@ -70,4 +70,5 @@ def generate_magnet_directory(magnet_id, directory):
     with open(f"{directory}/config.json", "w+") as file:
         config = generate_magnet_config(magnet_id)
         file.write(json.dumps(config))
+        print(f"generate_magnet_directory: config={config}")
         return config

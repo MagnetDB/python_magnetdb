@@ -17,17 +17,8 @@ class Site(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, null=False)
     updated_at = models.DateTimeField(auto_now=True, null=False)
 
-    @property
-    def geometry_config_to_json(self):
-        """
-        Convert site configuration to JSON string.
-
-        Creates a python_magnetgeo MSite object from the site data,
-        and returns the JSON representation using the object's to_json() method.
-
-        Returns:
-            str: JSON string representation of the MSite
-        """
+    def to_geometry_object(self):
+        """Build and return the MSite object for this site."""
         from python_magnetgeo.deserialize import unserialize_object
         import json
 
@@ -37,19 +28,15 @@ class Site(models.Model):
         r_offset = []
         paralax = []
 
-        # Populate from related sitemagnet objects
         for site_magnet in self.sitemagnet_set.all():
-            # Get the magnet's geometry as JSON, then deserialize to object
             magnet_json = site_magnet.magnet.geometry_config_to_json
             print("magnet_json:", magnet_json)
-            magnet_obj = unserialize_object(json.loads(magnet_json))
-            magnets.append(magnet_obj)
+            magnets.append(unserialize_object(json.loads(magnet_json)))
             z_offset.append(site_magnet.z_offset)
             r_offset.append(site_magnet.r_offset)
             paralax.append(site_magnet.parallax)
 
-        # Create MSite object and use its to_json() method
-        obj = MSite(
+        return MSite(
             name=self.name,
             magnets=magnets,
             screens=screens,
@@ -57,46 +44,11 @@ class Site(models.Model):
             r_offset=r_offset,
             paralax=paralax,
         )
-        return obj.to_json()
+
+    @property
+    def geometry_config_to_json(self):
+        return self.to_geometry_object().to_json()
 
     @property
     def geometry_config_to_yaml(self):
-        """
-        Convert site configuration to YAML string.
-
-        Creates a python_magnetgeo MSite object from the site data,
-        and returns the YAML representation using yaml.dump().
-
-        Returns:
-            str: YAML string representation of the MSite
-        """
-        from python_magnetgeo.deserialize import unserialize_object
-        import json
-
-        magnets = []
-        screens = []
-        z_offset = []
-        r_offset = []
-        paralax = []
-
-        # Populate from related sitemagnet objects
-        for site_magnet in self.sitemagnet_set.all():
-            # Get the magnet's geometry as JSON, then deserialize to object
-            magnet_json = site_magnet.magnet.geometry_config_to_json
-            print("magnet_json:", magnet_json)
-            magnet_obj = unserialize_object(json.loads(magnet_json))
-            magnets.append(magnet_obj)
-            z_offset.append(site_magnet.z_offset)
-            r_offset.append(site_magnet.r_offset)
-            paralax.append(site_magnet.parallax)
-
-        # Create MSite object and use its to_json() method
-        obj = MSite(
-            name=self.name,
-            magnets=magnets,
-            screens=screens,
-            z_offset=z_offset,
-            r_offset=r_offset,
-            paralax=paralax,
-        )
-        return obj.to_yaml()
+        return self.to_geometry_object().to_yaml()

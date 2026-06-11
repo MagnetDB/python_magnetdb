@@ -3,11 +3,82 @@
 ## Context & Constraints
 
 - **Team**: Christophe (lead) + Rémi, effectively 1.5 FTE on MagnetDB
-- **Parallel work**: React migration (5 phases) is already planned
+- **Parallel work**: Frontend migration (5 phases) is planned — **Vue 3 or React, decision pending** (see comparison below)
 - **Production stability**: LNCMI research operations depend on the platform
 - **Principle**: Incremental delivery — each phase delivers standalone value
 
-This roadmap covers the backend evolution for operational data statistics, pre-processed time series, ingestion automation, streaming readiness, and user role/access refinements. It is designed to interleave with the React migration without blocking it.
+### Frontend prerequisite status (as of 2026-05-06) ✅
+
+The following build tooling work is complete on the `eslint` branch. It is a prerequisite for both migration paths:
+
+| Task | Status | Relevance |
+|------|--------|-----------|
+| Vue CLI 4 → 5 (Webpack 4 → 5) | ✅ Done | Vue 3: unblocks compat build; React: useful if keeping Webpack, but Vite is preferred |
+| Node 18 → 22 (`node:22-trixie`) | ✅ Done | Both paths |
+| ESLint 6 → 9 with flat config | ✅ Done | Both paths |
+| `Vue.filter` → `Vue.prototype.$filters` | ✅ Done | Vue 3: required (Vue.filter removed); React: irrelevant |
+
+---
+
+## Frontend Migration Decision: Vue 3 vs React
+
+The current frontend is **Vue 2** (Options API SFCs, Vuex 3, Vue Router 3, TailwindCSS, chart.js, plotly.js, Monaco editor). Vue 2 reached end-of-life on **2023-12-31**.
+
+### Vue 3 migration
+
+**Approach**: Incremental upgrade using the [Vue 2 migration build](https://v3-migration.vuejs.org/migration-build.html) (`@vue/compat`), then progressively opt components into Vue 3 mode. Vuex → Pinia, Vue Router 3 → 4.
+
+| Pros | Cons |
+|------|------|
+| Most existing Options API SFCs are Vue 3-compatible with minimal changes | Vue ecosystem is smaller than React — fewer community packages, fewer developers available |
+| Incremental migration: one component at a time, no big-bang rewrite | Vue 2 → 3 still has breaking changes: `v-model`, slots, `$attrs/$listeners`, global API (`Vue.use`, `Vue.set`) all changed |
+| Vuex → Pinia is a simple, mechanical migration | Vetur IDE plugin must be replaced by Volar |
+| Vue Router 3 → 4 requires minimal changes | Vue CLI 5 should be replaced by Vite for the full benefit of Vue 3 (separate effort) |
+| TailwindCSS, chart.js, plotly.js, axios, Monaco editor: all unchanged | Long-term: smaller hiring pool |
+| No paradigm shift — team already knows Vue | |
+| `Vue.filter` already removed (one blocker already cleared) | |
+| **Estimated effort**: 6–10 weeks (Christophe + Rémi part-time) | |
+
+**Recommended if**: production stability and migration speed are the top priorities, and the team plans to stay primarily Vue-oriented.
+
+---
+
+### React migration
+
+**Approach**: Full rewrite. All Vue SFCs become React components (JSX/TSX). Vuex → Zustand or TanStack Query. Vue Router → React Router v6. Build tool: Vite + React.
+
+| Pros | Cons |
+|------|------|
+| Largest frontend ecosystem — most packages have React-first support | **Complete rewrite** — every `.vue` file must be reimplemented |
+| Largest hiring pool — easier to onboard new developers | No incremental path: requires a parallel app or a big-bang cutover |
+| React 18+ concurrent features (Suspense, transitions) | Team must learn React (JSX, hooks, different component model) — steep ramp for 1.5 FTE |
+| First-class TypeScript support across the ecosystem | Much higher risk to production stability during migration |
+| TanStack Query / React Query is excellent for the API-heavy data patterns in MagnetDB | chart.js, plotly.js, Monaco editor need React wrapper components (exist, but add indirection) |
+| Vite + React is a very modern, fast build stack | Vuex mental model does not map directly to React — Redux/Zustand/Jotai are different paradigms |
+| Better long-term community momentum | **Estimated effort**: 4–6 months (Christophe + Rémi part-time) |
+
+**Recommended if**: long-term maintainability, team growth, and ecosystem breadth outweigh migration cost.
+
+---
+
+### Decision matrix
+
+| Factor | Vue 3 | React |
+|--------|-------|-------|
+| Migration effort | Low–Medium (incremental) | High (full rewrite) |
+| Risk to production | Low | Medium–High |
+| Team ramp-up | None | Medium (JSX, hooks) |
+| Ecosystem breadth | Medium | Large |
+| Hiring pool | Medium | Large |
+| Existing code reuse | High (~80% of template logic reusable) | Low (~20% logic reusable) |
+| Time to first deployable result | 2–3 weeks | 6–8 weeks |
+| Long-term community momentum | Good (Vue 3 is actively developed) | Excellent |
+
+**Recommended path for this team and codebase**: **Vue 3**, unless there is a specific long-term plan to grow the team beyond 3–4 people or to consolidate with other React-based internal tools. The incremental migration approach and the work already done (Vue.filter removal, Vue CLI 5) give a meaningful head start that would be discarded in a React rewrite.
+
+`Vue.filter` is removed from `src/main.js` and all 12 template files updated. The codebase now has no Vue 3 blockers in the build or filter layer.
+
+This roadmap covers the backend evolution for operational data statistics, pre-processed time series, ingestion automation, streaming readiness, and user role/access refinements. It is designed to interleave with the Vue 3 migration without blocking it.
 
 ---
 
@@ -24,7 +95,7 @@ This roadmap covers the backend evolution for operational data statistics, pre-p
 
 **Total estimated effort**: 24–31 working weeks (~6–8 months of calendar time, accounting for parallel React migration work and operational duties).
 
-**Recommended cadence**: Alternate between backend phases (this roadmap) and React migration phases. For example: React Phase 1 → Stats Phase 0 → React Phase 2 → Stats Phase 1 → etc.
+**Recommended cadence**: Alternate between backend phases (this roadmap) and Vue 3 migration phases. For example: Vue 3 Phase 1 → Stats Phase 0 → Vue 3 Phase 2 → Stats Phase 1 → etc.
 
 ---
 
@@ -34,13 +105,17 @@ This roadmap covers the backend evolution for operational data statistics, pre-p
 
 **Why first**: Every subsequent phase depends on these model changes. They are low-risk (additive fields, backward-compatible) and can be deployed immediately.
 
-### 0.1 Record model extension (Week 1)
+> **Terminology note.** The MagnetDB entity called `Record` represents an **operational run** — the set of control-system recordings produced during a magnet operation period (Pupitre, PigBrother, or Hybrid). This is *not* what the EMFL/ISABEL DMP calls an "experiment" (which is the scientist's user campaign and is governed by a separate DMP). The two share a time window and possibly a proposal reference, but contain different data under different policies. The `Record` name is kept throughout this roadmap; the word "experiment" is reserved for the EMFL context.
 
-Add fields to the existing Record model:
+### 0.1 Record model redesign (Week 1)
+
+Add fields to the existing Record model and introduce the D1/D2 data layer split:
 
 - `record_type` (CharField with choices: monitoring, transient, calibration, maintenance) — default "monitoring" for all existing records
 - `source` (CharField: offline, stream, database) — default "offline"
-- `experimenter` (CharField, nullable, indexed) — the external user ID from the operational system
+- `sources` (JSONField) — list of raw MCS filenames / NAS paths (D1 references, immutable after acquisition)
+- `curated` (M2M to StorageAttachment) — curated full-resolution Parquet files in RustFS S3 (D2 layer); one per `(source_type, group)` pair
+- `experimenter` (CharField, nullable, indexed) — the operator identity from the control system (not the scientist — see terminology note above)
 - `experimenter_user` (FK to User, nullable) — resolved MagnetDB user link
 - `started_at`, `ended_at` (DateTimeField, nullable) — time bounds
 - `duration_seconds` (FloatField, nullable)
@@ -431,37 +506,37 @@ Add Celery Beat schedule entry for each active stream (configurable window durat
 
 ---
 
-## Interleaving with the React Migration
+## Interleaving with the Frontend Migration
 
-The React migration and this backend roadmap are largely independent, but some frontend work is needed to expose new features. Suggested interleaving:
+The frontend migration (Vue 3 or React) and this backend roadmap are largely independent. The suggested interleaving below is the same regardless of which path is chosen — only the effort column differs.
 
 ```
-Month 1–2:   React Phase 1 (preparation/audit)
-             Stats Phase 0 (model foundations) ← backend, no UI needed
+Month 1–2:   Frontend Phase 1 (preparation/audit) ← build tooling prereqs already done
+             Stats Phase 0 (model foundations)    ← backend, no UI needed
 
-Month 3–4:   React Phase 2 (core infrastructure)
-             Stats Phase 1 (RecordStats) ← API-only, test via Swagger/curl
+Month 3–4:   Frontend Phase 2 (core infrastructure)
+             Stats Phase 1 (RecordStats)          ← API-only, test via Swagger/curl
 
-Month 4–5:   Stats Phase 2 (ETL/time series) ← replaces existing /visualize
+Month 4–5:   Stats Phase 2 (ETL/time series)      ← replaces existing /visualize
 
-Month 5–7:   React Phase 3 (component migration)
+Month 5–7:   Frontend Phase 3 (component migration)
              Stats Phase 3 (cumulative stats)
-             → React components can consume new stats/timeseries endpoints
+             → New frontend components can consume new stats/timeseries endpoints
 
-Month 7–8:   Stats Phase 4 (automated ingestion) ← pure backend
+Month 7–8:   Stats Phase 4 (automated ingestion)  ← pure backend
 
-Month 8–10:  React Phase 4–5 (polish, cleanup)
+Month 8–10:  Frontend Phase 4–5 (polish, cleanup)
              → Build stats dashboard, trend charts, experimenter views
              → Admin UI for user roles, data scoping, external identities
 
-Month 10–12: Stats Phase 5 (streaming) ← when NI/DB integration is ready
+Month 10–12: Stats Phase 5 (streaming)            ← when NI/DB integration is ready
              → Real-time dashboard components (if WebSocket path chosen)
 ```
 
 This interleaving ensures:
 
-- Backend APIs are stable before React components consume them
-- The `/visualize` replacement (Phase 2) is ready before the React VisualisationCard is migrated
+- Backend APIs are stable before new frontend components consume them
+- The `/visualize` replacement (Phase 2) is ready before the VisualisationCard is migrated
 - The user role/scoping system (Phase 0) is in place before external access is enabled
 - Streaming (Phase 5) is deferred until actually needed
 

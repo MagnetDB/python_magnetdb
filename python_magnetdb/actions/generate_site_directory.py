@@ -16,10 +16,10 @@ def mkdir(dir):
 
 def generate_site_directory(site_id, directory):
     site = Site.objects.prefetch_related(
-        'sitemagnet_set__magnet',
-        'sitemagnet_set__magnet__magnetpart_set__part__cadattachment_set__attachment',
-        'sitemagnet_set__magnet__magnetpart_set__part__material',
-        'sitemagnet_set__magnet__cadattachment_set__attachment',
+        "sitemagnet_set__magnet",
+        "sitemagnet_set__magnet__magnetpart_set__part__cadattachment_set__attachment",
+        "sitemagnet_set__magnet__magnetpart_set__part__material",
+        "sitemagnet_set__magnet__cadattachment_set__attachment",
     ).get(id=site_id)
     mkdir(f"{directory}/data")
     mkdir(f"{directory}/data/geometries")
@@ -39,7 +39,7 @@ def generate_site_directory(site_id, directory):
 
         # add flow_params per magnet
         generate_flow_params(magnet, directory, magnet.name)
-            
+
         for magnet_part in magnet.magnetpart_set.all():
             print(f"magnet_part: name={magnet_part.part.name}")
             # if not magnet_part.active:
@@ -49,13 +49,11 @@ def generate_site_directory(site_id, directory):
             if magnet_part.part.shape_attachment:
                 magnet_part.part.shape_attachment.download(
                     f"{directory}/data/cad/{magnet_part.part.shape_attachment.attachment.filename}"
-                )   
+                )
             if magnet_part.part.cadattachment_set.all():
                 for cad in magnet_part.part.cadattachment_set.all():
-                    cad.attachment.download(
-                        f"{directory}/data/cad/{cad.attachment.filename}"
-                    )
-            
+                    cad.attachment.download(f"{directory}/data/cad/{cad.attachment.filename}")
+
         for probe in magnet.probe_set.all():
             with open(f"{directory}/data/geometries/{probe.name}.yaml", "w") as f:
                 f.write(probe.geometry_config_to_yaml)
@@ -64,7 +62,7 @@ def generate_site_directory(site_id, directory):
             magnet_config = generate_magnet_config(magnet.id)
             file.write(json.dumps(magnet_config))
             site_config["magnets"].append({magnet.name: magnet_config})
-        # print(f'generate_site_directory: site_config={site_config}')
+        print(f"generate_site_directory: site_config={site_config}")
 
     with open(f"{directory}/config.json", "w+") as file:
         file.write(json.dumps(site_config))

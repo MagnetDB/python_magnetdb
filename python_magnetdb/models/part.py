@@ -55,59 +55,31 @@ class Part(models.Model):
     def allow_modelaxi_file(self):
         return self.type == PartType.HELIX or self.type == PartType.BITTER
 
-    @property
-    def geometry_config_to_json(self):
-        """
-        Convert geometry_config to JSON string.
-
-        Creates a python_magnetgeo object from geometry_config, updates the name,
-        and returns the JSON representation using the object's to_json() method.
-
-        Returns:
-            str: JSON string or None if geometry_config is empty
-        """
+    def to_geometry_object(self):
+        """Build and return the python_magnetgeo object for this part, or None if geometry_config is empty."""
         if self.geometry_config is None or self.geometry_config == {}:
             return None
-
-        # Create python_magnetgeo object from geometry_config
         from python_magnetgeo.deserialize import unserialize_object
-
         config = copy.deepcopy(self.geometry_config)
         config["name"] = self.name
+        return unserialize_object(config)
 
-        # Deserialize to get a magnetgeo object
-        obj = unserialize_object(config)
-
-        # Use object's native to_json() method
-        print(f"geometry_config_to_json[{obj.name}]:", obj.to_json())
-        return obj.to_json()
+    @property
+    def geometry_config_to_json(self):
+        obj = self.to_geometry_object()
+        if obj is None:
+            return None
+        result = obj.to_json()
+        print(f"geometry_config_to_json[{obj.name}]:", result)
+        return result
 
     @property
     def geometry_config_to_yaml(self):
-        """
-        Convert geometry_config to YAML string.
-
-        Creates a python_magnetgeo object from geometry_config, updates the name,
-        and returns the YAML representation using yaml.dump().
-
-        Returns:
-            str: YAML string or None if geometry_config is empty
-        """
-        if self.geometry_config is None or self.geometry_config == {}:
+        obj = self.to_geometry_object()
+        if obj is None:
             return None
-
-        # Create python_magnetgeo object from geometry_config
-        from python_magnetgeo.deserialize import unserialize_object
-        import yaml
-
-        config = copy.deepcopy(self.geometry_config)
-        config["name"] = self.name
-
-        # Deserialize to get a magnetgeo object
-        obj = unserialize_object(config)
-
-        # Use object's to_yaml() method for proper YAML serialization
-        print(f"geometry_config_to_yaml[{obj.name}]:", config)
+        result = obj.to_yaml()
+        print(f"geometry_config_to_yaml[{obj.name}]:", self.geometry_config)
         print("object:\n", obj)
-        print("yaml:\n", obj.to_yaml())
-        return obj.to_yaml()
+        print("yaml:\n", result)
+        return result
