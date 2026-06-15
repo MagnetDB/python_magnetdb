@@ -6,87 +6,78 @@
 </template>
 
 <script>
+import { ref, reactive, provide, watch } from 'vue'
 import { cloneDeep, isEqual } from 'lodash'
-import Alert from "@/components/Alert";
+import Alert from "@/components/Alert"
 
 export default {
   name: 'Form',
   props: ['initialValues'],
+  emits: ['change'],
   components: {
     Alert,
   },
-  data() {
-    return {
-      loading: false,
-      values: cloneDeep(this.initialValues || {}),
-      errors: {},
-      rootError: null,
-      dirty: false,
+  setup(props, { attrs, emit }) {
+    const rootError = ref(null)
+
+    function setValues(newValues) {
+      form.values = newValues
     }
-  },
-  reactiveProvide: {
-    name: 'form',
-    include: ['values', 'errors', 'loading', 'dirty', 'submit', 'computeDirty', 'setValues'],
-  },
-  watch: {
-    values: {
-      immediate: true,
-      deep: true,
-      handler() {
-        this.computeDirty()
-        this.$emit('change', this.values)
-      },
-    },
-    initialValues: {
-      immediate: true,
-      deep: true,
-      handler() {
-        this.computeDirty()
-      },
-    },
-  },
-  methods: {
-    setValues(values) {
-      this.values = values
-    },
-    computeDirty() {
-      this.dirty = !isEqual(this.initialValues, this.values)
-    },
-    async submit() {
-      this.errors = await this.validate()
-      if (Object.keys(this.errors).length) {
-        return
-      }
 
-      this.loading = true
-      try {
-        await this.$listeners.submit(this.values, {
-          setErrors: ((errors) => {
-            this.errors = errors
-          }).bind(this),
-          setRootError: ((rootError) => {
-            this.rootError = rootError
-          }).bind(this),
-        })
-      } catch {
-        // this.errors = errors
-      } finally {
-        this.loading = false
-      }
-    },
-    async validate() {
-      if (!this.$listeners.validate) {
-        return {}
-      }
+    function computeDirty() {
+      form.dirty = !isEqual(props.initialValues, form.values)
+    }
 
-      const res = this.$listeners.validate(this.values)
+    async function validate() {
+      if (!attrs.onValidate) return {}
+      const schema = attrs.onValidate(form.values)
       try {
-        await res.validate(this.values, { strict: true, abortEarly: false, recursive: true })
+        await schema.validate(form.values, { strict: true, abortEarly: false, recursive: true })
         return {}
       } catch (e) {
         return Object.fromEntries(e.inner.map((error) => [error.path, error.errors]))
       }
-    },
-  }
+    }
+
+    async function submit() {
+      form.errors = await validate()
+      if (Object.keys(form.errors).length) return
+
+      form.loading = true
+      try {
+        await attrs.onSubmit(form.values, {
+          setErrors: (errs) => { form.errors = errs },
+          setRootError: (err) => { rootError.value = err },
+        })
+      } catch {
+        // silent
+      } finally {
+        form.loading = false
+      }
+    }
+
+    const form = reactive({
+      values: cloneDeep(props.initialValues || {}),
+      errors: {},
+      loading: false,
+      dirty: false,
+      submit,
+      computeDirty,
+      setValues,
+    })
+
+    provide('form', form)
+
+    watch(() => form.values, () => {
+      computeDirty()
+      emit('change', form.values)
+    }, { immediate: true, deep: true })
+
+    watch(() => props.initialValues, () => {
+      computeDirty()
+    }, { immediate: true, deep: true })
+
+    return { rootError, submit }
+  },
 }
 </script>

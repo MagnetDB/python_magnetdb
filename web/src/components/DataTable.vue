@@ -49,10 +49,10 @@
         <tbody v-if="dataVisible">
           <tr
             v-for="item in items" :key="getItemKey(item)" class="hover:bg-gray-100"
-            :class="{ 'cursor-pointer': $listeners['item-selected'] }" @click="$emit('item-selected', item)"
+            :class="{ 'cursor-pointer': $attrs.onItemSelected }" @click="$emit('item-selected', item)"
           >
             <td v-for="header in currentHeaders" :key="header.key">
-              <slot v-if="$scopedSlots[`item.${header.key}`]" :name="`item.${header.key}`" :item="item" :items="items" />
+              <slot v-if="$slots[`item.${header.key}`]" :name="`item.${header.key}`" :item="item" :items="items" />
               <template v-else>{{ item[header.key] }}</template>
             </td>
           </tr>
@@ -152,7 +152,7 @@ export default {
       this.isLoading = true
       this.error = null
       try {
-        const res = await this.$listeners.fetch({ page, perPage, sortBy, sortDesc, query })
+        const res = await this.$attrs.onFetch({ page, perPage, sortBy, sortDesc, query })
         this.items = res.items
         this.perPage = res.perPage
         this.currentPage = res.currentPage

@@ -24,6 +24,7 @@
 <script>
 export default {
   name: 'Button',
+  inheritAttrs: false,
   props: ['loading', 'disabled', 'skipForm'],
   data() {
     return { internalLoading: false }
@@ -43,8 +44,8 @@ export default {
     async onClick() {
       this.internalLoading = true
       try {
-        if (this.$listeners.click) {
-          await this.$listeners.click()
+        if (this.$attrs.onClick) {
+          await this.$attrs.onClick()
         } else if (this.form) {
           await this.form.submit()
         }

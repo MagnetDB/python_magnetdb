@@ -1,8 +1,8 @@
-import VueRouter from "vue-router";
+import { createRouter, createWebHistory } from 'vue-router'
 import store from './store'
 
-const router = new VueRouter({
-  mode: 'history',
+const router = createRouter({
+  history: createWebHistory(),
   routes: [
     { name: 'sites', path: '/sites', component: () => import('./views/sites/list') },
     { name: 'new_site', path: '/sites/new', component: () => import('./views/sites/new') },
@@ -36,8 +36,8 @@ const router = new VueRouter({
     { name: 'visualisation_bmap_2d', path: '/visualisations/bmap_2d', component: () => import('./views/visualisations/bmap-2d') },
     { name: 'visualisation_stress_map', path: '/visualisations/stress_map', component: () => import('./views/visualisations/stress-map') },
     { name: 'home', path: '/', component: () => import('./views/home/index') },
-    { name: 'sign_in', path: '/sign_in', component: () => import('./views/signin') }
-  ]
+    { name: 'sign_in', path: '/sign_in', component: () => import('./views/signin') },
+  ],
 })
 
 router.beforeEach(async (to, _, next) => {
