@@ -29,16 +29,16 @@
           <span v-else class="text-gray-500 italic">Not available</span>
         </template>
         <template v-slot:item.created_at="{ item }">
-          {{ $filters.datetime(item.created_at) }}
+          {{ datetime(item.created_at) }}
         </template>
         <template v-slot:item.updated_at="{ item }">
-          {{ $filters.datetime(item.updated_at) }}
+          {{ datetime(item.updated_at) }}
         </template>
         <template v-slot:item.commissioned_at="{ item }">
-          {{ $filters.datetime(item.commissioned_at) }}
+          {{ datetime(item.commissioned_at) }}
         </template>
         <template v-slot:item.decommissioned_at="{ item }">
-          {{ $filters.datetime(item.decommissioned_at) }}
+          {{ datetime(item.decommissioned_at) }}
         </template>
       </DataTable>
     </Card>
@@ -46,6 +46,7 @@
 </template>
 
 <script>
+import { useFilters } from '@/composables/useFilters'
 import * as magnetService from '@/services/magnetService'
 import Card from '@/components/Card'
 import DataTable from "@/components/DataTable";
@@ -53,6 +54,10 @@ import StatusBadge from "@/components/StatusBadge";
 
 export default {
   name: 'MagnetList',
+  setup() {
+    const { datetime } = useFilters()
+    return { datetime }
+  },
   components: {
     Card,
     DataTable,

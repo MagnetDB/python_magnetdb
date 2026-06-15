@@ -1,11 +1,10 @@
 <template>
   <VueSelect
     v-bind="$attrs"
-    v-on="$listeners"
     label="name"
     :class="{ 'form-select-error': hasError, 'form-select-disabled': disabled }"
-    :value="value"
-    @input="onInput"
+    :modelValue="value"
+    @update:modelValue="onInput"
     :options="options"
     :disabled="disabled"
     :clearable="clearable"

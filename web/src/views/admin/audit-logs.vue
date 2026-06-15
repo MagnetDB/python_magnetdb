@@ -7,7 +7,7 @@
     <Card>
       <DataTable :headers="headers" @fetch="fetch">
         <template v-slot:item.created_at="{ item }">
-          {{ $filters.datetime(item.created_at) }}
+          {{ datetime(item.created_at) }}
         </template>
         <template v-slot:item.message="{ item }">
           {{ item.message }}
@@ -31,12 +31,17 @@
 </template>
 
 <script>
+import { useFilters } from '@/composables/useFilters'
 import * as auditLogService from '@/services/admin/auditLogService'
 import Card from '@/components/Card'
 import DataTable from "@/components/DataTable";
 
 export default {
   name: 'AuditLogs',
+  setup() {
+    const { datetime } = useFilters()
+    return { datetime }
+  },
   components: {
     DataTable,
     Card,

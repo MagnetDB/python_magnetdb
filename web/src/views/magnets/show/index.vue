@@ -170,11 +170,11 @@
                 <span v-else class="text-gray-500 italic">Not set</span>
               </td>
               <td class="whitespace-nowrap">
-                <template v-if="magnetPart.commissioned_at !== null">{{ $filters.datetime(magnetPart.commissioned_at) }}</template>
+                <template v-if="magnetPart.commissioned_at !== null">{{ datetime(magnetPart.commissioned_at) }}</template>
                 <span v-else class="text-gray-500 italic">Not available</span>
               </td>
               <td class="whitespace-nowrap">
-                <template v-if="magnetPart.decommissioned_at !== null">{{ $filters.datetime(magnetPart.decommissioned_at) }}</template>
+                <template v-if="magnetPart.decommissioned_at !== null">{{ datetime(magnetPart.decommissioned_at) }}</template>
                 <span v-else class="text-gray-500 italic">Not available</span>
               </td>
               <td class="whitespace-nowrap">
@@ -291,6 +291,7 @@
 
 <script>
 import { markRaw } from 'vue'
+import { useFilters } from '@/composables/useFilters'
 import * as Yup from 'yup'
 import * as magnetService from '@/services/magnetService'
 import Card from '@/components/Card'
@@ -315,6 +316,10 @@ import MeshAttachmentEditor from "@/components/MeshAttachmentEditor.vue";
 
 export default {
   name: 'MagnetShow',
+  setup() {
+    const { datetime } = useFilters()
+    return { datetime }
+  },
   components: {
     MeshAttachmentEditor,
     MagnetFlowParamsModal,

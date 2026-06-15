@@ -13,7 +13,7 @@
             <TrashIcon class="h5 w-5" />
           </button>
           <button class="attachment-action" @click="downloadAttachment(cad)">
-            <DownloadIcon class="h5 w-5" />
+            <ArrowDownTrayIcon class="h5 w-5" />
           </button>
         </div>
       </div>
@@ -70,8 +70,7 @@
 <script>
 import client from '@/services/client'
 import * as cadAttachmentService from '@/services/cadAttachmentService'
-import { TrashIcon } from '@vue-hero-icons/outline'
-import { DownloadIcon } from '@vue-hero-icons/outline'
+import { TrashIcon, ArrowDownTrayIcon } from '@heroicons/vue/24/outline'
 import Button from "@/components/Button";
 import Modal from "@/components/Modal.vue";
 import FormField from "@/components/FormField.vue";
@@ -89,7 +88,7 @@ export default {
     Modal,
     Button,
     TrashIcon,
-    DownloadIcon,
+    ArrowDownTrayIcon,
   },
   data() {
     return {

@@ -9,7 +9,6 @@
       </label>
       <component
         v-bind="$attrs"
-        v-on="$listeners"
         :is="component"
         :id="fieldName"
         :name="fieldName"

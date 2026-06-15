@@ -7,13 +7,19 @@
     'badge-default': !['in_stock', 'in_study', 'in_operation', 'defunct', 'done', 'in_progress', 'failed'].includes(status),
   }">
     <slot></slot>
-    {{ $filters.statusName(status) }}
+    {{ statusName(status) }}
   </div>
 </template>
 
 <script>
+import { useFilters } from '@/composables/useFilters'
+
 export default {
   name: 'StatusBadge',
   props: ['status'],
+  setup() {
+    const { statusName } = useFilters()
+    return { statusName }
+  },
 }
 </script>

@@ -32,10 +32,10 @@
           <StatusBadge :status="item.status"></StatusBadge>
         </template>
         <template v-slot:item.created_at="{ item }">
-          {{ $filters.datetime(item.created_at) }}
+          {{ datetime(item.created_at) }}
         </template>
         <template v-slot:item.updated_at="{ item }">
-          {{ $filters.datetime(item.updated_at) }}
+          {{ datetime(item.updated_at) }}
         </template>
       </DataTable>
     </Card>
@@ -43,6 +43,7 @@
 </template>
 
 <script>
+import { useFilters } from '@/composables/useFilters'
 import * as partService from '@/services/partService'
 import Card from '@/components/Card'
 import StatusBadge from "@/components/StatusBadge";
@@ -50,6 +51,10 @@ import DataTable from "@/components/DataTable";
 
 export default {
   name: 'PartList',
+  setup() {
+    const { datetime } = useFilters()
+    return { datetime }
+  },
   components: {
     StatusBadge,
     Card,

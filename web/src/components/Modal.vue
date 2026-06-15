@@ -4,7 +4,7 @@
       <div v-if="$slots.header" class="modal-header">
         <slot name="header" />
         <button v-if="closeable" type="button" @click="close">
-          <XIcon class="w-5 h-5 text-gray-500" />
+          <XMarkIcon class="w-5 h-5 text-gray-500" />
         </button>
       </div>
       <div class="modal-body">
@@ -18,13 +18,13 @@
 </template>
 
 <script>
-import { XIcon } from '@vue-hero-icons/outline'
+import { XMarkIcon } from '@heroicons/vue/24/outline'
 
 export default {
   name: 'Modal',
   props: ['visible', 'closeable'],
   components: {
-    XIcon,
+    XMarkIcon,
   },
   methods: {
     close() {
@@ -52,7 +52,7 @@ export default {
   mounted() {
     window.addEventListener('click', this.handleClick)
   },
-  beforeDestroy() {
+  beforeUnmount() {
     window.removeEventListener('click', this.handleClick)
   }
 }

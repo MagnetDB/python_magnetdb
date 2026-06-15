@@ -76,7 +76,7 @@
 </template>
 
 <script>
-import { ChevronDownIcon } from '@vue-hero-icons/solid'
+import { ChevronDownIcon } from '@heroicons/vue/24/solid'
 import * as userService from '@/services/userService'
 import Button from "@/components/Button.vue";
 import * as sessionService from "@/services/sessionService";

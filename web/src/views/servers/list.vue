@@ -23,10 +23,10 @@
           </button>
         </template>
         <template v-slot:item.created_at="{ item }">
-          {{ $filters.datetime(item.created_at) }}
+          {{ datetime(item.created_at) }}
         </template>
         <template v-slot:item.updated_at="{ item }">
-          {{ $filters.datetime(item.updated_at) }}
+          {{ datetime(item.updated_at) }}
         </template>
         <template v-slot:item.actions="{ item }">
           <div class="flex items-center space-x-2">
@@ -44,6 +44,7 @@
 </template>
 
 <script>
+import { useFilters } from '@/composables/useFilters'
 import * as serverService from '@/services/serverService'
 import Card from '@/components/Card'
 import DataTable from "@/components/DataTable";
@@ -51,6 +52,10 @@ import Button from "@/components/Button";
 
 export default {
   name: 'ServerList',
+  setup() {
+    const { datetime } = useFilters()
+    return { datetime }
+  },
   components: {
     Button,
     Card,

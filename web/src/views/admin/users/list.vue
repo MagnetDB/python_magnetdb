@@ -22,13 +22,13 @@
           {{ item.email }}
         </template>
         <template v-slot:item.role="{ item }">
-          {{ $filters.roleName(item.role) }}
+          {{ roleName(item.role) }}
         </template>
         <template v-slot:item.created_at="{ item }">
-          {{ $filters.datetime(item.created_at) }}
+          {{ datetime(item.created_at) }}
         </template>
         <template v-slot:item.updated_at="{ item }">
-          {{ $filters.datetime(item.updated_at) }}
+          {{ datetime(item.updated_at) }}
         </template>
       </DataTable>
     </Card>
@@ -36,12 +36,17 @@
 </template>
 
 <script>
+import { useFilters } from '@/composables/useFilters'
 import * as userService from '@/services/admin/userService'
 import Card from '@/components/Card'
 import DataTable from "@/components/DataTable";
 
 export default {
   name: 'Users',
+  setup() {
+    const { datetime, roleName } = useFilters()
+    return { datetime, roleName }
+  },
   components: {
     DataTable,
     Card,

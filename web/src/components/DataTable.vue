@@ -90,7 +90,7 @@
 
 <script>
 import { debounce, isEqual } from "lodash"
-import { ChevronLeftIcon, ChevronRightIcon, ArrowUpIcon, ChevronDownIcon } from "@vue-hero-icons/solid"
+import { ChevronLeftIcon, ChevronRightIcon, ArrowUpIcon, ChevronDownIcon } from "@heroicons/vue/24/solid"
 import Alert from "@/components/Alert"
 import FormInput from "@/components/FormInput"
 

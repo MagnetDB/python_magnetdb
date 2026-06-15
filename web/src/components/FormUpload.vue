@@ -7,7 +7,7 @@
         <TrashIcon class="h5 w-5" />
       </div>
       <div v-else class="do-not-open-upload download-button" @click="downloadFile">
-        <DownloadIcon class="h5 w-5" />
+        <ArrowDownTrayIcon class="h5 w-5" />
       </div>
     </div>
     <div v-else class="text-gray-500">
@@ -18,15 +18,14 @@
 
 <script>
 import client from '@/services/client'
-import { TrashIcon } from '@vue-hero-icons/outline'
-import { DownloadIcon } from '@vue-hero-icons/outline'
+import { TrashIcon, ArrowDownTrayIcon } from '@heroicons/vue/24/outline'
 
 export default {
   name: 'FormUpload',
   props: ['hasError', 'type', 'defaultValue', 'disabled'],
   components: {
     TrashIcon,
-    DownloadIcon,
+    ArrowDownTrayIcon,
   },
   data() {
     return {
