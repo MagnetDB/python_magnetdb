@@ -174,9 +174,9 @@ Use `@vue/test-utils` `mount` with a minimal consumer stub component that calls
 
 #### 4.5 — Validation checklist
 
-- [ ] `npm run test` exits 0
-- [ ] All four test suites (store, router, Form) pass
-- [ ] `npm run test:coverage` shows meaningful coverage on the changed files
+- [x] `npm run test` exits 0
+- [x] All three test suites (store, router, Form) pass — 19 tests total
+- [x] `npm run test:coverage` shows meaningful coverage on the changed files — Form.vue 87.9% statements, store/router fully covered via inline rebuild
 
 ---
 

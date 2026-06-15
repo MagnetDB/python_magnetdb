@@ -1,14 +1,20 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
+import { nodePolyfills } from 'vite-plugin-node-polyfills'
 import { fileURLToPath, URL } from 'node:url'
 
 export default defineConfig({
-  plugins: [vue()],
-
-  define: {
-    // Replace Node global so deps that reference it work in the browser
-    global: 'globalThis',
+  test: {
+    environment: 'jsdom',
+    globals: true,
+    setupFiles: ['./src/test-setup.js'],
   },
+  plugins: [
+    vue(),
+    nodePolyfills({
+      include: ['buffer', 'stream', 'assert'],
+    }),
+  ],
 
   resolve: {
     extensions: ['.mjs', '.js', '.ts', '.jsx', '.tsx', '.json', '.vue'],

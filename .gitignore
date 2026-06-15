@@ -105,3 +105,6 @@ backups/
 # direnv
 .envrc*
 *.my
+
+# web coverage
+web/coverage
