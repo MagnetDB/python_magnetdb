@@ -1,0 +1,56 @@
+package: python_magnetworkflows
+description: >
+  Orchestrates coupled electromagnetic-thermal-hydraulic simulation workflows
+  for high-field magnets using the Feel++ finite-element library.
+
+tests:
+  present: true
+  kind: pytest
+  coverage_estimate: unknown   # pytest configured but no coverage plugin or report present
+
+documentation:
+  readme: decent
+  api_docs: docstrings only
+  usage_examples: inline in readme
+
+ci:
+  present: true
+  runs_tests: true
+  builds_package: false
+  platform: GitHub Actions
+  # Note: push/PR triggers are commented out in ci.yml — CI only runs on workflow_dispatch
+
+installability:
+  pip_install: requires manual steps
+  extra_dependencies: system packages   # Feel++ must be installed as Debian system packages; venv requires --system-site-packages
+  packaging: pyproject.toml
+
+api_stability:
+  status: unstable
+  breaking_changes_risk: medium
+
+readability:
+  score: 3   # 1=unreadable, 3=readable with caveats, 5=exemplary
+  notes: >
+    Code is split into focused modules (cli, solver, oneconfig, commissioning, run, params, error)
+    and ruff is configured for linting/formatting. However, several large modules (measures.py=552 lines,
+    error.py=491 lines, solver.py=463 lines) have sparse docstrings (10 docstring markers across 5 functions
+    in solver.py), 8 TODO/FIXME markers remain in the source, and leftover artefacts (.bak, .old, ~files)
+    are committed inside the package directory.
+
+maintenance:
+  active: true
+  last_commit_approx: "9 weeks ago"
+  bus_factor: small team   # Christophe Trophime + jermuzet (+ AI-assisted commits)
+  score: 3   # 1=abandoned, 3=active but fragile, 5=well-governed
+  notes: >
+    Actively developed with modern tooling (pyproject.toml, ruff, mypy, pre-commit, Sphinx docs).
+    However, automatic CI triggers are disabled (push/PR hooks commented out in ci.yml), the project
+    classifier is still "2 - Pre-Alpha" at version 0.1.0, and the bus factor is effectively 2 humans.
+
+overall_readiness:
+  score: 3
+  blocker: >
+    Core dependency (Feel++) cannot be installed via pip and requires system-level Debian packages;
+    combined with no coverage measurement and automatic CI triggers disabled, the package is usable
+    but not reliably reproducible outside the authors' environment.

@@ -1,0 +1,78 @@
+package: python_magnetgmsh
+description: Python helpers to create CAD and mesh files using Gmsh for high-field magnet geometries defined by python_magnetgeo YAML configurations.
+
+tests:
+  present: true
+  kind: manual scripts
+  coverage_estimate: none
+  notes: >
+    tests/ directory exists but is empty; pytest is fully configured in pyproject.toml
+    but no test_*.py files have been written. Actual validation relies on shell scripts
+    (testsuite.sh, testsuite-xao.sh, testsuite2D.sh) that invoke the CLI against
+    geometry data at /data/geometries — not reproducible without that external dataset.
+
+documentation:
+  readme: comprehensive
+  api_docs: docstrings only
+  usage_examples: inline in readme
+  notes: >
+    README covers installation, CLI usage, four worked examples, a migration guide for
+    breaking changes, and a TODO list. Docstrings found in 32/34 source files (274
+    occurrences). readthedocs URL is declared in pyproject.toml but may not be live.
+
+ci:
+  present: false
+  runs_tests: false
+  builds_package: false
+  platform: none
+  notes: No .github/workflows or .gitlab-ci.yml found.
+
+installability:
+  pip_install: requires manual steps
+  extra_dependencies: system packages
+  packaging: pyproject.toml
+  notes: >
+    python-magnetgeo is sourced from git (not PyPI), so a plain `pip install .`
+    requires the [tool.uv.sources] redirect or a manual pre-install step.
+    Gmsh >= 4.13.1 may need the dev channel (gmsh.info/python-packages-dev).
+    Package is not published to PyPI (badges are commented out in README).
+
+readability:
+  score: 3   # 1=unreadable, 3=adequate conventions present, 5=exemplary
+  tools_configured: [black, flake8, mypy]
+  docstring_coverage: high   # 32/34 source files contain docstrings
+  type_annotations: partial  # encouraged in README/contrib guide, not universally applied
+  ci_enforced: false
+  notes: >
+    Tooling (Black line-length 100, flake8, mypy) is declared in pyproject.toml but
+    not enforced by CI. Docstring density is good; type-hint coverage is partial —
+    mypy is set to disallow_untyped_defs=false. Shell scripts (testsuite*.sh) are
+    lightly commented and lack set -euo pipefail enforcement.
+
+api_stability:
+  status: experimental
+  breaking_changes_risk: high
+  notes: >
+    PyPI classifier is "3 - Alpha". README documents multiple breaking changes in
+    v0.1.0: return types changed to GeometryLoadResult objects, new ValidationError
+    contract, strict dependency pin on python_magnetgeo >=1.0.0,<2.0.0, minimum
+    Python bumped to 3.9.
+
+maintenance:
+  active: true
+  last_commit_approx: "3 months ago"
+  bus_factor: small team
+  score: 2   # 1=abandoned, 3=steady small team+CI, 5=well-staffed+automated
+  contributors: 3   # Christophe Trophime (~180/218 commits), jermuzet, Romain Vallet
+  notes: >
+    Development is ongoing but heavily concentrated on a single author (~82% of commits).
+    No CI means regressions are caught manually. No release cadence or changelog beyond
+    the README migration section. Score penalised for missing automation and high
+    bus-factor risk.
+
+overall_readiness:
+  score: 2   # 1=prototype, 3=usable with caveats, 5=production-ready
+  blocker: >
+    No CI pipeline and no pytest test suite — the only tests are shell scripts that
+    require external geometry data at /data/geometries, making automated verification
+    impossible for new contributors.
