@@ -53,6 +53,7 @@
 </template>
 
 <script>
+import { markRaw } from 'vue'
 import * as Yup from 'yup'
 import * as siteService from '@/services/siteService'
 import * as magnetService from '@/services/magnetService'
@@ -74,8 +75,8 @@ export default {
   },
   data() {
     return {
-      FormSelect,
-      FormInput,
+      FormSelect: markRaw(FormSelect),
+      FormInput: markRaw(FormInput),
       magnetOptions: [],
     }
   },

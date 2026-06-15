@@ -25,7 +25,7 @@ export default {
     }
 
     function computeDirty() {
-      form.dirty = !isEqual(props.initialValues, form.values)
+      form.dirty = !isEqual(props.initialValues ?? {}, form.values)
     }
 
     async function validate() {

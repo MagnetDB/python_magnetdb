@@ -230,6 +230,7 @@
 </template>
 
 <script>
+import { markRaw } from 'vue'
 import * as Yup from 'yup'
 import * as materialService from '@/services/materialService'
 import Card from '@/components/Card'
@@ -251,10 +252,10 @@ export default {
   },
   data() {
     return {
-      FormInput,
-      FormInputWithUnit,
-      FormSelect,
-      FormUpload,
+      FormInput: markRaw(FormInput),
+      FormInputWithUnit: markRaw(FormInputWithUnit),
+      FormSelect: markRaw(FormSelect),
+      FormUpload: markRaw(FormUpload),
       error: null,
     }
   },

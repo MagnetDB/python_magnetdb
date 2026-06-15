@@ -33,6 +33,7 @@
 </template>
 
 <script>
+import { markRaw } from 'vue'
 import Card from "@/components/Card";
 import * as simulationService from '@/services/simulationService'
 import FormSelect from "@/components/FormSelect";
@@ -41,7 +42,7 @@ export default {
   name: 'MeasuresCard',
   props: ['simulationId'],
   components: {
-    FormSelect,
+    FormSelect: markRaw(FormSelect),
     Card,
   },
   data() {

@@ -120,6 +120,7 @@
 </template>
 
 <script>
+import { markRaw } from 'vue'
 import * as Yup from 'yup'
 import * as probeService from '@/services/probeService'
 import Card from '@/components/Card'
@@ -143,8 +144,8 @@ export default {
   },
   data() {
     return {
-      FormInput,
-      FormSelect,
+      FormInput: markRaw(FormInput),
+      FormSelect: markRaw(FormSelect),
       error: null,
       probe: null,
       initialValues: null,

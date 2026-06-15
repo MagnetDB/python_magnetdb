@@ -1,5 +1,5 @@
 <template>
-  <button class="root" :class="{ loading: currentlyLoading, disabled: currentlyDisabled }" @click.prevent="onClick">
+  <button class="root" :class="[$attrs.class, { loading: currentlyLoading, disabled: currentlyDisabled }]" @click.prevent="onClick">
     <div v-if="currentlyLoading" class="loader">
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="animate-spin">
         <circle
@@ -63,7 +63,7 @@ export default {
 }
 
 .disabled {
-  @apply opacity-60 pointer-events-none;
+  @apply !bg-gray-200 !text-gray-400 !border-gray-300 pointer-events-none cursor-not-allowed;
 }
 
 .loading {

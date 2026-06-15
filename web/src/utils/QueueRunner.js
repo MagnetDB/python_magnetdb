@@ -10,7 +10,7 @@ class QueueRunner {
       this.locked = true
       this.queue.push([cb, resolve, reject])
       if (!alreadyLocked) {
-        setImmediate(async () => {
+        setTimeout(async () => {
           while (this.queue.length) {
             const [cb, resolve, reject] = this.queue.shift()
             try {

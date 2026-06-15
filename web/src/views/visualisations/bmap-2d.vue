@@ -105,6 +105,7 @@
 </template>
 
 <script>
+import { markRaw } from 'vue'
 import * as visualisationService from '@/services/visualisationService'
 import * as siteService from '@/services/siteService'
 import * as magnetService from '@/services/magnetService'
@@ -129,9 +130,9 @@ export default {
   },
   data() {
     return {
-      FormSlider,
-      FormInput,
-      FormSelect,
+      FormSlider: markRaw(FormSlider),
+      FormInput: markRaw(FormInput),
+      FormSelect: markRaw(FormSelect),
       loading: false,
       params: null,
       chart: null,

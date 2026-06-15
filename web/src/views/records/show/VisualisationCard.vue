@@ -55,6 +55,7 @@
 </template>
 
 <script>
+import { markRaw } from 'vue'
 import { Chart } from 'chart.js'
 import Alert from "@/components/Alert";
 import Card from "@/components/Card";
@@ -83,7 +84,7 @@ export default {
   },
   data() {
     return {
-      FormSelect,
+      FormSelect: markRaw(FormSelect),
       error: null,
       columnOptions: [],
       xField: 't',

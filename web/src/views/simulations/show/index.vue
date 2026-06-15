@@ -165,6 +165,7 @@
 </template>
 
 <script>
+import { markRaw } from 'vue'
 import * as simulationService from '@/services/simulationService'
 import Card from '@/components/Card'
 import Form from "@/components/Form";
@@ -196,10 +197,10 @@ export default {
   },
   data() {
     return {
-      FormInput,
-      FormInputWithUnit,
-      FormSelect,
-      FormUpload,
+      FormInput: markRaw(FormInput),
+      FormInputWithUnit: markRaw(FormInputWithUnit),
+      FormSelect: markRaw(FormSelect),
+      FormUpload: markRaw(FormUpload),
       error: null,
       simulation: null,
       runSimulationModalOpen: false,

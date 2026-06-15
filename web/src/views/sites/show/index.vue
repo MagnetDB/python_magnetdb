@@ -199,6 +199,7 @@
 </template>
 
 <script>
+import { markRaw } from 'vue'
 import * as Yup from 'yup'
 import * as siteService from '@/services/siteService'
 import Card from '@/components/Card'
@@ -234,9 +235,9 @@ export default {
   },
   data() {
     return {
-      FormInput,
-      FormSelect,
-      FormUpload,
+      FormInput: markRaw(FormInput),
+      FormSelect: markRaw(FormSelect),
+      FormUpload: markRaw(FormUpload),
       error: null,
       site: null,
       attachMagnetModalVisible: false,

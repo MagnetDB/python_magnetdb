@@ -64,6 +64,7 @@
 </template>
 
 <script>
+import { markRaw } from 'vue'
 import * as Yup from "yup";
 import * as recordService from '@/services/recordService'
 import * as siteService from "@/services/siteService";
@@ -91,9 +92,9 @@ export default {
   },
   data() {
     return {
-      FormInput,
-      FormSelect,
-      FormUpload,
+      FormInput: markRaw(FormInput),
+      FormSelect: markRaw(FormSelect),
+      FormUpload: markRaw(FormUpload),
       error: null,
       record: null,
       siteOptions: [],

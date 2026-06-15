@@ -38,6 +38,7 @@
 </template>
 
 <script>
+import { markRaw } from 'vue'
 import * as Yup from 'yup'
 import * as partService from '@/services/partService'
 import * as magnetService from '@/services/magnetService'
@@ -59,8 +60,8 @@ export default {
   },
   data() {
     return {
-      FormSelect,
-      FormInput,
+      FormSelect: markRaw(FormSelect),
+      FormInput: markRaw(FormInput),
       partOptions: [],
       displayAngleField: false,
     }

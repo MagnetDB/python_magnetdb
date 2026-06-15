@@ -146,6 +146,7 @@
 </template>
 
 <script>
+import { markRaw } from 'vue'
 import * as Yup from 'yup'
 import * as partService from '@/services/partService'
 import * as materialService from '@/services/materialService'
@@ -188,9 +189,9 @@ export default {
   },
   data() {
     return {
-      FormInput,
-      FormSelect,
-      FormUpload,
+      FormInput: markRaw(FormInput),
+      FormSelect: markRaw(FormSelect),
+      FormUpload: markRaw(FormUpload),
       error: null,
       part: null,
       materialOptions: [],

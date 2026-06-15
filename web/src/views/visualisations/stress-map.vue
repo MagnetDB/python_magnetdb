@@ -61,6 +61,7 @@
 </template>
 
 <script>
+import { markRaw } from 'vue'
 import * as visualisationService from '@/services/visualisationService'
 import {Chart} from "chart.js";
 import Card from "@/components/Card";
@@ -85,9 +86,9 @@ export default {
   },
   data() {
     return {
-      FormSlider,
-      FormInput,
-      FormSelect,
+      FormSlider: markRaw(FormSlider),
+      FormInput: markRaw(FormInput),
+      FormSelect: markRaw(FormSelect),
       loading: true,
       params: null,
       chart: null,

@@ -290,6 +290,7 @@
 </template>
 
 <script>
+import { markRaw } from 'vue'
 import * as Yup from 'yup'
 import * as magnetService from '@/services/magnetService'
 import Card from '@/components/Card'
@@ -331,9 +332,9 @@ export default {
   },
   data() {
     return {
-      FormInput,
-      FormSelect,
-      FormUpload,
+      FormInput: markRaw(FormInput),
+      FormSelect: markRaw(FormSelect),
+      FormUpload: markRaw(FormUpload),
       error: null,
       magnet: null,
       addPartModalVisible: false,

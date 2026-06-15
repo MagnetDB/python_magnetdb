@@ -70,6 +70,7 @@
 </template>
 
 <script>
+import { markRaw } from 'vue'
 import * as Yup from 'yup'
 import * as magnetService from '@/services/magnetService'
 import * as siteService from '@/services/siteService'
@@ -93,8 +94,8 @@ export default {
   },
   data() {
     return {
-      FormInput,
-      FormSelect,
+      FormInput: markRaw(FormInput),
+      FormSelect: markRaw(FormSelect),
       error: null,
       methodOptions: ['cfpdes', 'CG', 'HDG', 'CRB'],
       modelOptions: [],
