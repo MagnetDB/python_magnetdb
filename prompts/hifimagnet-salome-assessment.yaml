@@ -1,0 +1,32 @@
+package: hifimagnet-salome
+description: A SALOME platform plugin for generating CAD geometry and meshes for PolyHelix and Bitter magnet inserts used in high-field magnet design.
+tests:
+  present: true
+  kind: manual scripts
+  coverage_estimate: unknown
+documentation:
+  readme: decent
+  api_docs: sphinx/mkdocs
+  usage_examples: inline in readme
+ci:
+  present: false
+  runs_tests: false
+  builds_package: false
+  platform: none
+installability:
+  pip_install: requires manual steps
+  extra_dependencies: complex
+  packaging: none
+api_stability:
+  status: unstable
+  breaking_changes_risk: medium
+maintenance:
+  active: true
+  last_commit_approx: 7 weeks ago
+  bus_factor: solo
+  score: 3   # active solo maintainer covering SALOME 9.9–9.15, but no CI safety net and high bus-factor risk
+readability:
+  score: 3   # consistent class-based structure with docstrings, but large monolithic files (up to 1554 lines), 36 TODO/FIXME markers, and print() used throughout instead of logging
+overall_readiness:
+  score: 2
+  blocker: no CI and no standard Python packaging — installation requires a full SALOME platform environment and a proprietary MeshGems licence, making automated testing and reproducible installs very difficult

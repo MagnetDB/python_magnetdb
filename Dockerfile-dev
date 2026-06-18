@@ -1,4 +1,4 @@
-FROM trophime/magnettools:bookworm-poetry-2.2.1
+FROM trophime/magnettools:trixie-poetry-2.4.0
 
 ARG USERNAME=feelpp
 ARG USER_UID=1000
@@ -35,6 +35,6 @@ RUN echo "create local user $USERNAME (uid=${USER_UID}, gid=${USER_GID})" \
     && ssh-keyscan github.com >> /home/${USERNAME}/.ssh/known_hosts \
     && chown -R $USER_GID:$USER_UID /home/${USERNAME}/.ssh
 
-ENV LD_LIBRARY_PATH="/usr/lib/x86_64-linux-gnu/MagnetTools/:$LD_LIBRARY_PATH"
+ENV LD_LIBRARY_PATH="/usr/lib/x86_64-linux-gnu/MagnetTools/:${LD_LIBRARY_PATH:-}"
 USER $USERNAME
 

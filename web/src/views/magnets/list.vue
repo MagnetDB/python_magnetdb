@@ -29,16 +29,16 @@
           <span v-else class="text-gray-500 italic">Not available</span>
         </template>
         <template v-slot:item.created_at="{ item }">
-          {{ item.created_at | datetime }}
+          {{ $filters.datetime(item.created_at) }}
         </template>
         <template v-slot:item.updated_at="{ item }">
-          {{ item.updated_at | datetime }}
+          {{ $filters.datetime(item.updated_at) }}
         </template>
         <template v-slot:item.commissioned_at="{ item }">
-          {{ item.commissioned_at | datetime }}
+          {{ $filters.datetime(item.commissioned_at) }}
         </template>
         <template v-slot:item.decommissioned_at="{ item }">
-          {{ item.decommissioned_at | datetime }}
+          {{ $filters.datetime(item.decommissioned_at) }}
         </template>
       </DataTable>
     </Card>

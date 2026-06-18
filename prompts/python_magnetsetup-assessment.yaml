@@ -1,0 +1,32 @@
+package: python_magnetsetup
+description: Generates configuration and input files required to set up and run HiFiMagnet magnet simulations, callable from the magnetdb web interface or the python_magnetapi CLI.
+tests:
+  present: true
+  kind: pytest
+  coverage_estimate: low (<30%)
+documentation:
+  readme: decent
+  api_docs: sphinx/mkdocs
+  usage_examples: inline in readme
+ci:
+  present: false
+  runs_tests: false
+  builds_package: false
+  platform: none
+installability:
+  pip_install: works
+  extra_dependencies: system packages
+  packaging: pyproject.toml
+api_stability:
+  status: unstable
+  breaking_changes_risk: medium
+maintenance:
+  active: true
+  last_commit_approx: "6 weeks ago"
+  bus_factor: small team
+code_readability:
+  score: 3  # out of 5
+  notes: "Type annotations and docstrings present; ruff configured. Pulled down by oversized modules (jsonmodel.py 1294 lines, setup.py 1048 lines), heavy commented-out code, and mixed print()/logger usage (including a broken f-string in jsonmodel.py)."
+overall_readiness:
+  score: 2
+  blocker: "No CI pipeline — tests (covering only the logging module) are never run automatically, leaving the core simulation-setup logic untested."

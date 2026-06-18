@@ -1,0 +1,37 @@
+package: magnet-scipy
+description: Simulates RL circuits with adaptive PID control, variable resistance R(I,T), and magnetic coupling between multiple circuits using SciPy.
+tests:
+  present: true
+  kind: pytest+coverage
+  coverage_estimate: low (<30%)   # measured line-rate ≈ 21.5% in coverage.xml
+documentation:
+  readme: decent
+  api_docs: docstrings only
+  usage_examples: inline in readme   # Quick Start section present but code examples are incomplete/stubbed
+ci:
+  present: false
+  runs_tests: false
+  builds_package: false
+  platform: none
+installability:
+  pip_install: works   # pyproject.toml, pip install -e . documented and straightforward
+  extra_dependencies: none   # pure Python; scipy/numpy/pandas/matplotlib are standard
+  packaging: pyproject.toml   # not published to PyPI
+api_stability:
+  status: experimental   # classifier "Development Status :: 3 - Alpha"; active refactoring visible in file names
+  breaking_changes_risk: high
+maintenance:
+  active: unknown   # last commit ~7 months ago; no further activity visible
+  last_commit_approx: "7 months ago (Sept 2025)"
+  bus_factor: solo
+code_readability:
+  score: 3   # 1=unreadable, 3=acceptable, 5=exemplary
+  notes: >
+    Module names and function names are descriptive. Some docstrings present in key modules
+    (pid_controller.py, coupled_circuits.py, csv_utils.py). However, several refactor variants
+    coexist (main.py / main_refactor.py, coupled_main_refactor.py, single_circuit_adapter.py),
+    which creates confusion about the canonical entry points. Inline comments are sparse in
+    complex numerical sections (ODE integration, PID tuning logic).
+overall_readiness:
+  score: 2
+  blocker: "No CI pipeline, test coverage is only ~21%, and the README Quick Start examples are stubbed out with no actual code."

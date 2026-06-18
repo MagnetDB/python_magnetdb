@@ -96,3 +96,12 @@ tmp/*
 *.tar.gz
 backups/
 
+# duckdb
+*.duckdb
+
+*.old
+*log
+
+# direnv
+.envrc*
+*.my

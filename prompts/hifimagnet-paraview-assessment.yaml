@@ -1,0 +1,43 @@
+package: hifimagnet-paraview
+description: Python post-processing toolkit for HiFiMagnet/Feel++ simulation results via ParaView, supporting statistics, histograms, visualization, and CSV export for 3D, 2D, and axisymmetric geometries.
+tests:
+  present: true
+  kind: pytest
+  coverage_estimate: low (<30%)   # unit tests cover helpers only; integration tests cover 2D/3D/Axi workflows but require ParaView + LFS data
+documentation:
+  readme: comprehensive
+  api_docs: sphinx/mkdocs           # Sphinx config with .rst files present in docs/
+  usage_examples: dedicated docs    # docs/QUICKSTART.md, docs/examples.rst
+ci:
+  present: true
+  runs_tests: true
+  builds_package: false             # no build/publish job; only unit + integration test jobs
+  platform: GitHub Actions
+installability:
+  pip_install: requires manual steps  # needs ParaView system install + --system-site-packages venv
+  extra_dependencies: system packages # libglu1-mesa, libglapi-mesa, ParaView OSMesa binary (not on PyPI)
+  packaging: pyproject.toml
+api_stability:
+  status: unstable                  # pyproject.toml classifies as "Pre-Alpha" (Development Status :: 2)
+  breaking_changes_risk: high
+maintenance:
+  active: true
+  last_commit_approx: "9 weeks ago"
+  bus_factor: small team            # 2 primary humans (Muzet 60 commits, Trophime 48 commits)
+code_quality:
+  readability:
+    score: 2                          # 1=unreadable, 3=average, 5=exemplary
+    type_hints: partial               # consistent in method.py; absent in histo/stats/view modules
+    docstrings: partial               # good coverage in method.py; sparse elsewhere
+    function_length: poor             # 20+ functions exceed 50 lines; several exceed 100
+    commented_out_code: high          # 40+ commented-out print() calls in stats.py alone; many more across codebase
+    notes: "Naming conventions are clear and ruff is configured, but long functions, pervasive debug prints, and inconsistent type annotations reduce readability."
+  maintainability:
+    score: 2                          # 1=unmaintainable, 3=average, 5=easily maintained
+    code_duplication: high            # stats/statsAxi, histo/histoAxi, meshinfo/meshinfoAxi share near-identical logic with no shared base
+    linter_configured: true           # ruff with E/W/F/I/N/UP/B rules in pyproject.toml
+    coverage_enforced: false          # no --cov threshold in CI
+    notes: "The 3D/2D/Axi module triplets duplicate large swaths of logic; extracting a shared base would significantly reduce the maintenance surface."
+overall_readiness:
+  score: 3
+  blocker: "Requires a non-pip-installable ParaView binary for all meaningful functionality, making automated installation and reproducibility non-trivial outside the HiFiMagnet infrastructure."

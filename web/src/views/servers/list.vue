@@ -23,10 +23,10 @@
           </button>
         </template>
         <template v-slot:item.created_at="{ item }">
-          {{ item.created_at | datetime }}
+          {{ $filters.datetime(item.created_at) }}
         </template>
         <template v-slot:item.updated_at="{ item }">
-          {{ item.updated_at | datetime }}
+          {{ $filters.datetime(item.updated_at) }}
         </template>
         <template v-slot:item.actions="{ item }">
           <div class="flex items-center space-x-2">

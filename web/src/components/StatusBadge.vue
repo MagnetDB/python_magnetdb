@@ -7,7 +7,7 @@
     'badge-default': !['in_stock', 'in_study', 'in_operation', 'defunct', 'done', 'in_progress', 'failed'].includes(status),
   }">
     <slot></slot>
-    {{ status | statusName }}
+    {{ $filters.statusName(status) }}
   </div>
 </template>
 

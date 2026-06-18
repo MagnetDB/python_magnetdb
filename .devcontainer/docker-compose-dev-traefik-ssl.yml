@@ -221,7 +221,7 @@ services:
     container_name: magnetdb-pgadmin
     image: dpage/pgadmin4:8
     environment:
-      PGADMIN_DEFAULT_EMAIL: christophe.trophime@lncmi.cnrs.fr
+      PGADMIN_DEFAULT_EMAIL: pgadmin@magnetdb-dev.local
       PGADMIN_DEFAULT_PASSWORD: admin
       # PGADMIN_CONFIG_SERVER_MODE: 'False'
       # Environment variables for server auto-configuration

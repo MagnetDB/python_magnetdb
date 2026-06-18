@@ -1,0 +1,55 @@
+package: python_magnetgeo
+description: Python helpers to define, load, and manipulate high-field magnet geometry
+  (helices, inserts, magnets, rings, HTS stacks) expressed as YAML data structures,
+  for use in HiFiMagnet CAD/mesh pipelines.
+tests:
+  present: true
+  kind: pytest+coverage
+  coverage_estimate: medium  # 57.4% line-rate per coverage.xml
+documentation:
+  readme: comprehensive  # 1566-line README.md
+  api_docs: sphinx/mkdocs  # docs/ with Sphinx conf.py + RTD URL registered
+  usage_examples: dedicated docs  # examples/ scripts + data/ with annotated YAML fixtures
+ci:
+  present: true
+  runs_tests: true
+  builds_package: false  # no publish/build step in workflow
+  platform: GitHub Actions  # .github/workflows/pytest.yml; matrix py3.11/3.12/3.13
+installability:
+  pip_install: works  # pip install -e ".[dev]" used in CI
+  extra_dependencies: none  # only pyyaml + pandas
+  packaging: pyproject.toml  # setuptools backend; PyPI badge commented out — not published
+api_stability:
+  status: mostly stable  # v1.0.1, Beta classifier, BREAKING_CHANGES.md present
+  breaking_changes_risk: medium
+maintenance:
+  active: true
+  last_commit_approx: "5 weeks ago"  # as of 2026-04-27
+  bus_factor: solo  # ~393 commits Christophe Trophime vs 2-63 others
+code_readability:
+  score: 3  # 1=unreadable, 3=readable with caveats, 5=exemplary
+  positives:
+    - comprehensive docstrings on all public classes and methods
+    - type hints throughout (args, return types)
+    - clean base class (YAMLObjectBase) centralising serialisation — no duplication
+    - flake8 passes cleanly at max-line-length=100
+    - dedicated modules for enums, validation, logging, and visualisation
+  concerns:
+    - inconsistent file naming: PascalCase (Helix.py) vs snake_case (coolingslit.py, tierod.py)
+    - 124 isinstance/type() guards spread across the codebase suggests structural complexity
+    - some methods are very long (Insert.py is 887 lines, base.py 783 lines)
+code_maintainability:
+  score: 3  # 1=hard to change safely, 3=manageable, 5=easy to extend
+  positives:
+    - shared base class eliminates ~95% of serialisation duplication
+    - validation.py and logging_config.py properly separated
+    - enums.py for shared constants
+    - tox matrix (py311/py312) and mypy configured
+  concerns:
+    - 10 TODO/FIXME comments in core code (Leads, Screens, Mandrin, Chamfer validation)
+    - Shape.py.new present in repo (work-in-progress artefact)
+    - solo bus factor makes long-term maintenance fragile
+overall_readiness:
+  score: 3
+  blocker: "Not published to PyPI (git-install only) and test coverage at ~57% leaves
+    several core geometry classes under-tested."

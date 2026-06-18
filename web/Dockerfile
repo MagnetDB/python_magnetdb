@@ -1,4 +1,4 @@
-FROM node:18-bookworm AS builder
+FROM node:22-trixie AS builder
 
 WORKDIR /app
 
@@ -13,8 +13,6 @@ ARG API_ENDPOINT
 
 ENV NODE_ENV=$NODE_ENV
 ENV VUE_APP_API_ENDPOINT=$API_ENDPOINT
-ENV NODE_OPTIONS=--openssl-legacy-provider
-
 COPY . .
 RUN npm run build
 

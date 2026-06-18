@@ -48,339 +48,101 @@ class Magnet(models.Model):
     metadata = models.JSONField(default=dict, null=False)
     flow_params = models.JSONField(null=True)
 
-    @property
-    def geometry_config_to_json(self):
-        """
-        Convert magnet to python_magnetgeo object and serialize to JSON.
-
-        Uses python_magnetgeo classes (Insert, Supras, Bitters) to create
-        geometry objects with proper validation, then serializes using their
-        built-in to_json() method.
-
-        Returns:
-            str: JSON string representation with __classname__ format
-        """
+    def to_geometry_object(self):
+        """Build and return the python_magnetgeo object for this magnet."""
         from python_magnetgeo.deserialize import unserialize_object
         import copy
 
-        # Collect probe names
-        probes = []
-        for probe in self.probe_set.all():
-            config = probe.geometry_config_to_json
-            # Deserialize to get a magnetgeo object
-            probe_obj = unserialize_object(config)
-            probes.append(probe_obj)
+        eps = 0.9  # clearance in mm for bore fallback calculations
+
+        probes = [unserialize_object(p.geometry_config_to_json) for p in self.probe_set.all()]
 
         if self.type == MagnetType.INSERT:
-            # Collect helices, rings, and current leads as objects
-            helices = []
-            hangles = []
-            rings = []
-            rangles = []
-            currentleads = []
-
-            for magnet_part in self.magnetpart_set.all():
-                if magnet_part.part.type == PartType.HELIX:
-                    # Deserialize geometry_config to get Helix object
-                    config = copy.deepcopy(magnet_part.part.geometry_config)
-                    config["name"] = magnet_part.part.name
-                    # Ensure __classname__ is set for proper deserialization
-                    if "__classname__" not in config:
-                        config["__classname__"] = "Helix"
-                    helix_obj = unserialize_object(config)
-                    helices.append(helix_obj)
-                    hangles.append(magnet_part.angle if magnet_part.angle is not None else 0)
-                elif magnet_part.part.type == PartType.RING:
-                    # Deserialize geometry_config to get Ring object
-                    config = copy.deepcopy(magnet_part.part.geometry_config)
-                    config["name"] = magnet_part.part.name
-                    # Ensure __classname__ is set for proper deserialization
-                    if "__classname__" not in config:
-                        config["__classname__"] = "Ring"
-                    ring_obj = unserialize_object(config)
-                    rings.append(ring_obj)
-                    rangles.append(magnet_part.angle if magnet_part.angle is not None else 0)
-                elif magnet_part.part.type == PartType.LEAD:
-                    # Deserialize geometry_config to get CurrentLead object
-                    config = copy.deepcopy(magnet_part.part.geometry_config)
-                    config["name"] = magnet_part.part.name
-                    # Ensure __classname__ is set for proper deserialization
-                    if "__classname__" not in config:
-                        config["__classname__"] = "InnerCurrentLead"
-                    lead_obj = unserialize_object(config)
-                    currentleads.append(lead_obj)
-
-            # Create Insert object with validation
-            insert = Insert(
+            helices, hangles, rings, rangles, currentleads = [], [], [], [], []
+            for mp in self.magnetpart_set.all():
+                config = copy.deepcopy(mp.part.geometry_config)
+                config["name"] = mp.part.name
+                if mp.part.type == PartType.HELIX:
+                    config.setdefault("__classname__", "Helix")
+                    helices.append(unserialize_object(config))
+                    hangles.append(mp.angle if mp.angle is not None else 0)
+                elif mp.part.type == PartType.RING:
+                    config.setdefault("__classname__", "Ring")
+                    rings.append(unserialize_object(config))
+                    rangles.append(mp.angle if mp.angle is not None else 0)
+                elif mp.part.type == PartType.LEAD:
+                    config.setdefault("__classname__", "InnerCurrentLead")
+                    currentleads.append(unserialize_object(config))
+            return Insert(
                 name=self.name,
                 helices=helices,
                 rings=rings,
                 currentleads=currentleads,
                 hangles=hangles,
                 rangles=rangles,
-                innerbore=self.inner_bore if self.inner_bore is not None else 0,
-                outerbore=self.outer_bore if self.outer_bore is not None else 0,
+                innerbore=self.inner_bore if self.inner_bore is not None else (helices[0].r[0] - eps if helices else 0),
+                outerbore=self.outer_bore if self.outer_bore is not None else (helices[-1].r[1] + eps if helices else 0),
                 probes=probes,
             )
-            return insert.to_json()
 
         elif self.type == MagnetType.SUPRAS:
-            # Collect supra magnets and current leads as objects
-            magnets = []
-            currentleads = []
-
-            for magnet_part in self.magnetpart_set.all():
-                if magnet_part.part.type == PartType.SUPRA:
-                    # Deserialize geometry_config to get Supra object
-                    config = copy.deepcopy(magnet_part.part.geometry_config)
-                    config["name"] = magnet_part.part.name
-                    supra_obj = unserialize_object(config)
-                    magnets.append(supra_obj)
-                elif magnet_part.part.type == PartType.LEAD:
-                    # Deserialize geometry_config to get CurrentLead object
-                    config = copy.deepcopy(magnet_part.part.geometry_config)
-                    config["name"] = magnet_part.part.name
-                    lead_obj = unserialize_object(config)
-                    currentleads.append(lead_obj)
-
-            # Create Supras object with validation
-            supras = Supras(
+            magnets, currentleads = [], []
+            for mp in self.magnetpart_set.all():
+                config = copy.deepcopy(mp.part.geometry_config)
+                config["name"] = mp.part.name
+                if mp.part.type == PartType.SUPRA:
+                    magnets.append(unserialize_object(config))
+                elif mp.part.type == PartType.LEAD:
+                    currentleads.append(unserialize_object(config))
+            return Supras(
                 name=self.name,
                 magnets=magnets,
-                innerbore=self.inner_bore if self.inner_bore is not None else 0,
-                outerbore=self.outer_bore if self.outer_bore is not None else 0,
+                innerbore=self.inner_bore if self.inner_bore is not None else (magnets[0].r[0] - eps if magnets else 0),
+                outerbore=self.outer_bore if self.outer_bore is not None else (magnets[-1].r[1] + eps if magnets else 0),
                 probes=probes,
             )
-            return supras.to_json()
 
         elif self.type == MagnetType.BITTERS:
-            # Collect bitter magnets and current leads as objects
-            magnets = []
-            currentleads = []
-
-            for magnet_part in self.magnetpart_set.all():
-                if magnet_part.part.type == PartType.BITTER:
-                    # Deserialize geometry_config to get Bitter object
-                    config = copy.deepcopy(magnet_part.part.geometry_config)
-                    config["name"] = magnet_part.part.name
-                    bitter_obj = unserialize_object(config)
-                    magnets.append(bitter_obj)
-                elif magnet_part.part.type == PartType.LEAD:
-                    # Deserialize geometry_config to get CurrentLead object
-                    config = copy.deepcopy(magnet_part.part.geometry_config)
-                    config["name"] = magnet_part.part.name
-                    lead_obj = unserialize_object(config)
-                    currentleads.append(lead_obj)
-
-            # Create Bitters object with validation
-            bitters = Bitters(
+            magnets, currentleads = [], []
+            for mp in self.magnetpart_set.all():
+                config = copy.deepcopy(mp.part.geometry_config)
+                config["name"] = mp.part.name
+                if mp.part.type == PartType.BITTER:
+                    magnets.append(unserialize_object(config))
+                elif mp.part.type == PartType.LEAD:
+                    currentleads.append(unserialize_object(config))
+            return Bitters(
                 name=self.name,
                 magnets=magnets,
-                innerbore=self.inner_bore if self.inner_bore is not None else 0,
-                outerbore=self.outer_bore if self.outer_bore is not None else 0,
+                innerbore=self.inner_bore if self.inner_bore is not None else (magnets[0].r[0] - eps if magnets else 0),
+                outerbore=self.outer_bore if self.outer_bore is not None else (magnets[-1].r[1] + eps if magnets else 0),
                 probes=probes,
             )
-            return bitters.to_json()
 
-        # Fallback for unknown types
-        return json.dumps(
-            {
-                "__tag__": "Unknown",
-                "__value__": {
-                    "name": self.name,
-                    "innerbore": self.inner_bore if self.inner_bore is not None else 0,
-                    "outerbore": self.outer_bore if self.outer_bore is not None else 0,
-                },
-            }
-        )
+        return None
 
-    @property
-    def geometry_config_to_yaml(self):
-        """
-        Convert magnet to python_magnetgeo object and serialize to YAML.
-
-        Uses python_magnetgeo classes (Insert, Supras, Bitters) to create
-        geometry objects with proper validation, then serializes using yaml.dump().
-
-        Returns:
-            str: YAML string representation with proper YAML tags
-        """
-        from python_magnetgeo.deserialize import unserialize_object
-        import copy
-        import yaml
-
-        print(
-            f"Generating geometry_config_to_yaml for magnet {self.name} of type {self.type} ...",
-            flush=True,
-        )
-        # Collect probe names
-        probes = []
-        for probe in self.probe_set.all():
-            config = probe.geometry_config_to_json
-            # Deserialize to get a magnetgeo object
-            probe_obj = unserialize_object(config)
-            probes.append(probe_obj)
-
-        if self.type == MagnetType.INSERT:
-            print(
-                f"Processing INSERT magnet {self.name} with {len(self.magnetpart_set.all())} parts ...",
-                flush=True,
-            )
-            # Collect helices, rings, and current leads as objects
-            helices = []
-            hangles = []
-            rings = []
-            rangles = []
-            currentleads = []
-
-            for magnet_part in self.magnetpart_set.all():
-                if magnet_part.part.type == PartType.HELIX:
-                    # Deserialize geometry_config to get Helix object
-                    config = copy.deepcopy(magnet_part.part.geometry_config)
-                    config["name"] = magnet_part.part.name
-                    # Deserialize to get a magnetgeo object
-                    helix_obj = unserialize_object(config)
-                    helices.append(helix_obj)
-                    hangles.append(magnet_part.angle if magnet_part.angle is not None else 0)
-                elif magnet_part.part.type == PartType.RING:
-                    # Deserialize geometry_config to get Ring object
-                    config = copy.deepcopy(magnet_part.part.geometry_config)
-                    config["name"] = magnet_part.part.name
-                    # Deserialize to get a magnetgeo object
-                    ring_obj = unserialize_object(config)
-                    rings.append(ring_obj)
-                    rangles.append(magnet_part.angle if magnet_part.angle is not None else 0)
-                elif magnet_part.part.type == PartType.LEAD:
-                    # Deserialize geometry_config to get CurrentLead object
-                    config = copy.deepcopy(magnet_part.part.geometry_config)
-                    config["name"] = magnet_part.part.name
-                    # Deserialize to get a magnetgeo object
-                    lead_obj = unserialize_object(config)
-                    currentleads.append(lead_obj)
-
-            # Create Insert object with validation
-            # Epsilon in mm - clearance for bore calculations
-            eps = 0.9
-            insert = Insert(
-                name=self.name,
-                helices=helices,
-                rings=rings,
-                currentleads=currentleads,
-                hangles=hangles,
-                rangles=rangles,
-                innerbore=(
-                    self.inner_bore
-                    if self.inner_bore is not None or self.inner_bore == 0
-                    else helices[0].r[0] - eps
-                ),
-                outerbore=(
-                    self.outer_bore
-                    if self.outer_bore is not None or self.outer_bore == 0
-                    else helices[-1].r[1] + eps
-                ),
-                probes=probes,
-            )
-            return insert.to_yaml()
-
-        elif self.type == MagnetType.SUPRAS:
-            print(
-                f"Processing SUPRAS magnet {self.name} with {len(self.magnetpart_set.all())} parts ...",
-                flush=True,
-            )
-            # Collect supra magnets and current leads as objects
-            magnets = []
-            currentleads = []
-
-            for magnet_part in self.magnetpart_set.all():
-                if magnet_part.part.type == PartType.SUPRA:
-                    # Deserialize geometry_config to get Supra object
-                    config = copy.deepcopy(magnet_part.part.geometry_config)
-                    config["name"] = magnet_part.part.name
-                    # Deserialize to get a magnetgeo object
-                    supra_obj = unserialize_object(config)
-                    magnets.append(supra_obj)
-                elif magnet_part.part.type == PartType.LEAD:
-                    # Deserialize geometry_config to get CurrentLead object
-                    config = copy.deepcopy(magnet_part.part.geometry_config)
-                    config["name"] = magnet_part.part.name
-                    # Deserialize to get a magnetgeo object
-                    lead_obj = unserialize_object(config)
-                    currentleads.append(lead_obj)
-
-            # Create Supras object with validation
-            # Handle empty magnets list (e.g., fresh database with no parts)
-            if not magnets:
-                innerbore_val = self.inner_bore if self.inner_bore is not None else 0
-                outerbore_val = self.outer_bore if self.outer_bore is not None else 0
-            else:
-                innerbore_val = (
-                    self.inner_bore if self.inner_bore is not None else magnets[0].r[0] - eps
-                )
-                outerbore_val = (
-                    self.outer_bore if self.outer_bore is not None else magnets[-1].r[1] + eps
-                )
-
-            supras = Supras(
-                name=self.name,
-                magnets=magnets,
-                innerbore=innerbore_val,
-                outerbore=outerbore_val,
-                probes=probes,
-            )
-            return supras.to_yaml()
-
-        elif self.type == MagnetType.BITTERS:
-            print(
-                f"Processing BITTERS magnet {self.name} with {len(self.magnetpart_set.all())} parts ...",
-                flush=True,
-            )
-            # Collect bitter magnets and current leads as objects
-            magnets = []
-            currentleads = []
-
-            for magnet_part in self.magnetpart_set.all():
-                if magnet_part.part.type == PartType.BITTER:
-                    # Deserialize geometry_config to get Bitter object
-                    config = copy.deepcopy(magnet_part.part.geometry_config)
-                    config["name"] = magnet_part.part.name
-                    # Deserialize to get a magnetgeo object
-                    bitter_obj = unserialize_object(config)
-                    magnets.append(bitter_obj)
-                elif magnet_part.part.type == PartType.LEAD:
-                    # Deserialize geometry_config to get CurrentLead object
-                    config = copy.deepcopy(magnet_part.part.geometry_config)
-                    config["name"] = magnet_part.part.name
-                    # Deserialize to get a magnetgeo object
-
-                    lead_obj = unserialize_object(config)
-                    currentleads.append(lead_obj)
-
-            # Create Bitters object with validation
-            # Handle empty magnets list (e.g., fresh database with no parts)
-            if not magnets:
-                innerbore_val = self.inner_bore if self.inner_bore is not None else 0
-                outerbore_val = self.outer_bore if self.outer_bore is not None else 0
-            else:
-                innerbore_val = (
-                    self.inner_bore if self.inner_bore is not None else magnets[0].r[0] - eps
-                )
-                outerbore_val = (
-                    self.outer_bore if self.outer_bore is not None else magnets[-1].r[1] + eps
-                )
-
-            bitters = Bitters(
-                name=self.name,
-                magnets=magnets,
-                innerbore=innerbore_val,
-                outerbore=outerbore_val,
-                probes=probes,
-            )
-            return bitters.to_yaml()
-
-        # Fallback for unknown types - return simple YAML
-        fallback_data = {
+    def _fallback_geo_dict(self):
+        return {
             "name": self.name,
             "innerbore": self.inner_bore if self.inner_bore is not None else 0,
             "outerbore": self.outer_bore if self.outer_bore is not None else 0,
         }
-        return yaml.dump(fallback_data, default_flow_style=False)
+
+    @property
+    def geometry_config_to_json(self):
+        geo = self.to_geometry_object()
+        if geo is not None:
+            return geo.to_json()
+        return json.dumps({"__tag__": "Unknown", "__value__": self._fallback_geo_dict()})
+
+    @property
+    def geometry_config_to_yaml(self):
+        import yaml
+        print(
+            f"Generating geometry_config_to_yaml for magnet {self.name} of type {self.type} ...",
+            flush=True,
+        )
+        geo = self.to_geometry_object()
+        if geo is not None:
+            return geo.to_yaml()
+        return yaml.dump(self._fallback_geo_dict(), default_flow_style=False)
