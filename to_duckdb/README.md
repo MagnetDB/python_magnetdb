@@ -105,9 +105,14 @@ Default DB: `magnetdb.duckdb` in the current directory.
 ```bash
 cd to_duckdb/
 DB=magnetdb.duckdb
-JSON=../../hifimagnet-projects/magnetdb.json
+JSON=/home/myuser/hifimagnet-projects/magnetdb.json
 RECORDS=/mnt/LNCMIG-Data/records
+```
 
+> [!NOTE]
+> The default variables `$DB`, `$JSON`, and `$RECORDS` need to be adjusted to point to your local JSON and record directories.
+
+```bash
 # 0. Create the database
 python magnetdb.py db create --db $DB
 
@@ -140,8 +145,8 @@ python magnetdb.py hoop-stress compute --all --db $DB
 
 # 6. Query
 python tutorials/queries.py
-python query_cumstats.py --db $DB --site M9_A19061901_00 scalars
-python query_cumstats.py --db $DB --site M9_A19061901_00 site-bins \
+python tutorials/query_cumstats.py --db $DB --site M9_A19061901_00 scalars
+python tutorials/query_cumstats.py --db $DB --site M9_A19061901_00 site-bins \
     --channels Ptot,tsb --plot
 python magnetdb.py hoop-stress barchart M9_A19061901_00 --db $DB
 python magnetdb.py hoop-stress fatigue  M9_A19061901_00 --db $DB
@@ -161,6 +166,7 @@ python magnetdb.py hoop-stress fatigue  M9_A19061901_00 --db $DB
 | Cumulative query CLI + Python API | [docs/query_cumstats.md](docs/query_cumstats.md) |
 | Hoop-stress analysis | [docs/hoop-stress.md](docs/hoop-stress.md) |
 | Database schema + JSON formats | [docs/schema.md](docs/schema.md) |
+| MySQL bridge (live / export / view / poll + plots) | [docs/mysql_connect.md](docs/mysql_connect.md) |
 | Deprecated scripts migration guide | [deprecated/DEPRECATED.md](deprecated/DEPRECATED.md) |
 | Tutorials | [tutorials/README.md](tutorials/README.md) |
 
