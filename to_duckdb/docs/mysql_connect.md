@@ -337,6 +337,63 @@ python mysql_connect.py --mode poll \
     --interval 5
 ```
 
+#### All fields on one shared graph (`overlay`)
+
+Use `"layout":"overlay"` to draw every y-field on a single axes instead of
+one subplot per field.  This is the quickest way to compare signals whose
+values are on similar scales.
+
+```bash
+python mysql_connect.py --mode poll \
+    --table measurements \
+    --fields Icoil Ucoil Iref \
+    --x-field timestamp \
+    --interval 10 \
+    --plot-options '{"layout":"overlay"}'
+```
+
+With explicit colours (one per y-field, in the same order as `--fields`):
+
+```bash
+python mysql_connect.py --mode poll \
+    --table measurements \
+    --fields Icoil Ucoil Iref \
+    --x-field timestamp \
+    --interval 10 \
+    --plot-options '{"layout":"overlay","colors":["steelblue","tomato","seagreen"]}'
+```
+
+#### Mixed layout — some fields overlaid, others on separate subplots (`groups`)
+
+Use `"layout":"groups"` with a `"groups"` list when you want certain fields
+to share a subplot while others get their own.  Each inner list is one subplot;
+all subplots share the same x-axis.
+
+```bash
+# Icoil and Iref overlaid on subplot 1; Ucoil alone on subplot 2
+python mysql_connect.py --mode poll \
+    --table measurements \
+    --fields Icoil Ucoil Iref \
+    --x-field timestamp \
+    --interval 10 \
+    --plot-options '{"layout":"groups","groups":[["Icoil","Iref"],["Ucoil"]]}'
+```
+
+With colours (one entry per y-field in the order they appear across all groups):
+
+```bash
+python mysql_connect.py --mode poll \
+    --table measurements \
+    --fields Icoil Ucoil Iref \
+    --x-field timestamp \
+    --interval 10 \
+    --plot-options '{
+      "layout": "groups",
+      "groups": [["Icoil", "Iref"], ["Ucoil"]],
+      "colors": ["steelblue", "seagreen", "tomato"]
+    }'
+```
+
 #### Plotly backend (auto-opens browser, writes HTML)
 
 ```bash
@@ -417,6 +474,62 @@ python mysql_connect.py --mode poll \
     --interval 10 \
     --plot plotly \
     --output-html live_join.html
+```
+
+### Two-source polling (`--table2` / `--query2`)
+
+When you need to poll **two tables simultaneously** and display their fields in
+**separate subplots that share a common x-axis**, use `--table2` (or `--query2`
+for raw SQL).  Zooming or panning in one subplot automatically mirrors the other.
+
+Supported backends: `matplotlib`, `plotly`, `dash`.
+
+#### Two tables by name — matplotlib
+
+```bash
+python mysql_connect.py --mode poll \
+    --table measurements --fields timestamp Icoil Ucoil --x-field timestamp \
+    --table2 temperatures --fields2 tsb teb \
+    --interval 10 \
+    --plot matplotlib
+```
+
+#### Two tables by name — Dash (linked zoom/pan, pause button)
+
+```bash
+python mysql_connect.py --mode poll \
+    --table measurements --fields timestamp Icoil Ucoil --x-field timestamp \
+    --table2 temperatures --fields2 tsb teb \
+    --interval 10 \
+    --plot dash
+```
+
+#### Two independent SQL queries (tables not directly joinable)
+
+Use `--query` for the first source and `--query2` for the second when the
+tables cannot be joined (different row counts, different time grids, etc.):
+
+```bash
+python mysql_connect.py --mode poll \
+    --query "SELECT t, Icoil, Ucoil FROM mysqldb.measurements ORDER BY t LIMIT 500" \
+    --fields Icoil Ucoil --x-field t \
+    --query2 "SELECT t, tsb, teb FROM mysqldb.temperatures ORDER BY t LIMIT 500" \
+    --fields2 tsb teb \
+    --interval 10 \
+    --plot dash
+```
+
+#### With a WHERE filter on the second table
+
+`--where2` applies an SQL filter to `--table2` (has no effect when `--query2`
+is used — put the filter directly in the SQL instead).
+
+```bash
+python mysql_connect.py --mode poll \
+    --table measurements --fields timestamp Icoil Ucoil --x-field timestamp \
+    --table2 temperatures --fields2 tsb teb --where2 "sensor_id = 3" \
+    --interval 10 \
+    --plot dash
 ```
 
 ---
@@ -627,7 +740,7 @@ python mysql_connect.py --mode poll \
 ## Complete CLI reference
 
 ```
-usage: mysql_connect.py [--mode {live,export,view,poll}]
+usage: mysql_connect.py [--mode {live,export,view,poll,plot}]
                         [--host HOST] [--port PORT]
                         [--user USER] [--password PASSWORD] [--database DATABASE]
                         [--format {csv,parquet,duckdb}]
@@ -638,8 +751,10 @@ usage: mysql_connect.py [--mode {live,export,view,poll}]
                         [--list-tables] [--list-fields]
                         [--fields COL ...] [--x-field COL]
                         [--where EXPR] [--limit N]
+                        [--table2 TABLE] [--query2 SQL]
+                        [--fields2 COL ...] [--where2 EXPR]
                         [--interval SECONDS] [--count N]
-                        [--plot {matplotlib,plotly,textual,dash}]
+                        [--plot {table,matplotlib,plotly,textual,dash}]
                         [--plot-options JSON] [--output-html FILE]
                         [--dash-host HOST] [--dash-port PORT]
                         [-v]
@@ -647,7 +762,7 @@ usage: mysql_connect.py [--mode {live,export,view,poll}]
 
 | Flag | Mode | Description |
 |------|------|-------------|
-| `--mode` | all | `live` (default), `export`, `view`, `poll` |
+| `--mode` | all | `live` (default), `export`, `view`, `poll`, `plot` |
 | `--host/port/user/password/database` | all | MySQL connection (or env vars) |
 | `--format` | export | `csv`, `parquet`, `duckdb` |
 | `--output` | export | DuckDB output file (format duckdb) |
@@ -665,9 +780,13 @@ usage: mysql_connect.py [--mode {live,export,view,poll}]
 | `--x-field` | poll | x-axis column (default: first TIMESTAMP column) |
 | `--where` | poll | SQL WHERE clause (single-table path only) |
 | `--limit` | poll | max rows per poll, default 200 (single-table path only) |
+| `--table2` | poll | second table for two-source mode (mutually exclusive with `--query2`) |
+| `--query2` | poll | raw SELECT for the second subplot (mutually exclusive with `--table2`) |
+| `--fields2` | poll | y-axis columns from the second source (default: all numeric) |
+| `--where2` | poll | SQL WHERE clause for `--table2` only |
 | `--interval` | poll | seconds between polls, default 5 |
 | `--count` | poll | number of polls; 0 = run until Ctrl+C (default) |
-| `--plot` | poll | `matplotlib` (default), `plotly`, `textual`, `dash` |
+| `--plot` | poll | `matplotlib` (default), `table`, `plotly`, `textual`, `dash` |
 | `--plot-options` | poll | JSON style object (see table above) |
 | `--output-html` | poll | HTML path for plotly backend (default: `poll_output.html`) |
 | `--dash-host` | poll | Dash server host (default: `127.0.0.1`) |
@@ -687,9 +806,9 @@ cd to_duckdb/
 venv-systempackages/bin/python -m pytest tests/test_mysql_connect.py -v -m "not integration"
 ```
 
-These 118 tests cover all pure-logic helpers (`_is_numeric_type`, `_build_dsn`,
-`_resolve_groups`, …) and CLI argument parsing via in-memory DuckDB — no
-network connection needed.
+These tests cover all pure-logic helpers (`_is_numeric_type`, `_build_dsn`,
+`_resolve_groups`, `_safe_widget_id`, …) and CLI argument parsing via in-memory
+DuckDB — no network connection needed.
 
 ### Integration tests (live MySQL server required)
 
