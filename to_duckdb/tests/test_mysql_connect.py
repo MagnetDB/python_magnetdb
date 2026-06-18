@@ -161,7 +161,7 @@ class TestBuildPollQuery:
 
     def test_where_clause_included(self):
         sql = _build_poll_query("t", ["x"], "x > 0", 10, None)
-        assert "WHERE x > 0" in sql
+        assert "WHERE (x > 0)" in sql
 
     def test_no_where_when_none(self):
         sql = _build_poll_query("t", ["x"], None, 10, None)
@@ -445,7 +445,7 @@ class TestParseArgsSmoke:
     def test_poll_defaults(self, monkeypatch):
         args = self._parse(monkeypatch, ["--mode", "poll", "--table", "t"])
         assert args.interval == 5.0
-        assert args.limit == 200
+        assert args.limit is None
         assert args.count == 0
         assert args.plot == "matplotlib"
 

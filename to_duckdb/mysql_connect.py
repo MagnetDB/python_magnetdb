@@ -3,7 +3,7 @@ mysql_connect.py
 ================
 Connect DuckDB to a remote MySQL server.
 
-Three modes are available:
+Four modes are available:
 
 live
     Attach the MySQL database via the ``mysql_scanner`` extension and print the
@@ -27,19 +27,39 @@ view
     ``--query``, optionally filtered with ``--where``.  ``--limit`` caps
     the number of rows returned (default: 200; use ``--limit 0`` for all rows).
 
+plot
+    Query a MySQL table (or custom SQL) once and display all selected data as
+    a static chart.  Supports the same ``--plot``, ``--fields``, ``--x-field``,
+    ``--where``, ``--query``, and ``--plot-options`` flags as ``poll``.
+    ``--limit`` defaults to 0 (all rows).  ``--plot textual`` is not supported.
+
+    matplotlib   Static chart in a native window (blocks until closed).
+    plotly       Writes a static HTML file and opens it in the browser.
+    dash         Interactive web app served at http://127.0.0.1:8050; data
+                 loaded once on page open with full zoom/pan support.
+
 poll
     Repeatedly query a single MySQL table at a fixed interval and display
     selected columns as a live plot.  Backend is selected via ``--plot``:
 
+    table        Rich terminal table updated in-place every interval seconds.
+                 All queried columns are shown; Ctrl-C to stop.
     matplotlib   Live-updating chart in a native window (default).
     plotly       Writes an auto-refreshing HTML file (default: poll_output.html)
                  and opens it in the default browser on the first poll.
-    textual      Full-screen TUI in the terminal.  One Sparkline per y-field,
-                 updated every interval seconds.  Press q to quit, p to pause.
-    dash         Interactive web app served at http://127.0.0.1:8050 (default).
+    textual      Full-screen TUI in the terminal.  One scatter plot per group,
+                 rendered via plotext (pip install plotext).
+                 Updated every interval seconds.  Press q to quit, p to pause.
+    dash         Interactive web app served at http://127.0.0.1:8050.
                  Uses dcc.Interval for live updates — no page refresh.
                  Pause button, zoom/pan, and hover tooltips included.
                  Host and port are set via --dash-host / --dash-port.
+
+    Two-source mode: add ``--table2`` (or ``--query2``) with optional
+    ``--fields2`` and ``--where2`` to poll a second table simultaneously.
+    Fields from each table are displayed in separate subplots that share the
+    same x-axis, so zooming or panning in one subplot mirrors the other.
+    Supported backends: matplotlib, plotly, dash.
 
     --plot-options accepts a JSON object with any of:
         type      "line" | "scatter" | "bar"        (default "line")
@@ -81,6 +101,29 @@ Usage
         --fields timestamp Icoil Ucoil --x-field timestamp \\
         --interval 10 --limit 200 --plot plotly \\
         --plot-options '{"type":"scatter","colors":["navy","crimson"]}' \\
+        --host myhost --user myuser --password mypw --database mydb
+
+    # Two tables, shared x-axis — graph 1: Icoil/Ucoil, graph 2: tsb/teb (matplotlib)
+    python mysql_connect.py --mode poll \\
+        --table measurements --fields timestamp Icoil Ucoil --x-field timestamp \\
+        --table2 temperatures --fields2 tsb teb \\
+        --interval 10 --plot matplotlib \\
+        --host myhost --user myuser --password mypw --database mydb
+
+    # Same with Dash (interactive; zoom/pan is linked between the two graphs)
+    python mysql_connect.py --mode poll \\
+        --table measurements --fields timestamp Icoil Ucoil --x-field timestamp \\
+        --table2 temperatures --fields2 tsb teb \\
+        --interval 10 --plot dash \\
+        --host myhost --user myuser --password mypw --database mydb
+
+    # Two tables via raw SQL (tables not directly joinable)
+    python mysql_connect.py --mode poll \\
+        --query "SELECT t, Icoil, Ucoil FROM mysqldb.measurements ORDER BY t LIMIT 500" \\
+        --fields Icoil Ucoil --x-field t \\
+        --query2 "SELECT t, tsb, teb FROM mysqldb.temperatures ORDER BY t LIMIT 500" \\
+        --fields2 tsb teb \\
+        --interval 10 --plot dash \\
         --host myhost --user myuser --password mypw --database mydb
 
     # View most recent 50 rows of measurements as a table
@@ -225,6 +268,18 @@ def _is_timestamp_type(col_type: str) -> bool:
     """Return True if the DuckDB column type is temporal (suitable as x-axis)."""
     upper = col_type.upper().strip()
     return upper.startswith(_TIMESTAMP_PREFIXES)
+
+
+def _is_id_field(name: str) -> bool:
+    """Return True for columns that are ID keys and should not be plotted."""
+    lower = name.lower()
+    return lower == "id" or lower.endswith("_id")
+
+
+def _safe_widget_id(name: str) -> str:
+    """Return a CSS-safe identifier by replacing non-alphanumeric chars with '_'."""
+    import re
+    return re.sub(r"[^A-Za-z0-9_]", "_", name)
 
 
 def _auto_x_field(cols: list[tuple[str, str]]) -> Optional[str]:
@@ -473,8 +528,9 @@ def mode_view(args: argparse.Namespace) -> None:
         sql = f"SELECT {field_list} FROM mysqldb.{args.table}"
         if args.where:
             sql += f" WHERE {args.where}"
-        if args.limit > 0:
-            sql += f" LIMIT {args.limit}"
+        view_limit = args.limit if args.limit is not None else 200
+        if view_limit > 0:
+            sql += f" LIMIT {view_limit}"
 
     if args.verbose:
         print(f"SQL: {sql}")
@@ -554,14 +610,27 @@ def _parse_plot_options(raw: Optional[str]) -> dict[str, Any]:
     return opts
 
 
-def _build_poll_query(table: str, fields: list[str], where: Optional[str], limit: int, order_by: Optional[str]) -> str:
+def _build_poll_query(
+    table: str,
+    fields: list[str],
+    where: Optional[str],
+    limit: int,
+    order_by: Optional[str],
+    start_time: Optional[str] = None,
+) -> str:
     field_list = ", ".join(fields) if fields else "*"
     sql = f"SELECT {field_list} FROM mysqldb.{table}"
+    conditions: list[str] = []
     if where:
-        sql += f" WHERE {where}"
+        conditions.append(f"({where})")
+    if start_time is not None and order_by:
+        conditions.append(f"{order_by} >= CAST('{start_time}' AS TIMESTAMP)")
+    if conditions:
+        sql += " WHERE " + " AND ".join(conditions)
     if order_by:
         sql += f" ORDER BY {order_by}"
-    sql += f" LIMIT {limit}"
+    if limit > 0:
+        sql += f" LIMIT {limit}"
     return sql
 
 
@@ -569,6 +638,13 @@ def _fetch_poll(con: duckdb.DuckDBPyConnection, sql: str) -> tuple[list[str], li
     rel = con.execute(sql)
     cols = [desc[0] for desc in rel.description]
     return cols, rel.fetchall()
+
+
+def _fmt_x_latest(val: Any) -> str:
+    """Format the last x-axis value for display in a chart title."""
+    if hasattr(val, "strftime"):
+        return val.strftime("%Y-%m-%d %H:%M:%S")
+    return str(val)
 
 
 # ── matplotlib backend ──────────────────────────────────────────────────────
@@ -600,14 +676,16 @@ def _poll_matplotlib(
     if opts["fontsize"]:
         plt.rcParams["font.size"] = opts["fontsize"]
 
-    fig, axes = plt.subplots(len(groups), 1, figsize=figsize, sharex=True, squeeze=False)
     plt.ion()
+    fig, axes = plt.subplots(len(groups), 1, figsize=figsize, sharex=True, squeeze=False)
 
     buffers: dict[str, collections.deque] = {
         f: collections.deque()
         for f in (y_fields + ([x_field] if x_field else []))
     }
 
+    fields_label = ", ".join(y_fields)
+    suptitle_obj = fig.suptitle(fields_label)
     poll_n = 0
     try:
         while count is None or poll_n < count:
@@ -628,6 +706,9 @@ def _poll_matplotlib(
                 if x_field and x_field in buffers
                 else list(range(len(rows)))
             )
+
+            if x_data:
+                suptitle_obj.set_text(f"{fields_label} ({_fmt_x_latest(x_data[-1])})")
 
             for ax, group in zip(axes[:, 0], groups):
                 ax.cla()
@@ -652,7 +733,6 @@ def _poll_matplotlib(
             if x_field:
                 axes[-1, 0].set_xlabel(x_field)
 
-            fig.suptitle(f"MySQL poll — {sql[:60]}…" if len(sql) > 60 else f"MySQL poll — {sql}")
             plt.tight_layout()
             plt.draw()
             plt.pause(interval)
@@ -663,6 +743,242 @@ def _poll_matplotlib(
     finally:
         plt.ioff()
         plt.show()
+
+
+# ── static backends (plot mode) ────────────────────────────────────────────
+
+
+def _plot_static_matplotlib(
+    con: duckdb.DuckDBPyConnection,
+    sql: str,
+    x_field: Optional[str],
+    y_fields: list[str],
+    opts: dict[str, Any],
+    verbose: bool,
+) -> None:
+    try:
+        import matplotlib.pyplot as plt
+    except ImportError:
+        print("Error: matplotlib is required for --plot matplotlib.  pip install matplotlib", file=sys.stderr)
+        sys.exit(1)
+
+    figsize = tuple(opts["figsize"])
+    colors = opts["colors"] or [None] * len(y_fields)
+    plot_type = opts["type"]
+    groups = _resolve_groups(y_fields, opts)
+    field_color = {f: i for i, f in enumerate(y_fields)}
+
+    if opts["font"]:
+        plt.rcParams["font.family"] = opts["font"]
+    if opts["fontsize"]:
+        plt.rcParams["font.size"] = opts["fontsize"]
+
+    cols, rows = _fetch_poll(con, sql)
+    if verbose:
+        print(f"{len(rows)} row(s) fetched")
+
+    row_dicts = [dict(zip(cols, r)) for r in rows]
+    x_data = (
+        [r[x_field] for r in row_dicts]
+        if x_field and row_dicts and x_field in row_dicts[0]
+        else list(range(len(rows)))
+    )
+
+    fig, axes = plt.subplots(len(groups), 1, figsize=figsize, sharex=True, squeeze=False)
+
+    for ax, group in zip(axes[:, 0], groups):
+        for y_field in group:
+            y_data = [r.get(y_field) for r in row_dicts]
+            cidx = field_color[y_field]
+            color = colors[cidx] if cidx < len(colors) else None
+            kw = {"color": color, "label": y_field} if color else {"label": y_field}
+            if plot_type == "scatter":
+                ax.scatter(x_data, y_data, s=10, **kw)
+            elif plot_type == "bar":
+                ax.bar(x_data, y_data, **kw)
+            else:
+                ax.plot(x_data, y_data, **kw)
+        if len(group) == 1:
+            ax.set_ylabel(group[0])
+        else:
+            ax.legend(loc="upper left", fontsize="small")
+        ax.grid(True, linestyle="--", alpha=0.5)
+
+    if x_field:
+        axes[-1, 0].set_xlabel(x_field)
+
+    fig.suptitle(f"MySQL — {sql[:60]}…" if len(sql) > 60 else f"MySQL — {sql}")
+    plt.tight_layout()
+    plt.show()
+
+
+def _plot_static_plotly(
+    con: duckdb.DuckDBPyConnection,
+    sql: str,
+    x_field: Optional[str],
+    y_fields: list[str],
+    opts: dict[str, Any],
+    output_html: str,
+    verbose: bool,
+) -> None:
+    try:
+        import plotly.graph_objects as go
+        from plotly.subplots import make_subplots
+    except ImportError:
+        print("Error: plotly is required for --plot plotly.  pip install plotly", file=sys.stderr)
+        sys.exit(1)
+
+    colors = opts["colors"] or [None] * len(y_fields)
+    plot_type = opts["type"]
+    groups = _resolve_groups(y_fields, opts)
+    field_color = {f: i for i, f in enumerate(y_fields)}
+
+    cols, rows = _fetch_poll(con, sql)
+    if verbose:
+        print(f"{len(rows)} row(s) fetched")
+
+    row_dicts = [dict(zip(cols, r)) for r in rows]
+    x_data = (
+        [r[x_field] for r in row_dicts]
+        if x_field and row_dicts and x_field in row_dicts[0]
+        else list(range(len(rows)))
+    )
+
+    subplot_titles = [", ".join(g) for g in groups]
+    fig = make_subplots(
+        rows=len(groups), cols=1, shared_xaxes=True,
+        vertical_spacing=0.04, subplot_titles=subplot_titles,
+    )
+
+    for row_idx, group in enumerate(groups, start=1):
+        for y_field in group:
+            y_data = [r.get(y_field) for r in row_dicts]
+            cidx = field_color[y_field]
+            color = colors[cidx] if cidx < len(colors) else None
+            marker = {"color": color} if color else {}
+
+            if plot_type == "scatter":
+                trace = go.Scatter(x=x_data, y=y_data, mode="markers", name=y_field, marker=marker)
+            elif plot_type == "bar":
+                trace = go.Bar(x=x_data, y=y_data, name=y_field, marker=marker)
+            else:
+                trace = go.Scatter(x=x_data, y=y_data, mode="lines", name=y_field, line=marker)
+            fig.add_trace(trace, row=row_idx, col=1)
+
+        y_title = group[0] if len(group) == 1 else ""
+        fig.update_yaxes(title_text=y_title, row=row_idx, col=1)
+
+    if x_field:
+        fig.update_xaxes(title_text=x_field, row=len(groups), col=1)
+
+    font_dict: dict[str, Any] = {}
+    if opts["font"]:
+        font_dict["family"] = opts["font"]
+    if opts["fontsize"]:
+        font_dict["size"] = opts["fontsize"]
+
+    fig.update_layout(
+        title=f"MySQL — {sql[:80]}…" if len(sql) > 80 else f"MySQL — {sql}",
+        height=max(300, 280 * len(groups)),
+        **({"font": font_dict} if font_dict else {}),
+    )
+
+    html_path = Path(output_html).resolve()
+    html_path.write_text(fig.to_html(full_html=True, include_plotlyjs="cdn"), encoding="utf-8")
+    webbrowser.open(html_path.as_uri())
+    print(f"Plotly output written to {html_path}")
+
+
+def _plot_static_dash(
+    con: duckdb.DuckDBPyConnection,
+    sql: str,
+    x_field: Optional[str],
+    y_fields: list[str],
+    opts: dict[str, Any],
+    host: str,
+    port: int,
+    verbose: bool,
+) -> None:
+    try:
+        from dash import Dash, dcc, html
+        import plotly.graph_objects as go
+    except ImportError:
+        print("Error: dash is required for --plot dash.  pip install dash", file=sys.stderr)
+        sys.exit(1)
+
+    import logging
+    logging.getLogger("werkzeug").setLevel(logging.ERROR)
+
+    colors = opts["colors"] or [None] * len(y_fields)
+    plot_type = opts["type"]
+    groups = _resolve_groups(y_fields, opts)
+    field_color = {f: i for i, f in enumerate(y_fields)}
+
+    font_dict: dict[str, Any] = {}
+    if opts["font"]:
+        font_dict["family"] = opts["font"]
+    if opts["fontsize"]:
+        font_dict["size"] = opts["fontsize"]
+
+    cols, rows = _fetch_poll(con, sql)
+    if verbose:
+        print(f"{len(rows)} row(s) fetched")
+
+    row_dicts = [dict(zip(cols, r)) for r in rows]
+    x_data = (
+        [r[x_field] for r in row_dicts]
+        if x_field and row_dicts and x_field in row_dicts[0]
+        else list(range(len(rows)))
+    )
+
+    figs = []
+    for group in groups:
+        fig = go.Figure()
+        for y_field in group:
+            y_data = [r.get(y_field) for r in row_dicts]
+            cidx = field_color[y_field]
+            color = colors[cidx] if cidx < len(colors) else None
+            marker = {"color": color} if color else {}
+
+            if plot_type == "scatter":
+                trace = go.Scatter(x=x_data, y=y_data, mode="markers", name=y_field, marker=marker)
+            elif plot_type == "bar":
+                trace = go.Bar(x=x_data, y=y_data, name=y_field, marker=marker)
+            else:
+                trace = go.Scatter(x=x_data, y=y_data, mode="lines", name=y_field, line=marker)
+            fig.add_trace(trace)
+
+        fig.update_layout(
+            title=", ".join(group) if len(groups) > 1 else "",
+            height=280,
+            xaxis_title=x_field or "",
+            yaxis_title=group[0] if len(group) == 1 else "",
+            margin={"t": 40, "b": 40, "l": 60, "r": 20},
+            **({"font": font_dict} if font_dict else {}),
+        )
+        figs.append(fig)
+
+    heading = f"MySQL — {sql[:80]}…" if len(sql) > 80 else f"MySQL — {sql}"
+    app = Dash(__name__, title="MySQL Plot")
+    app.layout = html.Div(
+        style={"fontFamily": opts["font"] or "sans-serif", "padding": "16px"},
+        children=[
+            html.H4(heading, style={"marginBottom": "8px"}),
+            html.P(
+                f"{len(rows)} row(s)",
+                style={"color": "gray", "fontSize": "0.85em", "marginBottom": "12px"},
+            ),
+            html.Div([
+                dcc.Graph(figure=fig, config={"displayModeBar": True})
+                for fig in figs
+            ]),
+        ],
+    )
+
+    url = f"http://{host}:{port}"
+    print(f"Dash server at {url}  (Ctrl+C to stop)")
+    webbrowser.open(url)
+    app.run(host=host, port=port, debug=False, use_reloader=False)
 
 
 # ── plotly backend ──────────────────────────────────────────────────────────
@@ -692,6 +1008,8 @@ def _poll_plotly(
 
     html_path = Path(output_html).resolve()
     browser_opened = False
+    fields_label = ", ".join(y_fields)
+    title = fields_label
     poll_n = 0
 
     try:
@@ -706,6 +1024,9 @@ def _poll_plotly(
                 if x_field and row_dicts and x_field in row_dicts[0]
                 else list(range(len(rows)))
             )
+
+            if x_data:
+                title = f"{fields_label} ({_fmt_x_latest(x_data[-1])})"
 
             subplot_titles = [", ".join(g) for g in groups]
             fig = make_subplots(
@@ -746,7 +1067,7 @@ def _poll_plotly(
                 font_dict["size"] = opts["fontsize"]
 
             fig.update_layout(
-                title=f"MySQL poll — {sql[:80]}…" if len(sql) > 80 else f"MySQL poll — {sql}",
+                title=title,
                 height=max(300, 280 * len(groups)),
                 **({"font": font_dict} if font_dict else {}),
             )
@@ -774,11 +1095,6 @@ def _poll_plotly(
 # ── textual backend ────────────────────────────────────────────────────────
 
 
-def _safe_widget_id(name: str) -> str:
-    """Return a CSS-safe widget ID derived from a column name."""
-    return "".join(c if c.isalnum() else "_" for c in name)
-
-
 def _poll_textual(
     con: duckdb.DuckDBPyConnection,
     sql: str,
@@ -791,11 +1107,20 @@ def _poll_textual(
 ) -> None:
     try:
         from textual.app import App, ComposeResult
-        from textual.containers import Horizontal, ScrollableContainer
-        from textual.widgets import Footer, Header, Sparkline, Static
+        from textual.containers import ScrollableContainer
+        from textual.widgets import Footer, Header, Static
     except ImportError:
         print(
             "Error: textual is required for --plot textual.  pip install textual",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    try:
+        import plotext as _plt
+    except ImportError:
+        print(
+            "Error: plotext is required for --plot textual.  pip install plotext",
             file=sys.stderr,
         )
         sys.exit(1)
@@ -804,48 +1129,88 @@ def _poll_textual(
 
     colors = opts["colors"] or []
     groups = _resolve_groups(y_fields, opts)
-    MAX_POINTS = 200
+
+    def _to_plotext_x(vals: list) -> list:
+        """Convert datetime x-values to ISO strings that plotext understands."""
+        if vals and hasattr(vals[0], "strftime"):
+            return [v.strftime("%Y-%m-%d %H:%M:%S") for v in vals]
+        return vals
+
+    # plotext uses a module-level singleton figure.  Using one widget that owns
+    # the entire render pass avoids concurrent clf()/scatter()/build() calls
+    # from multiple widgets corrupting each other's output.
+    class PollWidget(Static):  # type: ignore[type-arg]
+        DEFAULT_CSS = """
+        PollWidget {
+            height: 1fr;
+            padding: 0;
+        }
+        """
+
+        def __init__(self, **kwargs: Any) -> None:
+            super().__init__("Connecting…", **kwargs)
+            self._x: list = []
+            self._ys: dict[str, list[float]] = {f: [] for f in y_fields}
+
+        def refresh_data(self, x: list, ys: dict[str, list[float]]) -> None:
+            self._x = x
+            self._ys = ys
+            self._redraw()
+
+        def on_resize(self, _event: object) -> None:
+            self._redraw()
+
+        def _redraw(self) -> None:
+            w = self.size.width
+            h = self.size.height
+            if w < 10 or h < 4:
+                return
+
+            n = len(groups)
+            _plt.clf()
+            if n > 1:
+                _plt.subplots(n, 1)
+            _plt.plotsize(w, h)
+            _plt.theme("dark")
+
+            is_datetime = bool(self._x) and hasattr(self._x[0], "strftime")
+            x_vals = _to_plotext_x(self._x)
+            any_plotted = False
+
+            for gi, group in enumerate(groups):
+                if n > 1:
+                    _plt.subplot(gi + 1, 1)
+                # date_form must be set per subplot (clf/subplot resets it to default)
+                if is_datetime:
+                    _plt.date_form("%Y-%m-%d %H:%M:%S")
+                _plt.title(", ".join(group))
+                if x_field:
+                    _plt.xlabel(x_field)
+
+                for field in group:
+                    y = self._ys.get(field, [])
+                    if x_vals and y and len(x_vals) == len(y):
+                        fi = y_fields.index(field)
+                        kw: dict[str, Any] = {"label": field}
+                        c = colors[fi] if fi < len(colors) else None
+                        if c:
+                            kw["color"] = c
+                        _plt.scatter(x_vals, y, **kw)
+                        any_plotted = True
+
+            if not any_plotted:
+                self.update("Waiting for data…")
+                return
+            try:
+                self.update(_plt.build())
+            except Exception:
+                self.update("Waiting for data…")
 
     class PollApp(App):  # type: ignore[type-arg]
+        THEME = "textual-dark"
         CSS = """
         Screen { background: $surface; }
-
-        #scroll { height: 1fr; }
-
-        .group-label {
-            background: $primary-darken-2;
-            color: $text;
-            padding: 0 1;
-            height: 1;
-            margin-top: 1;
-        }
-
-        .field-row {
-            layout: horizontal;
-            height: 6;
-            margin-bottom: 1;
-        }
-
-        .field-name {
-            width: 24;
-            content-align: left middle;
-            padding: 0 1;
-            color: $text-muted;
-        }
-
-        Sparkline {
-            height: 6;
-            width: 1fr;
-        }
-
-        .field-value {
-            width: 14;
-            content-align: right middle;
-            padding: 0 1;
-            color: $success;
-            text-style: bold;
-        }
-
+        #plot  { height: 1fr; }
         #status {
             height: 1;
             background: $primary-darken-3;
@@ -861,37 +1226,18 @@ def _poll_textual(
 
         def __init__(self) -> None:
             super().__init__()
-            self.title = f"MySQL Poll — {sql[:60]}…" if len(sql) > 60 else f"MySQL Poll — {sql}"
-            self._buffers: dict[str, collections.deque] = {
-                f: collections.deque(maxlen=MAX_POINTS) for f in y_fields
-            }
+            self._fields_label = ", ".join(y_fields)
+            self.title = self._fields_label
             self._poll_n = 0
             self._paused = False
 
         def compose(self) -> ComposeResult:
             yield Header(show_clock=True)
-            with ScrollableContainer(id="scroll"):
-                for group in groups:
-                    if len(groups) > 1:
-                        yield Static(", ".join(group), classes="group-label")
-                    for field in group:
-                        sid = _safe_widget_id(field)
-                        with Horizontal(classes="field-row"):
-                            yield Static(field, classes="field-name")
-                            yield Sparkline([], id=f"spark_{sid}", summary_function=max)
-                            yield Static("—", id=f"val_{sid}", classes="field-value")
+            yield PollWidget(id="plot")
             yield Static("Connecting…", id="status")
             yield Footer()
 
         def on_mount(self) -> None:
-            for i, field in enumerate(y_fields):
-                if i < len(colors) and colors[i]:
-                    try:
-                        self.query_one(
-                            f"#spark_{_safe_widget_id(field)}", Sparkline
-                        ).styles.color = colors[i]
-                    except Exception:
-                        pass
             self.set_interval(interval, self._do_poll)
 
         async def _do_poll(self) -> None:
@@ -907,26 +1253,31 @@ def _poll_textual(
                 self.query_one("#status", Static).update(f"Error: {exc}")
                 return
 
-            for row in rows:
-                row_dict = dict(zip(cols, row))
-                for f in y_fields:
-                    val = row_dict.get(f)
-                    if val is not None:
-                        try:
-                            self._buffers[f].append(float(val))
-                        except (TypeError, ValueError):
-                            pass
+            if x_field and rows:
+                x_latest = dict(zip(cols, rows[-1])).get(x_field)
+                if x_latest is not None:
+                    self.title = f"{self._fields_label} ({_fmt_x_latest(x_latest)})"
 
-            for field in y_fields:
-                sid = _safe_widget_id(field)
-                data = list(self._buffers[field])
-                try:
-                    self.query_one(f"#spark_{sid}", Sparkline).data = data
-                    self.query_one(f"#val_{sid}", Static).update(
-                        f"{data[-1]:.5g}" if data else "—"
-                    )
-                except Exception:
-                    pass
+            x_data: list = []
+            ys: dict[str, list[float]] = {f: [] for f in y_fields}
+            for row in rows:
+                rd = dict(zip(cols, row))
+                if x_field:
+                    x_data.append(rd.get(x_field))
+                for f in y_fields:
+                    val = rd.get(f)
+                    try:
+                        ys[f].append(float(val) if val is not None else float("nan"))
+                    except (TypeError, ValueError):
+                        ys[f].append(float("nan"))
+
+            if not x_field:
+                x_data = list(range(len(rows)))
+
+            try:
+                self.query_one("#plot", PollWidget).refresh_data(x_data, ys)
+            except Exception:
+                pass
 
             self._poll_n += 1
             now = _dt.datetime.now().strftime("%H:%M:%S")
@@ -939,7 +1290,85 @@ def _poll_textual(
         def action_toggle_pause(self) -> None:
             self._paused = not self._paused
 
-    PollApp(css_theme="textual-dark").run()
+    PollApp().run()
+
+
+# ── terminal table backend ─────────────────────────────────────────────────
+
+
+def _poll_table(
+    con: duckdb.DuckDBPyConnection,
+    sql: str,
+    x_field: Optional[str],
+    y_fields: list[str],
+    opts: dict[str, Any],
+    interval: float,
+    count: Optional[int],
+    verbose: bool,
+) -> None:
+    try:
+        from rich.console import Console, Group
+        from rich.live import Live
+        from rich.table import Table as RichTable
+        from rich.text import Text
+    except ImportError:
+        print(
+            "Error: rich is required for --plot table.  pip install rich",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    import datetime as _dt
+
+    fields_label = ", ".join(y_fields)
+    poll_n = 0
+    console = Console()
+
+    def _build_rich_table(cols: list[str], rows: list[tuple]) -> RichTable:
+        t = RichTable(
+            show_header=True, header_style="bold cyan",
+            show_lines=False, expand=False,
+        )
+        for col in cols:
+            t.add_column(col, overflow="fold", no_wrap=(col == x_field))
+        for row in rows:
+            t.add_row(*["—" if v is None else str(v) for v in row])
+        return t
+
+    try:
+        with Live(console=console, refresh_per_second=4, screen=False) as live:
+            while count is None or poll_n < count:
+                try:
+                    cols, rows = _fetch_poll(con, sql)
+                except Exception as exc:
+                    live.update(Text(f"Poll error: {exc}", style="red"))
+                    time.sleep(interval)
+                    continue
+
+                now = _dt.datetime.now().strftime("%H:%M:%S")
+                x_info = ""
+                if x_field and rows:
+                    last_val = dict(zip(cols, rows[-1])).get(x_field)
+                    if last_val is not None:
+                        x_info = f"  ·  {x_field}: {_fmt_x_latest(last_val)}"
+
+                status = Text(
+                    f"[Poll #{poll_n + 1}]  {len(rows)} row(s)"
+                    f"  ·  updated {now}{x_info}"
+                    f"  ·  interval {interval}s  ·  Ctrl-C to stop",
+                    style="dim",
+                )
+                live.update(Group(status, _build_rich_table(cols, rows)))
+
+                if verbose:
+                    print(f"[poll {poll_n + 1}] {len(rows)} row(s)")
+
+                poll_n += 1
+                if count is None or poll_n < count:
+                    time.sleep(interval)
+
+    except KeyboardInterrupt:
+        pass
 
 
 # ── dash backend ───────────────────────────────────────────────────────────
@@ -958,7 +1387,7 @@ def _poll_dash(
     verbose: bool,
 ) -> None:
     try:
-        from dash import Dash, Input, Output, State, dcc, html
+        from dash import Dash, Input, Output, State, dcc, html, no_update
         from dash.exceptions import PreventUpdate
         import plotly.graph_objects as go
     except ImportError:
@@ -987,12 +1416,12 @@ def _poll_dash(
     app = Dash(__name__, title="MySQL Poll", suppress_callback_exceptions=True)
     graph_ids = [f"graph-{i}" for i in range(len(groups))]
     interval_ms = int(interval * 1000)
-    heading = f"MySQL Poll — {sql[:80]}…" if len(sql) > 80 else f"MySQL Poll — {sql}"
+    fields_label = ", ".join(y_fields)
 
     app.layout = html.Div(
         style={"fontFamily": opts["font"] or "sans-serif", "padding": "16px"},
         children=[
-            html.H4(heading, style={"marginBottom": "8px"}),
+            html.H4(id="heading", children=fields_label, style={"marginBottom": "8px"}),
             html.Div(
                 style={"display": "flex", "alignItems": "center",
                        "gap": "16px", "marginBottom": "12px"},
@@ -1026,7 +1455,8 @@ def _poll_dash(
 
     @app.callback(
         [Output(gid, "figure") for gid in graph_ids]
-        + [Output("status-text", "children"), Output("poll-n", "data")],
+        + [Output("status-text", "children"), Output("heading", "children"),
+           Output("poll-n", "data")],
         Input("interval", "n_intervals"),
         State("poll-n", "data"),
     )
@@ -1047,6 +1477,11 @@ def _poll_dash(
             if x_field and row_dicts and x_field in row_dicts[0]
             else list(range(len(rows)))
         )
+
+        if x_data:
+            new_heading = f"{fields_label} ({_fmt_x_latest(x_data[-1])})"
+        else:
+            new_heading = no_update
 
         figs = []
         for group in groups:
@@ -1084,7 +1519,421 @@ def _poll_dash(
         if verbose:
             print(status)
 
-        return figs + [status, poll_n]
+        return figs + [status, new_heading, poll_n]
+
+    url = f"http://{host}:{port}"
+    print(f"Dash server at {url}  (Ctrl+C to stop)")
+    webbrowser.open(url)
+    app.run(host=host, port=port, debug=False, use_reloader=False)
+
+
+# ── multi-source backends (two tables, shared x-axis) ─────────────────────
+
+
+def _poll_matplotlib_multi(
+    con: duckdb.DuckDBPyConnection,
+    sql1: str,
+    sql2: str,
+    x_field: Optional[str],
+    y_fields1: list[str],
+    y_fields2: list[str],
+    opts: dict[str, Any],
+    interval: float,
+    count: Optional[int],
+    verbose: bool,
+) -> None:
+    """Live matplotlib poll: y_fields1 in subplot 1, y_fields2 in subplot 2, shared x."""
+    try:
+        import matplotlib.pyplot as plt
+    except ImportError:
+        print("Error: matplotlib is required for --plot matplotlib.  pip install matplotlib", file=sys.stderr)
+        sys.exit(1)
+
+    figsize = tuple(opts["figsize"])
+    colors = opts["colors"] or []
+    plot_type = opts["type"]
+
+    if opts["font"]:
+        plt.rcParams["font.family"] = opts["font"]
+    if opts["fontsize"]:
+        plt.rcParams["font.size"] = opts["fontsize"]
+
+    label1 = ", ".join(y_fields1)
+    label2 = ", ".join(y_fields2)
+
+    plt.ion()
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=figsize, sharex=True)
+    suptitle_obj = fig.suptitle(f"{label1}  |  {label2}")
+
+    poll_n = 0
+    try:
+        while count is None or poll_n < count:
+            cols1, rows1 = _fetch_poll(con, sql1)
+            cols2, rows2 = _fetch_poll(con, sql2)
+            if verbose:
+                print(f"[poll {poll_n + 1}] src1={len(rows1)} row(s), src2={len(rows2)} row(s)")
+
+            rd1 = [dict(zip(cols1, r)) for r in rows1]
+            rd2 = [dict(zip(cols2, r)) for r in rows2]
+
+            x1 = (
+                [r[x_field] for r in rd1]
+                if x_field and rd1 and x_field in rd1[0]
+                else list(range(len(rows1)))
+            )
+            x2 = (
+                [r[x_field] for r in rd2]
+                if x_field and rd2 and x_field in rd2[0]
+                else list(range(len(rows2)))
+            )
+
+            ax1.cla()
+            ax2.cla()
+
+            for i, yf in enumerate(y_fields1):
+                y = [r.get(yf) for r in rd1]
+                color = colors[i] if i < len(colors) else None
+                kw: dict[str, Any] = {"label": yf}
+                if color:
+                    kw["color"] = color
+                if plot_type == "scatter":
+                    ax1.scatter(x1, y, s=10, **kw)
+                elif plot_type == "bar":
+                    ax1.bar(x1, y, **kw)
+                else:
+                    ax1.plot(x1, y, **kw)
+            if len(y_fields1) == 1:
+                ax1.set_ylabel(label1)
+            else:
+                ax1.legend(loc="upper left", fontsize="small")
+            ax1.grid(True, linestyle="--", alpha=0.5)
+
+            n_colors1 = len(y_fields1)
+            for j, yf in enumerate(y_fields2):
+                cidx = n_colors1 + j
+                y = [r.get(yf) for r in rd2]
+                color = colors[cidx] if cidx < len(colors) else None
+                kw = {"label": yf}
+                if color:
+                    kw["color"] = color
+                if plot_type == "scatter":
+                    ax2.scatter(x2, y, s=10, **kw)
+                elif plot_type == "bar":
+                    ax2.bar(x2, y, **kw)
+                else:
+                    ax2.plot(x2, y, **kw)
+            if len(y_fields2) == 1:
+                ax2.set_ylabel(label2)
+            else:
+                ax2.legend(loc="upper left", fontsize="small")
+            ax2.grid(True, linestyle="--", alpha=0.5)
+
+            if x_field:
+                ax2.set_xlabel(x_field)
+                if x1:
+                    suptitle_obj.set_text(
+                        f"{label1}  |  {label2}  ({_fmt_x_latest(x1[-1])})"
+                    )
+
+            plt.tight_layout()
+            plt.draw()
+            plt.pause(interval)
+            poll_n += 1
+
+    except KeyboardInterrupt:
+        pass
+    finally:
+        plt.ioff()
+        plt.show()
+
+
+def _poll_plotly_multi(
+    con: duckdb.DuckDBPyConnection,
+    sql1: str,
+    sql2: str,
+    x_field: Optional[str],
+    y_fields1: list[str],
+    y_fields2: list[str],
+    opts: dict[str, Any],
+    interval: float,
+    count: Optional[int],
+    output_html: str,
+    verbose: bool,
+) -> None:
+    """Two-source plotly polling with two rows sharing one x-axis."""
+    try:
+        import plotly.graph_objects as go
+        from plotly.subplots import make_subplots
+    except ImportError:
+        print("Error: plotly is required for --plot plotly.  pip install plotly", file=sys.stderr)
+        sys.exit(1)
+
+    colors = opts["colors"] or []
+    plot_type = opts["type"]
+    html_path = Path(output_html).resolve()
+    browser_opened = False
+    label1 = ", ".join(y_fields1)
+    label2 = ", ".join(y_fields2)
+    title = f"{label1}  |  {label2}"
+    poll_n = 0
+
+    font_dict: dict[str, Any] = {}
+    if opts["font"]:
+        font_dict["family"] = opts["font"]
+    if opts["fontsize"]:
+        font_dict["size"] = opts["fontsize"]
+
+    try:
+        while count is None or poll_n < count:
+            cols1, rows1 = _fetch_poll(con, sql1)
+            cols2, rows2 = _fetch_poll(con, sql2)
+            if verbose:
+                print(f"[poll {poll_n + 1}] src1={len(rows1)} row(s), src2={len(rows2)} row(s)")
+
+            rd1 = [dict(zip(cols1, r)) for r in rows1]
+            rd2 = [dict(zip(cols2, r)) for r in rows2]
+
+            x1 = (
+                [r[x_field] for r in rd1]
+                if x_field and rd1 and x_field in rd1[0]
+                else list(range(len(rows1)))
+            )
+            x2 = (
+                [r[x_field] for r in rd2]
+                if x_field and rd2 and x_field in rd2[0]
+                else list(range(len(rows2)))
+            )
+
+            if x1:
+                title = f"{label1}  |  {label2}  ({_fmt_x_latest(x1[-1])})"
+
+            fig = make_subplots(
+                rows=2, cols=1,
+                shared_xaxes=True,
+                vertical_spacing=0.06,
+                subplot_titles=[label1, label2],
+            )
+
+            for i, yf in enumerate(y_fields1):
+                y = [r.get(yf) for r in rd1]
+                color = colors[i] if i < len(colors) else None
+                marker = {"color": color} if color else {}
+                if plot_type == "scatter":
+                    trace = go.Scatter(x=x1, y=y, mode="markers", name=yf, marker=marker)
+                elif plot_type == "bar":
+                    trace = go.Bar(x=x1, y=y, name=yf, marker=marker)
+                else:
+                    trace = go.Scatter(x=x1, y=y, mode="lines", name=yf, line=marker)
+                fig.add_trace(trace, row=1, col=1)
+
+            n_colors1 = len(y_fields1)
+            for j, yf in enumerate(y_fields2):
+                cidx = n_colors1 + j
+                y = [r.get(yf) for r in rd2]
+                color = colors[cidx] if cidx < len(colors) else None
+                marker = {"color": color} if color else {}
+                if plot_type == "scatter":
+                    trace = go.Scatter(x=x2, y=y, mode="markers", name=yf, marker=marker)
+                elif plot_type == "bar":
+                    trace = go.Bar(x=x2, y=y, name=yf, marker=marker)
+                else:
+                    trace = go.Scatter(x=x2, y=y, mode="lines", name=yf, line=marker)
+                fig.add_trace(trace, row=2, col=1)
+
+            if x_field:
+                fig.update_xaxes(title_text=x_field, row=2, col=1)
+            fig.update_yaxes(title_text=label1 if len(y_fields1) == 1 else "", row=1, col=1)
+            fig.update_yaxes(title_text=label2 if len(y_fields2) == 1 else "", row=2, col=1)
+            fig.update_layout(
+                title=title,
+                height=560,
+                **({"font": font_dict} if font_dict else {}),
+            )
+
+            html_body = fig.to_html(full_html=True, include_plotlyjs="cdn")
+            refresh_tag = f'<meta http-equiv="refresh" content="{int(interval)}">'
+            html_body = html_body.replace("<head>", f"<head>\n  {refresh_tag}", 1)
+            html_path.write_text(html_body, encoding="utf-8")
+
+            if not browser_opened:
+                webbrowser.open(html_path.as_uri())
+                browser_opened = True
+
+            poll_n += 1
+            if count is None or poll_n < count:
+                time.sleep(interval)
+
+    except KeyboardInterrupt:
+        pass
+
+    print(f"Plotly output written to {html_path}")
+
+
+def _poll_dash_multi(
+    con: duckdb.DuckDBPyConnection,
+    sql1: str,
+    sql2: str,
+    x_field: Optional[str],
+    y_fields1: list[str],
+    y_fields2: list[str],
+    opts: dict[str, Any],
+    interval: float,
+    count: Optional[int],
+    host: str,
+    port: int,
+    verbose: bool,
+) -> None:
+    """Two-source Dash polling: two rows in one make_subplots figure with shared x-axis."""
+    try:
+        from dash import Dash, Input, Output, State, dcc, html, no_update
+        from dash.exceptions import PreventUpdate
+        import plotly.graph_objects as go
+        from plotly.subplots import make_subplots
+    except ImportError:
+        print("Error: dash is required for --plot dash.  pip install dash", file=sys.stderr)
+        sys.exit(1)
+
+    import datetime as _dt
+    import logging
+    logging.getLogger("werkzeug").setLevel(logging.ERROR)
+
+    colors = opts["colors"] or []
+    plot_type = opts["type"]
+    interval_ms = int(interval * 1000)
+    label1 = ", ".join(y_fields1)
+    label2 = ", ".join(y_fields2)
+    heading_base = f"{label1}  |  {label2}"
+
+    font_dict: dict[str, Any] = {}
+    if opts["font"]:
+        font_dict["family"] = opts["font"]
+    if opts["fontsize"]:
+        font_dict["size"] = opts["fontsize"]
+
+    app = Dash(__name__, title="MySQL Poll (dual)", suppress_callback_exceptions=True)
+
+    app.layout = html.Div(
+        style={"fontFamily": opts["font"] or "sans-serif", "padding": "16px"},
+        children=[
+            html.H4(id="heading", children=heading_base, style={"marginBottom": "8px"}),
+            html.Div(
+                style={"display": "flex", "alignItems": "center",
+                       "gap": "16px", "marginBottom": "12px"},
+                children=[
+                    html.Button("⏸ Pause / Resume", id="pause-btn", n_clicks=0),
+                    html.Span(id="status-text",
+                              style={"color": "gray", "fontSize": "0.85em"}),
+                ],
+            ),
+            dcc.Interval(id="interval", interval=interval_ms,
+                         n_intervals=0, disabled=False),
+            dcc.Store(id="paused", data=False),
+            dcc.Store(id="poll-n", data=0),
+            dcc.Graph(id="dual-graph", config={"displayModeBar": True}),
+        ],
+    )
+
+    @app.callback(
+        Output("paused", "data"),
+        Output("interval", "disabled"),
+        Input("pause-btn", "n_clicks"),
+        State("paused", "data"),
+        prevent_initial_call=True,
+    )
+    def toggle_pause(n_clicks, paused):
+        new_state = not paused
+        return new_state, new_state
+
+    @app.callback(
+        Output("dual-graph", "figure"),
+        Output("status-text", "children"),
+        Output("heading", "children"),
+        Output("poll-n", "data"),
+        Input("interval", "n_intervals"),
+        State("poll-n", "data"),
+    )
+    def refresh(n_intervals, poll_n):
+        if count is not None and poll_n >= count:
+            raise PreventUpdate
+
+        try:
+            cols1, rows1 = _fetch_poll(con, sql1)
+            cols2, rows2 = _fetch_poll(con, sql2)
+        except Exception as exc:
+            if verbose:
+                print(f"Poll error: {exc}", file=sys.stderr)
+            raise PreventUpdate
+
+        rd1 = [dict(zip(cols1, r)) for r in rows1]
+        rd2 = [dict(zip(cols2, r)) for r in rows2]
+
+        x1 = (
+            [r[x_field] for r in rd1]
+            if x_field and rd1 and x_field in rd1[0]
+            else list(range(len(rows1)))
+        )
+        x2 = (
+            [r[x_field] for r in rd2]
+            if x_field and rd2 and x_field in rd2[0]
+            else list(range(len(rows2)))
+        )
+
+        new_heading = no_update
+        if x1:
+            new_heading = f"{heading_base}  ({_fmt_x_latest(x1[-1])})"
+
+        fig = make_subplots(
+            rows=2, cols=1,
+            shared_xaxes=True,
+            vertical_spacing=0.08,
+            subplot_titles=[label1, label2],
+        )
+
+        for i, yf in enumerate(y_fields1):
+            y = [r.get(yf) for r in rd1]
+            color = colors[i] if i < len(colors) else None
+            marker = {"color": color} if color else {}
+            if plot_type == "scatter":
+                trace = go.Scatter(x=x1, y=y, mode="markers", name=yf, marker=marker)
+            elif plot_type == "bar":
+                trace = go.Bar(x=x1, y=y, name=yf, marker=marker)
+            else:
+                trace = go.Scatter(x=x1, y=y, mode="lines", name=yf, line=marker)
+            fig.add_trace(trace, row=1, col=1)
+
+        n_colors1 = len(y_fields1)
+        for j, yf in enumerate(y_fields2):
+            cidx = n_colors1 + j
+            y = [r.get(yf) for r in rd2]
+            color = colors[cidx] if cidx < len(colors) else None
+            marker = {"color": color} if color else {}
+            if plot_type == "scatter":
+                trace = go.Scatter(x=x2, y=y, mode="markers", name=yf, marker=marker)
+            elif plot_type == "bar":
+                trace = go.Bar(x=x2, y=y, name=yf, marker=marker)
+            else:
+                trace = go.Scatter(x=x2, y=y, mode="lines", name=yf, line=marker)
+            fig.add_trace(trace, row=2, col=1)
+
+        if x_field:
+            fig.update_xaxes(title_text=x_field, row=2, col=1)
+        fig.update_yaxes(title_text=label1 if len(y_fields1) == 1 else "", row=1, col=1)
+        fig.update_yaxes(title_text=label2 if len(y_fields2) == 1 else "", row=2, col=1)
+        fig.update_layout(
+            height=560,
+            **({"font": font_dict} if font_dict else {}),
+        )
+
+        poll_n += 1
+        now = _dt.datetime.now().strftime("%H:%M:%S")
+        status = (
+            f"Poll #{poll_n}  ·  src1: {len(rows1)} row(s)  ·  "
+            f"src2: {len(rows2)} row(s)  ·  updated {now}"
+        )
+        if verbose:
+            print(status)
+
+        return fig, status, new_heading, poll_n
 
     url = f"http://{host}:{port}"
     print(f"Dash server at {url}  (Ctrl+C to stop)")
@@ -1096,6 +1945,8 @@ def _poll_dash(
 
 def mode_poll(args: argparse.Namespace) -> None:
     """Poll a MySQL table and display selected fields as a live chart."""
+    import datetime as _dt
+
     opts = _parse_plot_options(args.plot_options)
     dsn = _build_dsn(args.host, args.port, args.user, args.password, args.database)
 
@@ -1109,6 +1960,10 @@ def mode_poll(args: argparse.Namespace) -> None:
         for t in tables:
             print(f"  {t}")
         return
+
+    # These are needed for second-source resolution in the table path.
+    limit: int = 0
+    start_time: Optional[str] = None
 
     if args.query:
         # ── raw-query path ──────────────────────────────────────────────────
@@ -1148,7 +2003,7 @@ def mode_poll(args: argparse.Namespace) -> None:
                 sys.exit(1)
             y_fields = [f for f in requested if f != x_field]
         else:
-            numeric_names = [c[0] for c in result_cols if _is_numeric_type(c[1])]
+            numeric_names = [c[0] for c in result_cols if _is_numeric_type(c[1]) and not _is_id_field(c[0])]
             y_fields = [f for f in numeric_names if f != x_field]
             if not y_fields:
                 print("Error: no numeric columns in query result. Use --fields to specify columns explicitly.", file=sys.stderr)
@@ -1189,7 +2044,7 @@ def mode_poll(args: argparse.Namespace) -> None:
                 sys.exit(1)
             fields = [f for f in requested if f != x_field]
         else:
-            fields = [name for name, _ in numeric_cols if name != x_field]
+            fields = [name for name, _ in numeric_cols if name != x_field and not _is_id_field(name)]
             if not fields:
                 print(f"Error: no numeric columns found in '{args.table}'. Use --fields to specify columns explicitly.", file=sys.stderr)
                 sys.exit(1)
@@ -1208,32 +2063,259 @@ def mode_poll(args: argparse.Namespace) -> None:
             print("Error: no y-fields to plot.", file=sys.stderr)
             sys.exit(1)
 
-        sql = _build_poll_query(args.table, select_fields, args.where, args.limit, x_field)
+        # When a time axis is available: filter to data from launch time onwards so
+        # the plot starts "now" rather than at the beginning of the table.
+        # Default to no row cap in this mode so rows accumulate as they arrive.
+        if x_field and args.limit is None:
+            start_time = _dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            limit = 0
+        else:
+            start_time = None
+            limit = args.limit if args.limit is not None else 200
+        sql = _build_poll_query(args.table, select_fields, args.where, limit, x_field, start_time=start_time)
+
+    # ── resolve second source (--table2 / --query2) ─────────────────────────
+    sql2: Optional[str] = None
+    y_fields2: list[str] = []
+
+    has_table2 = bool(getattr(args, "table2", None))
+    has_query2 = bool(getattr(args, "query2", None))
+
+    if has_query2:
+        sql2 = args.query2
+        rel2 = con.execute(sql2)
+        result_cols2 = [(desc[0], desc[1]) for desc in rel2.description]
+        requested2 = getattr(args, "fields2", None) or []
+        if requested2:
+            y_fields2 = [f for f in requested2 if f != x_field]
+        else:
+            y_fields2 = [
+                c[0] for c in result_cols2
+                if _is_numeric_type(c[1]) and not _is_id_field(c[0]) and c[0] != x_field
+            ]
+        if not y_fields2:
+            print("Error: no y-fields for second source. Use --fields2.", file=sys.stderr)
+            sys.exit(1)
+        if args.verbose:
+            print(f"Second source (query): {sql2}  fields: {', '.join(y_fields2)}")
+
+    elif has_table2:
+        all_cols2_raw = describe_table(con, args.table2)
+        all_cols2_typed = [(c[0], c[1]) for c in all_cols2_raw]
+        requested2 = getattr(args, "fields2", None) or []
+        if requested2:
+            f2 = [f for f in requested2 if f != x_field]
+        else:
+            f2 = [
+                name for name, t in all_cols2_typed
+                if _is_numeric_type(t) and not _is_id_field(name) and name != x_field
+            ]
+        if not f2:
+            print(f"Error: no y-fields for '{args.table2}'. Use --fields2.", file=sys.stderr)
+            sys.exit(1)
+        y_fields2 = f2
+        sel2 = ([x_field] + f2) if x_field else f2
+        where2 = getattr(args, "where2", None)
+        sql2 = _build_poll_query(args.table2, sel2, where2, limit, x_field, start_time=start_time)
+        if args.verbose:
+            print(f"Second source (table): {sql2}  fields: {', '.join(y_fields2)}")
 
     if args.verbose:
         print(f"Query: {sql}")
 
     count = args.count if args.count and args.count > 0 else None
 
-    if args.plot == "plotly":
-        _poll_plotly(
+    if args.plot == "table":
+        if sql2:
+            print(
+                "Warning: --table2/--query2 is not supported with --plot table; "
+                "ignoring second source.",
+                file=sys.stderr,
+            )
+        _poll_table(
             con, sql, x_field, y_fields, opts,
-            args.interval, count, args.output_html, args.verbose,
+            args.interval, count, args.verbose,
         )
+    elif args.plot == "plotly":
+        if sql2:
+            _poll_plotly_multi(
+                con, sql, sql2, x_field, y_fields, y_fields2, opts,
+                args.interval, count, args.output_html, args.verbose,
+            )
+        else:
+            _poll_plotly(
+                con, sql, x_field, y_fields, opts,
+                args.interval, count, args.output_html, args.verbose,
+            )
     elif args.plot == "textual":
+        if sql2:
+            print(
+                "Warning: --table2/--query2 is not supported with --plot textual; "
+                "ignoring second source.",
+                file=sys.stderr,
+            )
         _poll_textual(
             con, sql, x_field, y_fields, opts,
             args.interval, count, args.verbose,
         )
     elif args.plot == "dash":
-        _poll_dash(
+        if sql2:
+            _poll_dash_multi(
+                con, sql, sql2, x_field, y_fields, y_fields2, opts,
+                args.interval, count, args.dash_host, args.dash_port, args.verbose,
+            )
+        else:
+            _poll_dash(
+                con, sql, x_field, y_fields, opts,
+                args.interval, count, args.dash_host, args.dash_port, args.verbose,
+            )
+    else:
+        if sql2:
+            _poll_matplotlib_multi(
+                con, sql, sql2, x_field, y_fields, y_fields2, opts,
+                args.interval, count, args.verbose,
+            )
+        else:
+            _poll_matplotlib(
+                con, sql, x_field, y_fields, opts,
+                args.interval, count, args.verbose,
+            )
+
+
+def mode_plot(args: argparse.Namespace) -> None:
+    """Fetch MySQL data once and display selected fields as a static chart."""
+    opts = _parse_plot_options(args.plot_options)
+
+    if args.plot == "textual":
+        print("Error: --plot textual is not supported in plot mode.", file=sys.stderr)
+        sys.exit(1)
+
+    dsn = _build_dsn(args.host, args.port, args.user, args.password, args.database)
+
+    con = duckdb.connect()
+    _load_mysql_extension(con, args.verbose)
+    _attach_mysql(con, dsn, args.verbose)
+
+    if args.list_tables:
+        tables = list_mysql_tables(con, args.database)
+        print(f"Tables in '{args.database}' ({len(tables)}):")
+        for t in tables:
+            print(f"  {t}")
+        return
+
+    if args.query:
+        # ── raw-query path ──────────────────────────────────────────────────
+        sql = args.query
+
+        rel = con.execute(sql)
+        result_cols = [(desc[0], desc[1]) for desc in rel.description]
+        result_col_names = [c[0] for c in result_cols]
+
+        if args.list_fields:
+            print("Columns returned by query:")
+            for name, col_type in result_cols:
+                if _is_numeric_type(col_type):
+                    marker = " *"
+                elif _is_timestamp_type(col_type):
+                    marker = " @"
+                else:
+                    marker = ""
+                print(f"  {name:<30}  {col_type}{marker}")
+            print("(* = numeric / y-axis  @ = timestamp / x-axis)")
+            return
+
+        x_field = args.x_field or _auto_x_field(result_cols)
+        if x_field and x_field not in result_col_names:
+            print(f"Error: x-field '{x_field}' not in query result columns.", file=sys.stderr)
+            sys.exit(1)
+        if x_field and not args.x_field and args.verbose:
+            print(f"Auto-selected x-axis: {x_field}")
+
+        requested = args.fields or []
+        if requested:
+            unknown = set(requested) - set(result_col_names)
+            if unknown:
+                print(f"Error: unknown column(s) in query result: {', '.join(sorted(unknown))}", file=sys.stderr)
+                sys.exit(1)
+            y_fields = [f for f in requested if f != x_field]
+        else:
+            numeric_names = [c[0] for c in result_cols if _is_numeric_type(c[1]) and not _is_id_field(c[0])]
+            y_fields = [f for f in numeric_names if f != x_field]
+            if not y_fields:
+                print("Error: no numeric columns in query result. Use --fields to specify columns explicitly.", file=sys.stderr)
+                sys.exit(1)
+            if args.verbose:
+                print(f"Auto-selected y-fields: {', '.join(y_fields)}")
+
+    else:
+        # ── single-table path ───────────────────────────────────────────────
+        all_cols_raw = describe_table(con, args.table)
+        all_col_names = [c[0] for c in all_cols_raw]
+        all_cols_typed = [(c[0], c[1]) for c in all_cols_raw]
+        numeric_cols = list_numeric_columns(con, args.table)
+
+        if args.list_fields:
+            print(f"Columns in '{args.table}':")
+            for name, col_type in all_cols_typed:
+                if _is_numeric_type(col_type):
+                    marker = " *"
+                elif _is_timestamp_type(col_type):
+                    marker = " @"
+                else:
+                    marker = ""
+                print(f"  {name:<30}  {col_type}{marker}")
+            print("(* = numeric / y-axis  @ = timestamp / x-axis)")
+            return
+
+        x_field = args.x_field or _auto_x_field(all_cols_typed)
+        if x_field and not args.x_field and args.verbose:
+            print(f"Auto-selected x-axis: {x_field}")
+
+        requested = args.fields or []
+        if requested:
+            unknown = set(requested) - set(all_col_names)
+            if unknown:
+                print(f"Error: unknown column(s) in {args.table}: {', '.join(sorted(unknown))}", file=sys.stderr)
+                sys.exit(1)
+            fields = [f for f in requested if f != x_field]
+        else:
+            fields = [name for name, _ in numeric_cols if name != x_field and not _is_id_field(name)]
+            if not fields:
+                print(f"Error: no numeric columns found in '{args.table}'. Use --fields to specify columns explicitly.", file=sys.stderr)
+                sys.exit(1)
+            if args.verbose:
+                print(f"Auto-selected y-fields: {', '.join(fields)}")
+
+        if x_field:
+            select_fields = [x_field] + fields
+        else:
+            select_fields = fields
+
+        y_fields = fields
+
+        if not y_fields:
+            print("Error: no y-fields to plot.", file=sys.stderr)
+            sys.exit(1)
+
+        limit = args.limit if args.limit is not None else 0
+        sql = _build_poll_query(args.table, select_fields, args.where, limit, x_field)
+
+    if args.verbose:
+        print(f"Query: {sql}")
+
+    if args.plot == "plotly":
+        _plot_static_plotly(
             con, sql, x_field, y_fields, opts,
-            args.interval, count, args.dash_host, args.dash_port, args.verbose,
+            args.output_html, args.verbose,
+        )
+    elif args.plot == "dash":
+        _plot_static_dash(
+            con, sql, x_field, y_fields, opts,
+            args.dash_host, args.dash_port, args.verbose,
         )
     else:
-        _poll_matplotlib(
-            con, sql, x_field, y_fields, opts,
-            args.interval, count, args.verbose,
+        _plot_static_matplotlib(
+            con, sql, x_field, y_fields, opts, args.verbose,
         )
 
 
@@ -1276,11 +2358,11 @@ def parse_args() -> argparse.Namespace:
 
     parser.add_argument(
         "--mode",
-        choices=["live", "export", "poll", "view"],
+        choices=["live", "export", "poll", "plot", "view"],
         default="live",
         help=(
             "live: print schema (default); export: copy tables; "
-            "poll: live chart; view: tabular table display"
+            "poll: live chart; plot: one-shot static chart; view: tabular table display"
         ),
     )
 
@@ -1375,8 +2457,8 @@ def parse_args() -> argparse.Namespace:
         help="end of time range, ISO 8601, e.g. '2024-01-15 20:00:00'",
     )
 
-    # Poll options
-    poll = parser.add_argument_group("poll options (--mode poll only)")
+    # Poll / plot options
+    poll = parser.add_argument_group("poll/plot options (--mode poll or --mode plot)")
     poll.add_argument(
         "--table",
         metavar="TABLE",
@@ -1426,9 +2508,9 @@ def parse_args() -> argparse.Namespace:
     poll.add_argument(
         "--limit",
         type=int,
-        default=200,
+        default=None,
         metavar="N",
-        help="max rows fetched per poll (default: 200)",
+        help="max rows fetched (poll default: 200; plot default: 0 = all rows; 0 = no cap)",
     )
     poll.add_argument(
         "--interval",
@@ -1446,9 +2528,47 @@ def parse_args() -> argparse.Namespace:
     )
     poll.add_argument(
         "--plot",
-        choices=["matplotlib", "plotly", "textual", "dash"],
+        choices=["table", "matplotlib", "plotly", "textual", "dash"],
         default="matplotlib",
-        help="plot backend: matplotlib (default), plotly, textual (TUI), dash (web app)",
+        help=(
+            "poll backend: matplotlib (default, live chart), "
+            "table (rich terminal table), plotly (auto-refresh HTML), "
+            "textual (TUI sparklines), dash (web app)"
+        ),
+    )
+    poll.add_argument(
+        "--table2",
+        metavar="TABLE",
+        dest="table2",
+        help=(
+            "Second MySQL table to poll simultaneously. "
+            "Its fields are shown in a separate subplot sharing the same x-axis. "
+            "Mutually exclusive with --query2. "
+            "Supported backends: matplotlib, plotly, dash."
+        ),
+    )
+    poll.add_argument(
+        "--query2",
+        metavar="SQL",
+        dest="query2",
+        help=(
+            "Raw SELECT query for the second subplot. "
+            "Must reference tables as mysqldb.<table>. "
+            "Mutually exclusive with --table2."
+        ),
+    )
+    poll.add_argument(
+        "--fields2",
+        nargs="+",
+        metavar="COL",
+        dest="fields2",
+        help="Columns to plot from the second table/query (default: all numeric).",
+    )
+    poll.add_argument(
+        "--where2",
+        metavar="EXPR",
+        dest="where2",
+        help="SQL WHERE clause for the second table (--table2 only).",
     )
     poll.add_argument(
         "--plot-options",
@@ -1511,13 +2631,23 @@ def parse_args() -> argparse.Namespace:
             + ", ".join(missing)
         )
 
-    if args.mode in ("poll", "view"):
+    if args.mode in ("poll", "plot", "view"):
         if args.table and args.query:
             parser.error("--table and --query are mutually exclusive")
 
     if args.mode == "poll":
         if not args.table and not args.query and not args.list_tables:
             parser.error("--mode poll requires --table TABLE or --query SQL (or --list-tables)")
+        table2 = getattr(args, "table2", None)
+        query2 = getattr(args, "query2", None)
+        if table2 and query2:
+            parser.error("--table2 and --query2 are mutually exclusive")
+        if (table2 or query2) and not (args.table or args.query):
+            parser.error("--table2/--query2 require --table or --query for the first source")
+
+    if args.mode == "plot":
+        if not args.table and not args.query and not args.list_tables:
+            parser.error("--mode plot requires --table TABLE or --query SQL (or --list-tables)")
 
     if args.mode == "view":
         if not args.table and not args.query:
@@ -1535,6 +2665,8 @@ def main() -> None:
             mode_export(args)
         elif args.mode == "view":
             mode_view(args)
+        elif args.mode == "plot":
+            mode_plot(args)
         else:
             mode_poll(args)
     except duckdb.Error as e:
