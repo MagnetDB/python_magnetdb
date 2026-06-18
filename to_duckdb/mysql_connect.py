@@ -1130,11 +1130,33 @@ def _poll_textual(
     colors = opts["colors"] or []
     groups = _resolve_groups(y_fields, opts)
 
-    def _to_plotext_x(vals: list) -> list:
-        """Convert datetime x-values to ISO strings that plotext understands."""
-        if vals and hasattr(vals[0], "strftime"):
-            return [v.strftime("%Y-%m-%d %H:%M:%S") for v in vals]
-        return vals
+    def _to_plotext_x(vals: list) -> tuple[list, list, list]:
+        """Convert x-values for plotext.
+
+        Returns (x_values, xtick_positions, xtick_labels).
+        Datetimes become float Unix timestamps so plotext never sees date
+        strings and date_form() is never needed (it resets unpredictably
+        across clf/subplot calls).
+        """
+        if not vals:
+            return [], [], []
+        clean = [v for v in vals if v is not None and hasattr(v, "timestamp")]
+        if clean:
+            x_num = [
+                v.timestamp() if (v is not None and hasattr(v, "timestamp"))
+                else float("nan")
+                for v in vals
+            ]
+            pairs = [(xn, v) for xn, v in zip(x_num, vals) if xn == xn]  # skip NaN
+            if pairs:
+                step = max(1, len(pairs) // 6)
+                ticks = pairs[::step][:6]
+                tick_pos = [p[0] for p in ticks]
+                tick_lbl = [p[1].strftime("%H:%M:%S") for p in ticks]
+            else:
+                tick_pos, tick_lbl = [], []
+            return x_num, tick_pos, tick_lbl
+        return list(vals), [], []
 
     # plotext uses a module-level singleton figure.  Using one widget that owns
     # the entire render pass avoids concurrent clf()/scatter()/build() calls
@@ -1167,44 +1189,42 @@ def _poll_textual(
                 return
 
             n = len(groups)
-            _plt.clf()
-            if n > 1:
-                _plt.subplots(n, 1)
-            _plt.plotsize(w, h)
-            _plt.theme("dark")
-
-            is_datetime = bool(self._x) and hasattr(self._x[0], "strftime")
-            x_vals = _to_plotext_x(self._x)
+            x_vals, tick_pos, tick_lbl = _to_plotext_x(self._x)
             any_plotted = False
 
-            for gi, group in enumerate(groups):
-                if n > 1:
-                    _plt.subplot(gi + 1, 1)
-                # date_form must be set per subplot (clf/subplot resets it to default)
-                if is_datetime:
-                    _plt.date_form("%Y-%m-%d %H:%M:%S")
-                _plt.title(", ".join(group))
-                if x_field:
-                    _plt.xlabel(x_field)
-
-                for field in group:
-                    y = self._ys.get(field, [])
-                    if x_vals and y and len(x_vals) == len(y):
-                        fi = y_fields.index(field)
-                        kw: dict[str, Any] = {"label": field}
-                        c = colors[fi] if fi < len(colors) else None
-                        if c:
-                            kw["color"] = c
-                        _plt.scatter(x_vals, y, **kw)
-                        any_plotted = True
-
-            if not any_plotted:
-                self.update("Waiting for data…")
-                return
             try:
-                self.update(_plt.build())
-            except Exception:
-                self.update("Waiting for data…")
+                _plt.clf()
+                if n > 1:
+                    _plt.subplots(n, 1)
+                _plt.plotsize(w, h)
+                _plt.theme("dark")
+
+                for gi, group in enumerate(groups):
+                    if n > 1:
+                        _plt.subplot(gi + 1, 1)
+                    _plt.title(", ".join(group))
+                    if x_field:
+                        _plt.xlabel(x_field)
+                    if tick_pos:
+                        _plt.xticks(tick_pos, tick_lbl)
+
+                    for field in group:
+                        y = self._ys.get(field, [])
+                        if x_vals and y and len(x_vals) == len(y):
+                            fi = y_fields.index(field)
+                            kw: dict[str, Any] = {"label": field}
+                            c = colors[fi] if fi < len(colors) else None
+                            if c:
+                                kw["color"] = c
+                            _plt.scatter(x_vals, y, **kw)
+                            any_plotted = True
+
+                if any_plotted:
+                    self.update(_plt.build())
+                else:
+                    self.update("Waiting for data…")
+            except Exception as exc:
+                self.update(f"Plot error: {exc}")
 
     class PollApp(App):  # type: ignore[type-arg]
         THEME = "textual-dark"
