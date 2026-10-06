@@ -1,6 +1,7 @@
 import hashlib
 import shutil
 import tempfile
+from contextlib import contextmanager
 
 from django.db import models
 from fastapi import UploadFile
@@ -18,10 +19,22 @@ class StorageAttachment(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, null=False)
     updated_at = models.DateTimeField(auto_now=True, null=False)
 
-    def download(self, path=None):
-        if path is not None:
-            return s3_client.fget_object(s3_bucket, self.key, path)
-        return s3_client.get_object(s3_bucket, self.key)
+    def download(self, path):
+        return s3_client.fget_object(s3_bucket, self.key, path)
+
+    @contextmanager
+    def open(self):
+        # the S3 response holds a pooled connection: always hand it back
+        response = s3_client.get_object(s3_bucket, self.key)
+        try:
+            yield response
+        finally:
+            response.close()
+            response.release_conn()
+
+    def stream(self, chunk_size=1024 * 1024):
+        with self.open() as response:
+            yield from response.stream(chunk_size)
 
     @classmethod
     def upload(cls, file: UploadFile):

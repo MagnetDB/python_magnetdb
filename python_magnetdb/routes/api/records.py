@@ -107,7 +107,8 @@ def visualize(id: int, user=Depends(get_user('read')),
 
     # data prep
     time_format = "%Y.%m.%d %H:%M:%S"
-    data = pd.read_csv(record.attachment.download(), sep=r'\s+', skiprows=1)
+    with record.attachment.open() as f:
+        data = pd.read_csv(f, sep=r'\s+', skiprows=1)
     # cleanup: remove empty columns
     data = data.loc[:, (data != 0.0).any(axis=0)]
     timestamp = pd.to_datetime(data['Date'] + " " + data['Time'], format=time_format)

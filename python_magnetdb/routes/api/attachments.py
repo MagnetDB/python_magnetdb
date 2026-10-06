@@ -15,7 +15,7 @@ def download(id: int, user=Depends(get_user('read'))):
     if not attachment:
         raise HTTPException(status_code=404, detail="Attachment not found")
 
-    return StreamingResponse(attachment.download(), media_type=attachment.content_type, headers={
+    return StreamingResponse(attachment.stream(), media_type=attachment.content_type, headers={
         'content-disposition': f'attachment; filename="{attachment.filename}"'
     })
 
