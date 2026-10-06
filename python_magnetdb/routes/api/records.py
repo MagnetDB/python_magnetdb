@@ -2,7 +2,6 @@ import json
 from typing import Optional
 
 #from datetime import datetime
-from django.utils import timezone
 
 import pandas as pd
 from django.core.paginator import Paginator
@@ -111,12 +110,9 @@ def visualize(id: int, user=Depends(get_user('read')),
     data = pd.read_csv(record.attachment.download(), sep=r'\s+', skiprows=1)
     # cleanup: remove empty columns
     data = data.loc[:, (data != 0.0).any(axis=0)]
-    t0 = timezone.datetime.strptime(data['Date'].iloc[0] + " " + data['Time'].iloc[0], time_format)
-    data["t"] = data.apply(
-        lambda row: (timezone.datetime.strptime(row.Date + " " + row.Time, time_format) - t0).total_seconds(),
-        axis=1
-    )
-    data["timestamp"] = data.apply(lambda row: timezone.datetime.strptime(row.Date + " " + row.Time, time_format), axis=1)
+    timestamp = pd.to_datetime(data['Date'] + " " + data['Time'], format=time_format)
+    data["t"] = (timestamp - timestamp.iloc[0]).dt.total_seconds()
+    data["timestamp"] = timestamp
 
     result = {}
     sampling_enabled = False
