@@ -1,0 +1,5 @@
+# The api/worker images (Dockerfile, Dockerfile-dev) do not copy anything from this
+# directory: sources are bind-mounted at runtime (see docker-compose-*.yml).
+# Exclude everything so that secrets (settings.env, .envrc, certs, ...) and data are
+# never sent to the docker builder. Re-include explicitly what a future COPY needs.
+*
