@@ -74,7 +74,7 @@ Create a `magnetdb-data` directory in the main repo directory:
 ```shell
 mkdir ../magnetdb-data
 mkdir -p ../magnetdb-data/pgadmin-data
-mkdir -p ../magnetdb-data/django/poetry-cache
+mkdir -p ../magnetdb-data/django/uv-cache
 ```
 
 Set appropriate ownership/permissions if needed.
@@ -83,11 +83,40 @@ Set appropriate ownership/permissions if needed.
 chmod 775 ../magnetdb-data
 chmod 775 ../magnetdb-data/pgadmin-data
 chmod 775 ../magnetdb-data/django
-chmod 775 ../magnetdb-data/django/poetry-cache
+chmod 775 ../magnetdb-data/django/uv-cache
 
 chown -R 5050:5050 ../magnetdb-data/pgadmin-data
-chown -R $(id -u):$(id -g) ../magnetdb-data/django/poetry-cache
+chown -R $(id -u):$(id -g) ../magnetdb-data/django/uv-cache
 ```
+* apt-depot
+
+The api/worker images build the magnettools python wheel from the LNCMI debian repository.
+Its public key is taken from the `apt-depot` project, which must be cloned next to this repo
+(`../apt-depot/lncmi-repo-ci-public-key.asc`, see `additional_contexts` in the docker-compose files).
+The magnettools version is set by `MAGNETTOOLS_VERSION` in `Dockerfile(-dev)`; after changing it, run
+`uv lock --upgrade-package magnettools` inside the api container.
+
+> **Security**
+> * only the **public** key `lncmi-repo-ci-public-key.asc` is read from `apt-depot`. The build fails if it
+>   does not contain the expected primary key (`LNCMI_KEY_FPR` in `Dockerfile(-dev)`, to update only
+>   if the primary key changes, not on subkey rotation). Never store private material (signing subkey
+>   export, deploy ssh keys, `.envrc`) in `apt-depot` — keep it in `~/.gnupg`, `~/.ssh` or GitHub secrets.
+> * `.dockerignore` excludes the whole repo from the build context (`settings.env`, `.envrc`, certs, ...).
+> * the depot is currently read anonymously. If it ever requires credentials, never pass them as
+>   build `args`/`environment`: write an apt [auth.conf](https://manpages.debian.org/apt_auth.conf)
+>   outside any repository (`chmod 600`) and give it as a BuildKit secret, it is only mounted while apt
+>   accesses the depot and is not stored in the image:
+>   ```yaml
+>   # docker-compose-*.yml, for web-api and web-worker
+>       build:
+>         secrets:
+>           - lncmi_apt_auth
+>   # top level
+>   secrets:
+>     lncmi_apt_auth:
+>       file: ~/.config/lncmi/apt-auth.conf
+>   ```
+
 * Certificates
 
 Create a self signed certificate for the magnetdb server:
@@ -171,7 +200,7 @@ docker exec -it magnetdb-api bash
 
 
 ```shell
-poetry run python3 manage.py migrate
+uv run python3 manage.py migrate
 ```
 
 > **Database Management Scripts**
@@ -184,14 +213,14 @@ poetry run python3 manage.py migrate
 >
 > 1. After modifying any model files, create a migration:
 >    ```shell
->    poetry run python manage.py makemigrations
+>    uv run python manage.py makemigrations
 >    ```
 >
 > 2. Review the generated migration file in `python_magnetdb/migrations/`
 >
 > 3. Apply the migration:
 >    ```shell
->    poetry run python manage.py migrate
+>    uv run python manage.py migrate
 >    ```
 >
 > For detailed migration documentation and history, see [migrations.md](migrations.md).
@@ -212,21 +241,21 @@ ln -s ../python_magnetsetup/data data
 export DATA_DIR=/data
 
 # version test
-poetry run python3 -m python_magnetdb.seeds.seed-insulator # add MAT_ISOLANT -- **MANDATORY** for vizualisation and simulation
-poetry run python3 -m python_magnetdb.seeds.seeds # test only
-poetry run python3 -m python_magnetdb.seeds.seed-probes
+uv run python3 -m python_magnetdb.seeds.seed-insulator # add MAT_ISOLANT -- **MANDATORY** for vizualisation and simulation
+uv run python3 -m python_magnetdb.seeds.seeds # test only
+uv run python3 -m python_magnetdb.seeds.seed-probes
 
 # version advanced test
-poetry run python3 -m python_magnetdb.seeds.seeds-Bitters # bitters only
-poetry run python3 -m python_magnetdb.seeds.seed-M18110501
-poetry run python3 -m python_magnetdb.seeds.seed-M19020601
-poetry run python3 -m python_magnetdb.seeds.seed-M19061901
-poetry run python3 -m python_magnetdb.seeds.seed-M19071101
-poetry run python3 -m python_magnetdb.seeds.seed-M20022001
-poetry run python3 -m python_magnetdb.seeds.seed-M22011801 
-poetry run python3 -m python_magnetdb.seeds.seed-HL37 # HL-37 magnet
-poetry run python3 -m python_magnetdb.seeds.seed-Hybrid # Hybrid magnet
-poetry run python3 -m python_magnetdb.seeds.seed-records
+uv run python3 -m python_magnetdb.seeds.seeds-Bitters # bitters only
+uv run python3 -m python_magnetdb.seeds.seed-M18110501
+uv run python3 -m python_magnetdb.seeds.seed-M19020601
+uv run python3 -m python_magnetdb.seeds.seed-M19061901
+uv run python3 -m python_magnetdb.seeds.seed-M19071101
+uv run python3 -m python_magnetdb.seeds.seed-M20022001
+uv run python3 -m python_magnetdb.seeds.seed-M22011801 
+uv run python3 -m python_magnetdb.seeds.seed-HL37 # HL-37 magnet
+uv run python3 -m python_magnetdb.seeds.seed-Hybrid # Hybrid magnet
+uv run python3 -m python_magnetdb.seeds.seed-records
 ```
 
 > **For a production version**, use `python_magnetapi` instead of seeds.
@@ -234,7 +263,7 @@ poetry run python3 -m python_magnetdb.seeds.seed-records
 > * retreive data from LNCMI control and monitoring website using ``python_magnetrun
 > 
 > ```shell
-> poetry run python3 -m python_magnetrun.requests.cli --user email --datadir srvdata
+> uv run python3 -m python_magnetrun.requests.cli --user email --datadir srvdata
 > ```
 >
 > You need to have a LNCMI email account for that
@@ -242,7 +271,7 @@ poetry run python3 -m python_magnetdb.seeds.seed-records
 > 
 > * use `python_magnetapi` to import data into magnetdb.
 > ```shell
-> poetry run python3 -m python_magnetapi.importer.cli --datadir srvdata ...
+> uv run python3 -m python_magnetapi.importer.cli --datadir srvdata ...
 > ```
 
 6. PgAdmin setup

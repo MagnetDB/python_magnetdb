@@ -37,7 +37,7 @@ chmod 600 certs/*.key
 
 > Note
 > * by default, mkcert creates certificates with a validity of 825 days
-> * eventually remove poetry-cache data before starting the services
+> * eventually remove uv-cache data before starting the services
 
 
 1. Start the services
@@ -77,16 +77,16 @@ docker exec -it magnetdb-api /bin/bash
 In the container, to perform database migration run:
 
 ```shell
-poetry run python3 manage.py migrate
+uv run python3 manage.py migrate
 ```
 
 Eventually, run seeds to populate the database
 
 ```shell
 export DATA_DIR=/data
-poetry run python3 -m python_magnetdb.seeds.seeds
-poetry run python3 -m python_magnetdb.seeds.seed-again
-poetry run python3 -m python_magnetdb.seeds.seed-records
+uv run python3 -m python_magnetdb.seeds.seeds
+uv run python3 -m python_magnetdb.seeds.seed-again
+uv run python3 -m python_magnetdb.seeds.seed-records
 ```
     
 4. Configure LemonLDAP (https://github.com/LemonLDAPNG/lemonldap-ng-docker):

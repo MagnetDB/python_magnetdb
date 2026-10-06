@@ -1,7 +1,3 @@
-[build-system]
-requires = ["poetry-core>=2.0.0"]
-build-backend = "poetry.core.masonry.api"
-
 [project]
 name = "python_magnetdb"
 version = "0.1.0"
@@ -25,53 +21,69 @@ classifiers = [
     "Topic :: Scientific/Engineering",
 ]
 
+requires-python = ">=3.13,<3.14"
+dependencies = [
+    "django>=5.0.7,<6.0.0",
+    "psycopg[binary]>=3.2.1,<4.0.0",
+    "jsonfield>=3.1.0,<4.0.0",
+    "pyjwt>=2.8.0,<3.0.0",
+    "uvicorn>=0.30.3,<1.0.0",
+    "uvloop>=0.19.0,<1.0.0",
+    "fastapi>=0.111.1,<1.0.0",
+    "pydantic>=2.8.2,<3.0.0",
+    "python-multipart>=0.0.9,<1.0.0",
+    "minio>=7.2.7,<8.0.0",
+    "requests>=2.32.3,<3.0.0",
+    "cryptography>=43.0.0,<44.0.0",
+    "celery[redis]>=5.4.0,<6.0.0",
+    "pandas>=2.2.1,<3.0.0",
+    "pyarrow>=18.0.0,<19.0.0",
+    "numpy>=2.2.2,<3.0.0",
+    "scipy>=1.14.0,<2.0.0",
+    "tabulate>=0.9.0,<1.0.0",
+    "pyyaml>=6.0.2,<7.0.0",
+    "Pint>=0.24,<1.0.0",
+    "watchfiles>=1.0.4,<2.0.0",
+    "pytz>=2025.2",
+    "matplotlib>=3.8.0,<4.0.0",
+    "mplcursors>=0.6.4,<1.0.0",
+    "magnettools",
+    "python-magnetsetup",
+    "python-magnetgeo",
+]
+
 [project.urls]
 homepage = "https://github.com/MagnetDB/python_magnetdb"
 repository = "https://github.com/MagnetDB/python_magnetdb"
 documentation = "https://docs.magnetdb.local"
 
-[tool.poetry.dependencies]
-python = ">=3.11"
-django = ">=5.0.7,<6.0.0"
-psycopg = {version = ">=3.2.1,<4.0.0", extras = ["binary"]}
-jsonfield = ">=3.1.0,<4.0.0"
-pyjwt = ">=2.8.0,<3.0.0"
-uvicorn = ">=0.30.3,<1.0.0"
-uvloop = ">=0.19.0,<1.0.0"
-fastapi = ">=0.111.1,<1.0.0"
-pydantic = ">=2.8.2,<3.0.0"
-python-multipart = ">=0.0.9,<1.0.0"
-minio = ">=7.2.7,<8.0.0"
-requests = ">=2.32.3,<3.0.0"
-cryptography = ">=43.0.0,<44.0.0"
-celery = {version = ">=5.4.0,<6.0.0", extras = ["redis"]}
-pandas = ">=2.2.1,<3.0.0"
-pyarrow = ">=17.0.0,<18.0.0"
-numpy = ">=2.2.2,<3.0.0"
-scipy = ">=1.14.0,<2.0.0"
-tabulate = ">=0.9.0,<1.0.0"
-pyyaml = ">=6.0.2,<7.0.0"
-Pint = ">=0.24,<1.0.0"
-watchfiles = ">=1.0.4,<2.0.0"
-pytz = ">=2025.2"
-matplotlib = ">=3.8.0,<4.0.0"
-mplcursors = ">=0.6.4,<1.0.0"
-magnettools = {path = "/home/feelpp/magnettools-1.1.0-cp311-cp311-linux_x86_64.whl"}
-python-magnetsetup = {path = "./python_magnetsetup"}
-python-magnetgeo = {path = "./python_magnetgeo"}
+[dependency-groups]
+dev = [
+    "pytest>=7.0",
+    "pytest-django>=4.5",
+    "pytest-cov>=4.0",
+    "black>=24.0",
+    "isort>=5.13",
+    "flake8>=6.0",
+    "mypy>=1.0",
+    "django-stubs>=4.2",
+]
 
-[tool.poetry.group.dev.dependencies]
-pytest = ">=7.0"
-pytest-django = ">=4.5"
-pytest-cov = ">=4.0"
-black = ">=24.0"
-isort = ">=5.13"
-flake8 = ">=6.0"
-mypy = ">=1.0"
-django-stubs = ">=4.2"
+[tool.uv]
+# python_magnetdb is run from sources, not built/installed: only install dependencies
+package = false
 
-[tool.poetry.scripts]
-magnetdb = "python_magnetdb.cli:main"
+[[tool.uv.index]]
+# magnettools wheel built by the "magnettools" stage of Dockerfile(-dev)
+name = "magnettools"
+url = "/opt/wheels"
+format = "flat"
+explicit = true
+
+[tool.uv.sources]
+magnettools = { index = "magnettools" }
+python-magnetsetup = { path = "./python_magnetsetup" }
+python-magnetgeo = { path = "./python_magnetgeo" }
 
 [tool.black]
 line-length = 100
@@ -88,6 +100,20 @@ python_files = ["tests.py", "test_*.py", "*_tests.py"]
 # These geometry tests don't import python_magnetdb, so coverage warnings are expected
 addopts = ""
 # To enable coverage, run: pytest --cov=python_magnetdb --cov=python_magnetgeo --cov-report=html
+
+[tool.bandit]
+exclude_dirs = [
+    "tests",
+    "python_magnetdb/migrations",
+    "python_magnetgeo",
+    "python_magnetsetup",
+    "python_magnetapi",
+    ".venv",
+    "venv",
+    "venv-systempackages",
+    "htmlcov",
+    "web",
+]
 
 [tool.mypy]
 python_version = "3.11"

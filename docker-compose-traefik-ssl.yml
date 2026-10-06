@@ -25,6 +25,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      additional_contexts:
+        apt-depot: ../apt-depot  # LNCMI apt repository public key
       args:
         USER_UID: "${UUID:-1000}"
         USER_GID: "${GID:-1000}"
@@ -37,14 +39,14 @@ services:
         ls -alrth /home/feelpp/.cache
         
         # Install dependencies from lock file (fast!)
-        poetry install --no-root
+        uv sync --locked
         
         # Start API server
-        poetry run uvicorn python_magnetdb.web:app --reload --host 0.0.0.0
+        uv run --no-sync uvicorn python_magnetdb.web:app --reload --host 0.0.0.0
     working_dir: /home/feelpp/test
     volumes:
       - .:/home/feelpp/test
-      - ../magnetdb-data/django/poetry-cache:/home/feelpp/.cache/pypoetry
+      - ../magnetdb-data/django/uv-cache:/home/feelpp/.cache/uv
       - ./data/:/data:ro
       - ./images:/images:ro
     links:
@@ -82,6 +84,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      additional_contexts:
+        apt-depot: ../apt-depot  # LNCMI apt repository public key
       args:
         USER_UID: "${UUID:-1000}"
         USER_GID: "${GID:-1000}"
@@ -94,14 +98,14 @@ services:
         whoami
         
         # Install dependencies from lock file (fast!)
-        poetry install --no-root
+        uv sync --locked
         
         # Start Celery worker
-        poetry run celery -A python_magnetdb.worker worker --loglevel=info
+        uv run --no-sync celery -A python_magnetdb.worker worker --loglevel=info
     working_dir: /home/feelpp/test
     volumes:
       - .:/home/feelpp/test
-      - ../magnetdb-data/django/poetry-cache:/home/feelpp/.cache/pypoetry
+      - ../magnetdb-data/django/uv-cache:/home/feelpp/.cache/uv
       - ./data/:/data
       - ./images:/images
     links:
